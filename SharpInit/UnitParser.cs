@@ -15,6 +15,10 @@ namespace SharpInit
             where T : UnitFile
         {
             var unit = Activator.CreateInstance<T>();
+
+            unit.UnitName = Path.GetFileName(file);
+            unit.UnitPath = file;
+
             var properties = ParseProperties(file);
 
             foreach (var property in properties)
@@ -90,6 +94,19 @@ namespace SharpInit
 
                 if (!escaped_line_break) // we're starting to define a new property
                 {
+                    // emit previous property
+                    if (current_property != "")
+                    {
+                        var property_path = $"{current_section}/{current_property}";
+
+                        if (!properties.ContainsKey(property_path))
+                            properties[property_path] = new List<string>();
+
+                        properties[property_path].Add(current_value);
+
+                        current_value = "";
+                    }
+
                     current_property = line_parts_by_equals[0];
                     consumed[0] = true;
                 }
@@ -105,13 +122,7 @@ namespace SharpInit
                     current_value += ((last_part_consumed) ? "=" : "") + line_parts_by_equals[i];
                     consumed[i] = true;
                 }
-
-                if (current_value.EndsWith("\\")) // escape for next line
-                {
-                    escaped_line_break = true;
-                    current_value = current_value.Substring(0, current_value.Length - 1);
-                }
-
+                
                 bool quoting = false;
                 int comment_start = -1;
 
@@ -136,23 +147,17 @@ namespace SharpInit
 
                     if (comment_start != -1)
                     {
-                        current_value = current_value.Substring(comment_start);
+                        current_value = current_value.Substring(0, comment_start);
                         break;
                     }
                 }
 
-                // emit property
+                current_value = current_value.Trim();
+                escaped_line_break = current_value.EndsWith("\\");
 
-                if (!escaped_line_break && current_property != "")
+                if (escaped_line_break) // escape for next line
                 {
-                    var property_path = $"{current_section}/{current_property}";
-
-                    if (!properties.ContainsKey(property_path))
-                        properties[property_path] = new List<string>();
-
-                    properties[property_path].Add(current_value);
-
-                    current_value = "";
+                    current_value = current_value.Substring(0, current_value.Length - 1);
                 }
             }
 
