@@ -7,7 +7,10 @@ namespace SharpInit
     {
         static void Main(string[] args)
         {
-            var unit = UnitParser.Parse<UnitFile>("./test.unit");
+            UnitRegistry.InitializeTypes();
+            UnitRegistry.ScanDirectory("./units", true);
+
+            var unit = UnitRegistry.GetUnit("sshd.service");
             Console.WriteLine(unit);
         }
     }
