@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace SharpInit
+namespace SharpInit.Units
 {
     public static class UnitParser
     {

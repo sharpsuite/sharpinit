@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SharpInit
+namespace SharpInit.Units
 {
     [AttributeUsage(AttributeTargets.Property)]
     public class UnitPropertyAttribute : Attribute
