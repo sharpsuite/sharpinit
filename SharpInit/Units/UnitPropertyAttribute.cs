@@ -10,10 +10,17 @@ namespace SharpInit.Units
         public string PropertyPath { get; set; }
         public UnitPropertyType PropertyType { get; set; }
 
-        public UnitPropertyAttribute(string path, UnitPropertyType type = UnitPropertyType.String)
+        public Type EnumType { get; set; }
+
+        public object DefaultValue { get; set; }
+
+        public UnitPropertyAttribute(string path, UnitPropertyType type = UnitPropertyType.String, object default_value = null, Type enum_type = null)
         {
             PropertyPath = path;
             PropertyType = type;
+
+            EnumType = enum_type;
+            DefaultValue = default_value;
         }
     }
 
@@ -23,6 +30,7 @@ namespace SharpInit.Units
         Int,
         Bool,
         StringList,
-        StringListSpaceSeparated
+        StringListSpaceSeparated,
+        Enum
     }
 }

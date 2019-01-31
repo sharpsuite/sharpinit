@@ -26,6 +26,34 @@ namespace SharpInit.Units
                 var path = property.Key;
                 var values = property.Value;
 
+                var name = string.Join("/", path.Split('/').Skip(1));
+
+                if(name.StartsWith("Condition") || name.StartsWith("Assert"))
+                {
+                    // handle conditions and assertions separately
+                    
+                    if(name.StartsWith("Condition"))
+                    {
+                        var condition_name = name.Substring("Condition".Length);
+
+                        if (unit.Conditions.ContainsKey(condition_name))
+                            unit.Conditions[condition_name] = unit.Conditions[condition_name].Concat(values).ToList();
+                        else
+                            unit.Conditions[condition_name] = values.ToList();
+                    }
+                    else if(name.StartsWith("Assert"))
+                    {
+                        var assertion_name = name.Substring("Assert".Length);
+
+                        if (unit.Assertions.ContainsKey(assertion_name))
+                            unit.Assertions[assertion_name] = unit.Assertions[assertion_name].Concat(values).ToList();
+                        else
+                            unit.Assertions[assertion_name] = values.ToList();
+                    }
+
+                    continue;
+                }
+
                 var prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(typeof(T), path);
 
                 if (prop == null) // unknown property
