@@ -22,6 +22,7 @@ namespace SharpInit
         String,
         Int,
         Bool,
-        StringList
+        StringList,
+        StringListSpaceSeparated
     }
 }

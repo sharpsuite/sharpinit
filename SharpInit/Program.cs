@@ -6,7 +6,8 @@ namespace SharpInit
     {
         static void Main(string[] args)
         {
-            UnitFile.Parse<UnitFile>("./test.unit");
+            var unit = UnitParser.Parse<UnitFile>("./test.unit");
+            Console.WriteLine(unit);
         }
     }
 }
