@@ -17,7 +17,16 @@ namespace SharpInit.Units
             var unit = Activator.CreateInstance<T>();
 
             unit.UnitName = Path.GetFileName(file);
-            unit.UnitPath = file;
+            unit.UnitPath = Path.GetFullPath(file);
+
+            var ext = Path.GetExtension(file);
+            ext = ext.TrimStart('.');
+
+            // normalize capitalization
+            ext = ext.ToLower();
+
+            if(ext.Length > 1)
+                ext = char.ToUpper(ext[0]) + ext.Substring(1);
 
             var properties = ParseProperties(file);
 
@@ -52,6 +61,13 @@ namespace SharpInit.Units
                     }
 
                     continue;
+                }
+
+                // handle .exec unit paths
+                // The execution specific configuration options are configured in the [Service], [Socket], [Mount], or [Swap] sections, depending on the unit type.
+                if(path.StartsWith("@"))
+                {
+                    path = ext + path.Substring(1);
                 }
 
                 var prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(typeof(T), path);
@@ -192,7 +208,7 @@ namespace SharpInit.Units
             return properties;
         }
 
-        private static List<string> SplitSpaceSeparatedValues(string str)
+        public static List<string> SplitSpaceSeparatedValues(string str)
         {
             var ret = new List<string>();
 

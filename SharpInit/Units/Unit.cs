@@ -6,6 +6,7 @@ namespace SharpInit.Units
 {
     public delegate void OnUnitStateChange(Unit source, UnitState next_state);
 
+
     /// <summary>
     /// Base unit class with shared functionality that all unit types must inherit from.
     /// </summary>
@@ -16,7 +17,11 @@ namespace SharpInit.Units
 
         public UnitFile File { get => GetUnitFile(); }
 
+        public ServiceManager ServiceManager { get; set; }
+
         public event OnUnitStateChange UnitStateChange;
+        public event OnProcessStart ProcessStart;
+        public event OnProcessExit ProcessExit;
         
         protected Unit(string path)
         {
@@ -47,6 +52,21 @@ namespace SharpInit.Units
         {
             LoadUnitFile(File.UnitPath);
             UnitName = File.UnitName;
+        }
+
+        internal void RaiseProcessExit(ProcessInfo proc, int exit_code)
+        {
+            ProcessExit?.Invoke(this, proc, exit_code);
+        }
+
+        internal void RaiseProcessStart(ProcessInfo proc)
+        {
+            ProcessStart?.Invoke(this, proc);
+        }
+
+        public override string ToString()
+        {
+            return $"[Unit Type={this.GetType().Name}, Name={UnitName}, State={CurrentState}, Path={File.UnitPath}]";
         }
     }
 
