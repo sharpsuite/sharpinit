@@ -12,6 +12,6 @@ sharpinit is not ready for production use!
     - [ ] Dependency builder
     - [ ] Support for various dependency shorthands (.wants, .d directories)
   - [ ] Process manager
-    - [ ] Start, stop and manage processes by targets, slices and services
+    - [x] Start, stop and manage processes by targets, slices and services
     - [ ] Handle cgroups and namespace isolation for processes
     - [ ] Adopt orphaned processes and reap them
