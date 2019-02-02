@@ -116,6 +116,10 @@ namespace SharpInit.Units
             bool escaped_line_break = false;
 
             var lines = File.ReadAllLines(path);
+
+            if (!string.IsNullOrWhiteSpace(lines.Last()))     // an empty line at the end of the file
+                lines = lines.Concat(new[] { "" }).ToArray(); // helps us emit the last property
+
             var properties = new Dictionary<string, List<string>>();
 
             foreach (var raw_line in lines)
