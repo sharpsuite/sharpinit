@@ -15,7 +15,8 @@ namespace SharpInitControl
             {"start", StartUnits },
             {"stop", StopUnits },
             {"restart", RestartUnits },
-            {"reload", ReloadUnits }
+            {"reload", ReloadUnits },
+            {"list", ListUnits }
         };
 
         static IpcConnection Connection { get; set; }
@@ -108,6 +109,16 @@ namespace SharpInitControl
                 else
                     Console.WriteLine("error");
             }
+        }
+
+        static void ListUnits(string verb, string[] args)
+        {
+            var list = Context.ListUnits();
+
+            if (list == null)
+                Console.WriteLine("Couldn't retrieve the list of loaded units.");
+            else
+                Console.WriteLine($"{list.Count} units loaded: [{string.Join(",", list)}]");
         }
     }
 }
