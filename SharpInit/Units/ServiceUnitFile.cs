@@ -21,8 +21,20 @@ namespace SharpInit.Units
         [UnitProperty("Service/BusName", UnitPropertyType.String)]
         public string BusName { get; set; }
 
+        [UnitProperty("Service/ExecStartPre", UnitPropertyType.StringList)]
+        public List<string> ExecStartPre { get; set; }
+
         [UnitProperty("Service/ExecStart", UnitPropertyType.StringList)]
         public List<string> ExecStart { get; set; }
+
+        [UnitProperty("Service/ExecStartPost", UnitPropertyType.StringList)]
+        public List<string> ExecStartPost { get; set; }
+
+        [UnitProperty("Service/ExecStop", UnitPropertyType.StringList)]
+        public List<string> ExecStop { get; set; }
+
+        [UnitProperty("Service/ExecReload", UnitPropertyType.StringList)]
+        public List<string> ExecReload { get; set; }
 
         public ServiceUnitFile() { }
         public ServiceUnitFile(string path) => UnitParser.Parse<ServiceUnitFile>(path);

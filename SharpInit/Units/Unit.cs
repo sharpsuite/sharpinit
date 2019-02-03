@@ -47,6 +47,7 @@ namespace SharpInit.Units
 
         public abstract void Activate();
         public abstract void Deactivate();
+        public abstract void Reload();
 
         public void ReloadUnitFile()
         {

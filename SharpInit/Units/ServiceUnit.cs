@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NLog;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -8,8 +9,12 @@ namespace SharpInit.Units
 {
     public class ServiceUnit : Unit
     {
+        Logger Log = LogManager.GetCurrentClassLogger();
+
         public new ServiceUnitFile File { get; set; }
         public override UnitFile GetUnitFile() => (UnitFile)File;
+
+        public int COMMAND_TIMEOUT = 5000;
 
         public ServiceUnit(string path) : base(path)
         {
@@ -50,8 +55,37 @@ namespace SharpInit.Units
                 return;
 
             SetState(UnitState.Activating);
-            
-            ServiceManager.StartProcess(this, PrepareProcessStartInfo());
+
+            switch (File.ServiceType)
+            {
+                case ServiceType.Simple:
+                    if (File.ExecStart == null)
+                    {
+                        Log.Error($"Unit {UnitName} has no ExecStart directives.");
+                        SetState(UnitState.Failed);
+                        break;
+                    }
+
+                    if (File.ExecStart.Count != 1)
+                    {
+                        Log.Error($"Service type \"simple\" only supports one ExecStart value, {UnitName} has {File.ExecStart.Count}");
+                        SetState(UnitState.Failed);
+                        break;
+                    }
+
+                    if (File.ExecStartPre.Any())
+                        File.ExecStartPre.ForEach(pre => Process.Start(PrepareProcessStartInfoFromCommandLine(pre)).WaitForExit(5000)); // these are not tracked by ServiceManager
+
+                    ServiceManager.StartProcess(this, PrepareProcessStartInfoFromCommandLine(File.ExecStart.Single()));
+
+                    if (File.ExecStartPost.Any())
+                        File.ExecStartPost.ForEach(post => Process.Start(PrepareProcessStartInfoFromCommandLine(post)).WaitForExit(5000)); // these are not tracked by ServiceManager
+                    break;
+                default:
+                    Log.Error($"Only the \"simple\" service type is supported for now, {UnitName} has type {File.ServiceType}");
+                    SetState(UnitState.Failed);
+                    break;
+            }
         }
 
         public override void Deactivate()
@@ -64,10 +98,35 @@ namespace SharpInit.Units
             if (ProcessInfo.PlatformSupportsSignaling)
                 ServiceManager.ProcessesByUnit[this].ForEach(process => process.SendSignal(Mono.Unix.Native.Signum.SIGTERM));
             else
-                ServiceManager.ProcessesByUnit[this].ForEach(process => process.Process.Kill());
+                ServiceManager.ProcessesByUnit[this].ForEach(process => { try { process.Process.Kill(); } catch { } });
         }
 
-        private ProcessStartInfo PrepareProcessStartInfo()
+        public override void Reload()
+        {
+            if (CurrentState == UnitState.Inactive || CurrentState == UnitState.Deactivating || CurrentState == UnitState.Failed)
+                return;
+
+            if(!File.ExecReload.Any())
+            {
+                throw new Exception($"Unit {UnitName} has no ExecReload directives.");
+            }
+            
+            foreach(var reload_cmd in File.ExecReload)
+            {
+                var process = Process.Start(PrepareProcessStartInfoFromCommandLine(reload_cmd));
+                var result = process.WaitForExit(5000);
+
+                if(!result)
+                {
+                    process.Kill();
+                    Deactivate();
+                    SetState(UnitState.Failed);
+                    throw new TimeoutException($"Unit {UnitName} timed out while reloading (exceeded {COMMAND_TIMEOUT} milliseconds)");
+                }
+            }
+        }
+
+        private ProcessStartInfo PrepareProcessStartInfoFromCommandLine(string cmdline)
         {
             ProcessStartInfo psi = new ProcessStartInfo();
             
@@ -79,25 +138,11 @@ namespace SharpInit.Units
             psi.RedirectStandardError = true;
             psi.WorkingDirectory = File.WorkingDirectory;
 
-            switch (File.ServiceType)
-            {
-                case ServiceType.Simple:
-                    // there must be one execstart
-                    // prefixes are not yet supported
-                    if (File.ExecStart.Count != 1)
-                        throw new InvalidOperationException("Service of type simple must have exactly one ExecStart line");
+            var parts = UnitParser.SplitSpaceSeparatedValues(cmdline);
 
-                    var line = File.ExecStart.Single();
-                    var parts = UnitParser.SplitSpaceSeparatedValues(line);
-
-                    psi.FileName = parts[0];
-                    psi.Arguments = string.Join(" ", parts.Skip(1));
-
-                    break;
-                default:
-                    throw new NotImplementedException();
-            }
-
+            psi.FileName = parts[0];
+            psi.Arguments = string.Join(" ", parts.Skip(1));
+            
             return psi;
         }
     }

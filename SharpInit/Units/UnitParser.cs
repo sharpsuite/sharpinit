@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace SharpInit.Units
@@ -102,6 +103,21 @@ namespace SharpInit.Units
                         prop.SetValue(unit, values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList());
                         break;
                 }
+            }
+
+            // initialize all List<string>s to make our life easier
+            var reflection_properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            foreach(var prop in reflection_properties)
+            {
+                var unit_property_attributes = prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false);
+
+                if (unit_property_attributes.Length == 0)
+                    continue;
+
+                if (prop.PropertyType == typeof(List<string>) &&
+                    prop.GetValue(unit) == null)
+                    prop.SetValue(unit, new List<string>());
             }
 
             return unit;
