@@ -25,34 +25,40 @@ namespace SharpInit.Ipc
 
         }
 
-        public bool ActivateUnit(string name)
+        public bool ActivateUnit(string unit)
         {
-            return (bool)InvokeIpcFunction("activate-unit", name).AdditionalData;
+            var result = InvokeIpcFunction("activate-unit", unit);
+            return result.Success ? (bool)result.AdditionalData : false;
         }
 
-        public bool DeactivateUnit(string name)
+        public bool DeactivateUnit(string unit)
         {
-            return (bool)InvokeIpcFunction("deactivate-unit", name).AdditionalData;
+            var result = InvokeIpcFunction("deactivate-unit", unit);
+            return result.Success ? (bool)result.AdditionalData : false;
         }
 
-        public bool ReloadUnit(string name)
+        public bool ReloadUnit(string unit)
         {
-            return (bool)InvokeIpcFunction("reload-unit", name).AdditionalData;
+            var result = InvokeIpcFunction("reload-unit", unit);
+            return result.Success ? (bool)result.AdditionalData : false;
         }
 
         public List<string> ListUnits()
         {
-            return (List<string>)InvokeIpcFunction("list-units").AdditionalData;
+            var result = InvokeIpcFunction("list-units");
+            return result.Success ? (List<string>)result.AdditionalData : null;
         }
 
         public bool LoadUnitFromFile(string path)
         {
-            return (bool)InvokeIpcFunction("load-unit", path).AdditionalData;
+            var result = InvokeIpcFunction("load-unit", path);
+            return result.Success ? (bool)result.AdditionalData : false;
         }
 
         public bool ReloadUnitFile(string unit)
         {
-            return (bool)InvokeIpcFunction("reload-unit", unit).AdditionalData;
+            var result = InvokeIpcFunction("reload-unit", unit);
+            return result.Success ? (bool)result.AdditionalData : false;
         }
 
         public IpcResult InvokeIpcFunction(string name, params object[] args)
@@ -60,6 +66,7 @@ namespace SharpInit.Ipc
             var ipc_message = new IpcMessage(SourceName, "sharpinit", name, 
                 JsonConvert.SerializeObject(args, IpcInterface.SerializerSettings));
             var result = Connection.SendMessageWaitForReply(ipc_message);
+
             return result;
         }
     }

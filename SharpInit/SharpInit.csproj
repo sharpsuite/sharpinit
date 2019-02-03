@@ -8,6 +8,13 @@
 
   <ItemGroup>
     <None Remove="NLog.config" />
+    <None Remove="Units\unit-test-files\sshd.service" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Units\unit-test-files\sshd.service">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -27,6 +34,9 @@
 
   <ItemGroup>
     <None Update="test.unit">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Units\unit-test-files\notepad.service">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

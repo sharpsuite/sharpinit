@@ -35,7 +35,7 @@ namespace SharpInitControl
                 Console.WriteLine($"Known verbs are: {string.Join(",", Commands.Keys)}");
                 Environment.Exit(1);
             }
-
+            
             Commands[verb](verb, args.Skip(1).ToArray());
             Connection.Tunnel.Socket.Close();
             Connection.Tunnel.Close();

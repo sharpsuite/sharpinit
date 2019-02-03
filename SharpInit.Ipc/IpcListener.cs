@@ -3,6 +3,7 @@ using NLog;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 
@@ -95,10 +96,20 @@ namespace SharpInit.Ipc
 
                     tunnel.Send(new IpcMessage(ipc_message, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(ipc_response, SerializerSettings))).Serialize());
                 }
+                catch (TargetInvocationException ex)
+                {
+                    Log.Warn($"IPC function {ipc_function} threw an exception: {ex.InnerException.Message}");
+
+                    var ipc_response = new IpcResult(false, ex.InnerException.Message);
+                    tunnel.Send(new IpcMessage(ipc_message, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(ipc_response, SerializerSettings))).Serialize());
+                }
                 catch (Exception ex)
                 {
-                    Log.Warn($"Exception occurred while executing IPC function {ipc_function}");
-                    Log.Warn(ex);
+                    Log.Error($"Unknown exception occurred while executing IPC function {ipc_function}");
+                    Log.Error(ex);
+
+                    var ipc_response = new IpcResult(false, ex.Message);
+                    tunnel.Send(new IpcMessage(ipc_message, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(ipc_response, SerializerSettings))).Serialize());
                 }
             }
             catch (Exception ex)
