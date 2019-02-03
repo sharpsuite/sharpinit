@@ -1,7 +1,9 @@
-﻿using Newtonsoft.Json;
+﻿using Mono.Unix;
+using Newtonsoft.Json;
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -24,6 +26,17 @@ namespace SharpInit.Ipc
         public void StartListening()
         {
             InitializeSocket();
+
+            if(SocketEndPoint.AddressFamily == AddressFamily.Unix) // remove the socket file if it already exists
+            {
+                var unix_endpoint = SocketEndPoint as UnixEndPoint;
+                var dir = Path.GetDirectoryName(unix_endpoint.Filename);
+
+                if (File.Exists(unix_endpoint.Filename))
+                    File.Delete(unix_endpoint.Filename);
+                else if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+            }
 
             Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             Socket.Bind(SocketEndPoint);
