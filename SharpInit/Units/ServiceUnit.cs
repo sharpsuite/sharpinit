@@ -1,4 +1,5 @@
 ﻿using NLog;
+using SharpInit.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -49,12 +50,10 @@ namespace SharpInit.Units
             File = UnitParser.Parse<ServiceUnitFile>(path);
         }
 
-        public override void Activate()
+        public override Transaction GetActivationTransaction()
         {
-            if (CurrentState == UnitState.Active || CurrentState == UnitState.Activating || CurrentState == UnitState.Failed)
-                return;
-
-            SetState(UnitState.Activating);
+            var transaction = new Transaction();
+            transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
             switch (File.ServiceType)
             {
@@ -63,67 +62,69 @@ namespace SharpInit.Units
                     {
                         Log.Error($"Unit {UnitName} has no ExecStart directives.");
                         SetState(UnitState.Failed);
-                        break;
+                        return null;
                     }
 
                     if (File.ExecStart.Count != 1)
                     {
                         Log.Error($"Service type \"simple\" only supports one ExecStart value, {UnitName} has {File.ExecStart.Count}");
                         SetState(UnitState.Failed);
-                        break;
+                        return null;
                     }
 
                     if (File.ExecStartPre.Any())
-                        File.ExecStartPre.ForEach(pre => Process.Start(PrepareProcessStartInfoFromCommandLine(pre)).WaitForExit(5000)); // these are not tracked by ServiceManager
+                    {
+                        foreach (var line in File.ExecStartPre)
+                            transaction.Add(new RunUnregisteredProcessTask(PrepareProcessStartInfoFromCommandLine(line), 5000));
+                    }
 
-                    ServiceManager.StartProcess(this, PrepareProcessStartInfoFromCommandLine(File.ExecStart.Single()));
+                    transaction.Add(new RunRegisteredProcessTask(PrepareProcessStartInfoFromCommandLine(File.ExecStart.Single()), this));
 
                     if (File.ExecStartPost.Any())
-                        File.ExecStartPost.ForEach(post => Process.Start(PrepareProcessStartInfoFromCommandLine(post)).WaitForExit(5000)); // these are not tracked by ServiceManager
+                    {
+                        foreach (var line in File.ExecStartPost)
+                            transaction.Add(new RunUnregisteredProcessTask(PrepareProcessStartInfoFromCommandLine(line), 5000));
+                    }
                     break;
                 default:
                     Log.Error($"Only the \"simple\" service type is supported for now, {UnitName} has type {File.ServiceType}");
                     SetState(UnitState.Failed);
                     break;
             }
+
+            transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
+            return transaction;
         }
 
-        public override void Deactivate()
+        public override Transaction GetDeactivationTransaction()
         {
-            if (CurrentState == UnitState.Inactive || CurrentState == UnitState.Deactivating || CurrentState == UnitState.Failed)
-                return;
+            var transaction = new Transaction();
 
-            SetState(UnitState.Deactivating);
-            
-            if (ProcessInfo.PlatformSupportsSignaling)
-                ServiceManager.ProcessesByUnit[this].ForEach(process => process.SendSignal(Mono.Unix.Native.Signum.SIGTERM));
-            else
-                ServiceManager.ProcessesByUnit[this].ForEach(process => { try { process.Process.Kill(); } catch { } });
+            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
+            transaction.Add(new StopUnitProcessesTask(this));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
+
+            return transaction;
         }
 
-        public override void Reload()
+        public override Transaction GetReloadTransaction()
         {
-            if (CurrentState == UnitState.Inactive || CurrentState == UnitState.Deactivating || CurrentState == UnitState.Failed)
-                return;
+            var transaction = new Transaction();
+            transaction.Add(new SetUnitStateTask(this, UnitState.Reloading, UnitState.Active));
 
-            if(!File.ExecReload.Any())
+            if (!File.ExecReload.Any())
             {
                 throw new Exception($"Unit {UnitName} has no ExecReload directives.");
             }
             
             foreach(var reload_cmd in File.ExecReload)
             {
-                var process = Process.Start(PrepareProcessStartInfoFromCommandLine(reload_cmd));
-                var result = process.WaitForExit(5000);
-
-                if(!result)
-                {
-                    process.Kill();
-                    Deactivate();
-                    SetState(UnitState.Failed);
-                    throw new TimeoutException($"Unit {UnitName} timed out while reloading (exceeded {COMMAND_TIMEOUT} milliseconds)");
-                }
+                transaction.Add(new RunUnregisteredProcessTask(PrepareProcessStartInfoFromCommandLine(reload_cmd), 5000));
             }
+
+            transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Reloading));
+
+            return transaction;
         }
 
         private ProcessStartInfo PrepareProcessStartInfoFromCommandLine(string cmdline)

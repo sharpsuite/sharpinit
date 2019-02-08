@@ -30,6 +30,12 @@ namespace SharpInit
             var unit = proc_info.SourceUnit;
 
             unit.RaiseProcessExit(proc_info, proc.ExitCode);
+
+            ManagedProcesses.Remove(proc_info);
+            ProcessesById.Remove(pid);
+
+            if (ProcessesByUnit.ContainsKey(unit))
+                ProcessesByUnit[unit].Remove(proc_info);
         }
 
         public void StartProcess(Unit unit, ProcessStartInfo psi)

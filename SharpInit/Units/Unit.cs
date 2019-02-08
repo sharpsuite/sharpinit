@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SharpInit.Tasks;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -62,10 +63,10 @@ namespace SharpInit.Units
          * bigger abstraction, called a Transaction(?)
          */
 
-        public abstract void Activate();
-        public abstract void Deactivate();
-        public abstract void Reload();
-
+        public abstract Transaction GetActivationTransaction();
+        public abstract Transaction GetDeactivationTransaction();
+        public abstract Transaction GetReloadTransaction();
+        
         public void ReloadUnitFile()
         {
             LoadUnitFile(File.UnitPath);
@@ -143,6 +144,8 @@ namespace SharpInit.Units
         Active,
         Activating,
         Deactivating,
-        Failed
+        Failed,
+        Reloading,
+        Any // used as a special mask
     }
 }

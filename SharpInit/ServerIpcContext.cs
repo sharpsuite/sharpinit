@@ -19,20 +19,23 @@ namespace SharpInit
 
         public bool ActivateUnit(string name)
         {
-            UnitRegistry.GetUnit(name).Activate();
-            return true;
+            var transaction = UnitRegistry.GetUnit(name).GetActivationTransaction();
+            var result = transaction.Execute();
+            return result.Type == Tasks.ResultType.Success;
         }
 
         public bool DeactivateUnit(string name)
         {
-            UnitRegistry.GetUnit(name).Deactivate();
-            return true;
+            var transaction = UnitRegistry.GetUnit(name).GetDeactivationTransaction();
+            var result = transaction.Execute();
+            return result.Type == Tasks.ResultType.Success;
         }
 
         public bool ReloadUnit(string name)
         {
-            UnitRegistry.GetUnit(name).Reload();
-            return true;
+            var transaction = UnitRegistry.GetUnit(name).GetReloadTransaction();
+            var result = transaction.Execute();
+            return result.Type == Tasks.ResultType.Success;
         }
 
         public List<string> ListUnits()
