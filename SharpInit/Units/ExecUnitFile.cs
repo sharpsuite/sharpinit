@@ -55,6 +55,5 @@ namespace SharpInit.Units
 
         [UnitProperty("@/AmbientCapabilities", UnitPropertyType.StringListSpaceSeparated)]
         public List<string> AmbientCapabilities { get; set; }
-
     }
 }

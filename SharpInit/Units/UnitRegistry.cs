@@ -10,6 +10,9 @@ namespace SharpInit.Units
         public static Dictionary<string, Unit> Units = new Dictionary<string, Unit>();
         public static Dictionary<string, Type> UnitTypes = new Dictionary<string, Type>();
 
+        public static DependencyGraph<OrderingDependency> OrderingDependencies = new DependencyGraph<OrderingDependency>();
+        public static DependencyGraph<RequirementDependency> RequirementDependencies = new DependencyGraph<RequirementDependency>();
+
         public static void AddUnit(Unit unit)
         {
             if (unit == null)
@@ -18,6 +21,7 @@ namespace SharpInit.Units
             if (Units.ContainsKey(unit.UnitName))
                 throw new InvalidOperationException();
 
+            unit.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             Units[unit.UnitName] = unit;
         }
 
