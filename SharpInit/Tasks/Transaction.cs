@@ -9,6 +9,7 @@ namespace SharpInit.Tasks
     {
         public override string Type => "transaction";
         public List<Task> Tasks = new List<Task>();
+        public TransactionErrorHandlingMode ErrorHandlingMode { get; set; }
 
         public Transaction()
         {
@@ -32,11 +33,13 @@ namespace SharpInit.Tasks
 
         public override TaskResult Execute()
         {
-            foreach(var task in Tasks)
+            foreach (var task in Tasks)
             {
                 var result = task.Execute();
 
-                if(result.Type != ResultType.Success && !result.Type.HasFlag(ResultType.Ignorable))
+                if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore &&
+                    result.Type != ResultType.Success &&
+                    !result.Type.HasFlag(ResultType.Ignorable))
                 {
                     // fatal failure
                     return result;
@@ -45,5 +48,11 @@ namespace SharpInit.Tasks
 
             return new TaskResult(this, ResultType.Success);
         }
+    }
+
+    public enum TransactionErrorHandlingMode
+    {
+        Fail,
+        Ignore
     }
 }

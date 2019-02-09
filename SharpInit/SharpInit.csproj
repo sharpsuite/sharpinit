@@ -8,7 +8,30 @@
 
   <ItemGroup>
     <None Remove="NLog.config" />
+    <None Remove="Units\unit-test-files\dependency-test-1.service" />
+    <None Remove="Units\unit-test-files\dependency-test-2.service" />
+    <None Remove="Units\unit-test-files\dependency-test-3.service" />
+    <None Remove="Units\unit-test-files\dependency-test-4.service" />
+    <None Remove="Units\unit-test-files\dependency-test-5.service" />
     <None Remove="Units\unit-test-files\sshd.service" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Units\unit-test-files\dependency-test-1.service">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Units\unit-test-files\dependency-test-5.service">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Units\unit-test-files\dependency-test-4.service">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Units\unit-test-files\dependency-test-2.service">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Units\unit-test-files\dependency-test-3.service">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
