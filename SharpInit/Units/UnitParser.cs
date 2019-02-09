@@ -242,13 +242,19 @@ namespace SharpInit.Units
                 if(quoting && current_char == '"')
                 {
                     quoting = false;
-                    ret.Add(current_run);
+
+                    if(current_run != "")
+                        ret.Add(current_run);
+
                     current_run = "";
                 }
                 else if (current_char == '"')
                 {
                     quoting = true;
-                    ret.Add(current_run.TrimEnd(' '));
+
+                    if (!string.IsNullOrWhiteSpace(current_run))
+                        ret.Add(current_run.TrimEnd(' '));
+
                     current_run = "";
                 }
                 else if (!quoting && current_char == ' ')
