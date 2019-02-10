@@ -128,7 +128,7 @@ namespace SharpInit.Units
                 // possible dependency loop
                 throw new Exception($"Failed to order dependent units while preparing the activation transaction for {unit.UnitName}.");
             }
-            else if (!initial_nodes.Any() && order_graph.Any())
+            else if (!initial_nodes.Any())
                 new_order = unit_list;
             else
             {
@@ -217,11 +217,11 @@ namespace SharpInit.Units
                 }));
 
             // actually create the transaction
-            var transaction = new Transaction();
+            var transaction = new Transaction() { Name = $"Activate {unit.UnitName}" };
 
             foreach(var sub_unit in units_to_stop)
             {
-                var deactivation_transaction = sub_unit.GetDeactivationTransaction();
+                var deactivation_transaction = CreateDeactivationTransaction(sub_unit);
 
                 var wrapper = new Transaction();
 
@@ -249,6 +249,89 @@ namespace SharpInit.Units
                 activation_transaction.Name = $"Activate {sub_unit.UnitName}";
 
                 transaction.Tasks.Add(activation_transaction);
+            }
+
+            return transaction;
+        }
+
+        public static Transaction CreateDeactivationTransaction(string unit)
+        {
+            return CreateDeactivationTransaction(GetUnit(unit));
+        }
+
+        public static Transaction CreateDeactivationTransaction(Unit unit)
+        {
+            var transaction = new Transaction() { Name = $"Deactivate {unit.UnitName}" };
+
+            var units_to_deactivate = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, 
+                t => t.RequirementType == RequirementDependencyType.BindsTo || 
+                t.RequirementType == RequirementDependencyType.Requires || 
+                t.RequirementType == RequirementDependencyType.PartOf).SelectMany(dep => new[] { dep.LeftUnit, dep.RightUnit }).Select(GetUnit).ToList();
+
+            units_to_deactivate.Add(unit);
+            units_to_deactivate = units_to_deactivate.Distinct().ToList();
+
+            var order_graph = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => units_to_deactivate.Any(u => u.UnitName == t.LeftUnit || u.UnitName == t.RightUnit), true).ToList();
+
+            var new_order = new List<Unit>();
+            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit)).Select(t => t.LeftUnit).ToList(); // find the "first" nodes
+
+            if (!initial_nodes.Any() && order_graph.Any())
+            {
+                // possible dependency loop
+                throw new Exception($"Failed to order dependent units while preparing the deactivation transaction for {unit.UnitName}.");
+            }
+            else if (!initial_nodes.Any())
+                new_order = units_to_deactivate;
+            else
+            {
+                var processed_vertices = new List<string>();
+
+                while (initial_nodes.Any())
+                {
+                    var dep = initial_nodes.First();
+                    initial_nodes.Remove(dep);
+                    new_order.Add(GetUnit(dep));
+
+                    var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
+                    other_edges.ForEach(edge => order_graph.Remove(edge));
+                    var edges_to_add = other_edges.Where(edge => { var m = edge.RightUnit; return !order_graph.Any(e => e.RightUnit == m && !processed_vertices.Contains(e.LeftUnit)); }).Select(t => t.RightUnit);
+
+                    initial_nodes.AddRange(edges_to_add);
+                }
+                
+                // prune the new order down to only units we've decided to deactivate, then append the unordered units not included in the new order
+                new_order = new_order.Where(units_to_deactivate.Contains).Concat(units_to_deactivate.Where(u => !new_order.Contains(u)).ToList()).ToList();
+
+                // check the new order against the rules
+                bool satisfied = true;
+
+                foreach (var order_rule in order_graph)
+                {
+                    var index_1 = new_order.FindIndex(u => u.UnitName == order_rule.LeftUnit);
+                    var index_2 = new_order.FindIndex(u => u.UnitName == order_rule.RightUnit);
+
+                    if (index_1 == -1 || index_2 == -1) // one of the vertices got pruned
+                        continue;
+
+                    if (index_1 > index_2) // now in reverse
+                    {
+                        satisfied = false;
+                        break;
+                    }
+                }
+
+                if (!satisfied)
+                    throw new Exception($"Unsatisfiable set of ordering rules encountered when building the deactivation transaction for unit {unit.UnitName}.");
+            }
+
+            units_to_deactivate = new_order;
+
+            // build the transaction
+
+            foreach(var sub_unit in units_to_deactivate)
+            {
+                transaction.Add(sub_unit.GetDeactivationTransaction());
             }
 
             return transaction;

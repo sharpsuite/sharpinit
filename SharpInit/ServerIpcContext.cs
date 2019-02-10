@@ -26,7 +26,7 @@ namespace SharpInit
 
         public bool DeactivateUnit(string name)
         {
-            var transaction = UnitRegistry.GetUnit(name).GetDeactivationTransaction();
+            var transaction = UnitRegistry.CreateDeactivationTransaction(name);
             var result = transaction.Execute();
             return result.Type == Tasks.ResultType.Success;
         }
