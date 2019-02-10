@@ -4,6 +4,6 @@ Wants=dependency-test-3.service
 After=dependency-test-4.service
 
 [Service]
-ExecStart="C:\Users\Admin\source\repos\DummyUnit\DummyUnit\bin\Debug\DummyUnit.exe test-2"
+ExecStart=C:\Users\Admin\source\repos\DummyUnit\DummyUnit\bin\Debug\DummyUnit.exe test-2
 
 [Install]

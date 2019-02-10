@@ -8,6 +8,7 @@ namespace SharpInit.Tasks
     public class Transaction : Task
     {
         public override string Type => "transaction";
+        public string Name { get; set; }
         public List<Task> Tasks = new List<Task>();
         public TransactionErrorHandlingMode ErrorHandlingMode { get; set; }
 
@@ -49,9 +50,18 @@ namespace SharpInit.Tasks
                     // fatal failure
                     return result;
                 }
+                else if (result.Type == ResultType.StopExecution)
+                {
+                    break;
+                }
             }
 
             return new TaskResult(this, ResultType.Success);
+        }
+
+        public override string ToString()
+        {
+            return Name;
         }
     }
 

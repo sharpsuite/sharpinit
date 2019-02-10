@@ -68,9 +68,10 @@ namespace SharpInit.Units
         {
             var unit_list = new List<Unit>() { unit };
 
-            var fail_if_unstarted = new Dictionary<string, bool>() { };
+            var ignore_conflict_deactivation_failure = new Dictionary<string, bool>();
+            var fail_if_unstarted = new Dictionary<string, bool>();
             var ignore_failure = new Dictionary<string, bool>() { { unit.UnitName, false } };
-            var req_graph = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, t => t.RequirementType != RequirementDependencyType.Conflicts, false);
+            var req_graph = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, t => t.RequirementType != RequirementDependencyType.Conflicts && t.RequirementType != RequirementDependencyType.PartOf, false);
             
             // list all units to be started
             foreach(var dependency in req_graph)
@@ -82,8 +83,6 @@ namespace SharpInit.Units
 
                 if(!unit_list.Contains(target_unit))
                     unit_list.Add(target_unit);
-
-
             }
 
             // determine whether the failure of each unit activation makes the entire transaction fail
@@ -116,6 +115,7 @@ namespace SharpInit.Units
 
             // determine whether each unit is actually to be started or not (Requisite only checks whether the unit is active)
             fail_if_unstarted = unit_list.ToDictionary(u => u.UnitName, u => RequirementDependencies.GetDependencies(u.UnitName).All(dep => dep.RequirementType == RequirementDependencyType.Requisite));
+            fail_if_unstarted[unit.UnitName] = false; // the unit we're set out to start isn't subject to this
 
             // create unit ordering according to ordering dependencies
             var order_graph = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
@@ -172,8 +172,67 @@ namespace SharpInit.Units
 
             unit_list = new_order;
 
+            // get a list of units to stop
+            var conflicts = unit_list.SelectMany(u => RequirementDependencies.GetDependencies(u.UnitName).Where(d => d.RequirementType == RequirementDependencyType.Conflicts));
+            var units_to_stop = new List<Unit>();
+
+            foreach(var conflicting_dep in conflicts)
+            {
+                var left = GetUnit(conflicting_dep.LeftUnit);
+                var right = GetUnit(conflicting_dep.RightUnit);
+
+                if (unit_list.Contains(left) && unit_list.Contains(right)) // conflict inside transaction
+                {
+                    var left_ignorable = !ignore_failure.ContainsKey(left.UnitName) || ignore_failure[left.UnitName];
+                    var right_ignorable = !ignore_failure.ContainsKey(right.UnitName) || ignore_failure[right.UnitName];
+
+                    if (!left_ignorable && !right_ignorable)
+                        throw new Exception($"Units {left.UnitName} and {right.UnitName} conflict because of dependency {conflicting_dep}");
+
+                    if (left_ignorable && !units_to_stop.Contains(left))
+                    {
+                        units_to_stop.Add(left);
+                    }
+
+                    if (right_ignorable && !units_to_stop.Contains(right))
+                    {
+                        units_to_stop.Add(right);
+                    }
+                }
+                else if (unit_list.Contains(left) && !units_to_stop.Contains(right))
+                {
+                    units_to_stop.Add(right);
+                }
+                else if (unit_list.Contains(right) && !units_to_stop.Contains(left))
+                {
+                    units_to_stop.Add(left);
+                }
+            }
+
+            ignore_conflict_deactivation_failure = units_to_stop.ToDictionary(u => u.UnitName,
+                u => conflicts.All(conflict =>
+                {
+                    var requesting_end = u.UnitName == conflict.LeftUnit ? conflict.RightUnit : conflict.LeftUnit;
+                    return !ignore_failure.ContainsKey(requesting_end) || ignore_failure[requesting_end];
+                }));
+
             // actually create the transaction
             var transaction = new Transaction();
+
+            foreach(var sub_unit in units_to_stop)
+            {
+                var deactivation_transaction = sub_unit.GetDeactivationTransaction();
+
+                var wrapper = new Transaction();
+
+                wrapper.Add(new CheckUnitActiveTask(sub_unit.UnitName, true));
+                wrapper.Add(deactivation_transaction);
+
+                wrapper.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
+                wrapper.Name = $"Check and deactivate {sub_unit.UnitName}";
+
+                transaction.Add(wrapper);
+            }
 
             foreach(var sub_unit in unit_list)
             {
@@ -186,6 +245,8 @@ namespace SharpInit.Units
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
                 else
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
+
+                activation_transaction.Name = $"Activate {sub_unit.UnitName}";
 
                 transaction.Tasks.Add(activation_transaction);
             }
