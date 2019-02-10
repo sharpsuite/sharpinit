@@ -1,6 +1,7 @@
 ﻿[Unit]
 Description=dummy unit %i
 Requires=dependency-test-5.service
+After=dependency-test-5.service
 
 [Service]
 ExecStart="C:\Users\Admin\source\repos\DummyUnit\DummyUnit\bin\Debug\DummyUnit.exe test-3"

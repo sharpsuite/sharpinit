@@ -66,52 +66,26 @@ namespace SharpInit.Units
 
         public static Transaction CreateActivationTransaction(Unit unit)
         {
-            var req_deps = RequirementDependencies.GetDependencies(unit.UnitName);
-            var order_deps = OrderingDependencies.GetDependencies(unit.UnitName);
+            var unit_list = new List<Unit>() { unit };
 
-            var unit_list = new List<Unit>();
-
-            var transaction_dictionary = new Dictionary<string, Transaction>();
-            var transaction_ignore_failure = new Dictionary<string, bool>();
-            var transaction = new Transaction();
-
-            transaction.Add(unit.GetActivationTransaction());
-            transaction_dictionary[unit.UnitName] = transaction;
-            
+            var ignore_failure = new Dictionary<string, bool>() { { unit.UnitName, false } };
             var req_graph = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, t => t.RequirementType != RequirementDependencyType.Conflicts, false);
             
+            // list all units to be started
             foreach(var dependency in req_graph)
             {
                 var parent = dependency.LeftUnit;
                 var child = dependency.RightUnit;
 
-                if (transaction_dictionary.ContainsKey(child))
-                    continue;
-
                 var target_unit = GetUnit(child);
 
                 if(!unit_list.Contains(target_unit))
                     unit_list.Add(target_unit);
-
-                //var sub_transaction = target_unit.GetActivationTransaction();
-
-                //if (dependency.RequirementType == RequirementDependencyType.Wants)
-                //    sub_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
-                //else
-                //    sub_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
-                
-                //if (!transaction_dictionary.ContainsKey(parent))
-                //    parent = unit.UnitName;
-
-                //transaction_dictionary[parent].Add(sub_transaction);
-                //transaction_dictionary[child] = sub_transaction;
             }
 
+            // determine whether the failure of each unit activation makes the entire transaction fail
             string current_unit = unit.UnitName;
             var list = new List<RequirementDependency>();
-
-            unit_list.Add(unit);
-            transaction_ignore_failure[current_unit] = false;
 
             while (true)
             {
@@ -121,11 +95,11 @@ namespace SharpInit.Units
                 {
                     if(dependency.RequirementType == RequirementDependencyType.Wants)
                     {
-                        transaction_ignore_failure[dependency.RightUnit] = transaction_ignore_failure.ContainsKey(dependency.RightUnit) ? transaction_ignore_failure[dependency.RightUnit] : true;
+                        ignore_failure[dependency.RightUnit] = ignore_failure.ContainsKey(dependency.RightUnit) ? ignore_failure[dependency.RightUnit] : true;
                     }
                     else
                     {
-                        transaction_ignore_failure[dependency.RightUnit] = false;
+                        ignore_failure[dependency.RightUnit] = false;
                         list.Add(dependency);
                     }
                 }
@@ -137,13 +111,69 @@ namespace SharpInit.Units
                 list.RemoveAt(0);
             }
 
-            transaction = new Transaction();
+            // create unit ordering according to ordering dependencies
+            var order_graph = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
+            
+            var new_order = new List<Unit>();
+            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit)).Select(t => t.LeftUnit).ToList(); // find the "first" nodes
+
+            if (!initial_nodes.Any() && order_graph.Any())
+            {
+                // possible dependency loop
+                throw new Exception($"Failed to order dependent units while preparing the activation transaction for {unit.UnitName}.");
+            }
+            else if (!initial_nodes.Any() && order_graph.Any())
+                new_order = unit_list;
+            else
+            {
+                var processed_vertices = new List<string>();
+
+                while(initial_nodes.Any())
+                {
+                    var dep = initial_nodes.First();
+                    initial_nodes.Remove(dep);
+                    new_order.Add(GetUnit(dep));
+
+                    var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
+                    other_edges.ForEach(edge => order_graph.Remove(edge));
+                    var edges_to_add = other_edges.Where(edge => { var m = edge.RightUnit; return !order_graph.Any(e => e.RightUnit == m && !processed_vertices.Contains(e.LeftUnit)); }).Select(t => t.RightUnit);
+
+                    initial_nodes.AddRange(edges_to_add);
+                }
+
+                new_order.Reverse();
+                new_order = new_order.Concat(unit_list.Where(u => !new_order.Contains(u)).ToList()).ToList();
+
+                // check the new order against the rules
+                var order_deps = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => true);
+                bool satisfied = true;
+
+                foreach (var order_rule in order_deps)
+                {
+                    var index_1 = new_order.FindIndex(u => u.UnitName == order_rule.LeftUnit);
+                    var index_2 = new_order.FindIndex(u => u.UnitName == order_rule.RightUnit);
+
+                    if (index_1 < index_2)
+                    {
+                        satisfied = false;
+                        break;
+                    }
+                }
+
+                if (!satisfied)
+                    throw new Exception($"Unsatisfiable set of ordering rules encountered when building the activation transaction for unit {unit.UnitName}.");
+            }
+
+            unit_list = new_order;
+
+            // actually create the transaction
+            var transaction = new Transaction();
 
             foreach(var sub_unit in unit_list)
             {
                 var activation_transaction = sub_unit.GetActivationTransaction();
 
-                if (transaction_ignore_failure.ContainsKey(sub_unit.UnitName) && !transaction_ignore_failure[sub_unit.UnitName])
+                if (ignore_failure.ContainsKey(sub_unit.UnitName) && !ignore_failure[sub_unit.UnitName])
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
                 else
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;

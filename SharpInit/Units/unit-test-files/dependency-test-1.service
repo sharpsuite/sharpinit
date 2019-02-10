@@ -2,6 +2,7 @@
 Description=dummy unit 1
 Wants=dependency-test-2.service
 Wants=dependency-test-3.service
+After=dependency-test-2.service
 
 [Service]
 ExecStart="C:\Users\Admin\source\repos\DummyUnit\DummyUnit\bin\Debug\DummyUnit.exe test-1"
