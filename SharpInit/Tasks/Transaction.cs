@@ -16,6 +16,11 @@ namespace SharpInit.Tasks
 
         }
 
+        public Transaction(params Task[] tasks)
+        {
+            Add(tasks);
+        }
+
         public Transaction(params IEnumerable<Task>[] tasks)
         {
             Add(tasks);

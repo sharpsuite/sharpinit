@@ -68,6 +68,7 @@ namespace SharpInit.Units
         {
             var unit_list = new List<Unit>() { unit };
 
+            var fail_if_unstarted = new Dictionary<string, bool>() { };
             var ignore_failure = new Dictionary<string, bool>() { { unit.UnitName, false } };
             var req_graph = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, t => t.RequirementType != RequirementDependencyType.Conflicts, false);
             
@@ -81,6 +82,8 @@ namespace SharpInit.Units
 
                 if(!unit_list.Contains(target_unit))
                     unit_list.Add(target_unit);
+
+
             }
 
             // determine whether the failure of each unit activation makes the entire transaction fail
@@ -110,6 +113,9 @@ namespace SharpInit.Units
                 current_unit = list.First().RightUnit;
                 list.RemoveAt(0);
             }
+
+            // determine whether each unit is actually to be started or not (Requisite only checks whether the unit is active)
+            fail_if_unstarted = unit_list.ToDictionary(u => u.UnitName, u => RequirementDependencies.GetDependencies(u.UnitName).All(dep => dep.RequirementType == RequirementDependencyType.Requisite));
 
             // create unit ordering according to ordering dependencies
             var order_graph = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
@@ -172,6 +178,9 @@ namespace SharpInit.Units
             foreach(var sub_unit in unit_list)
             {
                 var activation_transaction = sub_unit.GetActivationTransaction();
+
+                if (fail_if_unstarted.ContainsKey(sub_unit.UnitName) && fail_if_unstarted[sub_unit.UnitName])
+                    activation_transaction = new Transaction(new CheckUnitActiveTask(sub_unit.UnitName));
 
                 if (ignore_failure.ContainsKey(sub_unit.UnitName) && !ignore_failure[sub_unit.UnitName])
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
