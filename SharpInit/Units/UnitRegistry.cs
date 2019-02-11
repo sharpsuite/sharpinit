@@ -151,10 +151,9 @@ namespace SharpInit.Units
                 new_order = new_order.Concat(unit_list.Where(u => !new_order.Contains(u)).ToList()).ToList();
 
                 // check the new order against the rules
-                var order_deps = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => true);
                 bool satisfied = true;
 
-                foreach (var order_rule in order_deps)
+                foreach (var order_rule in order_graph)
                 {
                     var index_1 = new_order.FindIndex(u => u.UnitName == order_rule.LeftUnit);
                     var index_2 = new_order.FindIndex(u => u.UnitName == order_rule.RightUnit);
