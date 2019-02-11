@@ -42,10 +42,7 @@ namespace SharpInit
             {
                 ipc_listener.StopListening();
             };
-
-            var transaction = UnitRegistry.CreateActivationTransaction("dependency-test-1.service");
-            var result = transaction.Execute();
-
+            
             Thread.Sleep(-1);
         }
 
