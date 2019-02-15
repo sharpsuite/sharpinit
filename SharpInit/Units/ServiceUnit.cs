@@ -48,6 +48,7 @@ namespace SharpInit.Units
         public override void LoadUnitFile(string path)
         {
             File = UnitParser.Parse<ServiceUnitFile>(path);
+            LoadTime = DateTime.UtcNow;
         }
 
         internal override Transaction GetActivationTransaction()
@@ -93,6 +94,7 @@ namespace SharpInit.Units
             }
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
+            transaction.Add(new UpdateUnitActivationTimeTask(this));
             return transaction;
         }
 

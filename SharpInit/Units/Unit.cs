@@ -24,6 +24,10 @@ namespace SharpInit.Units
         public event OnProcessStart ProcessStart;
         public event OnProcessExit ProcessExit;
 
+        public DateTime LastStateChangeTime { get; set; }
+        public DateTime ActivationTime { get; set; }
+        public DateTime LoadTime { get; set; }
+
         private DependencyGraph<RequirementDependency> RequirementDependencyGraph { get; set; }
         private DependencyGraph<OrderingDependency> OrderingDependencyGraph { get; set; }
         
@@ -47,6 +51,7 @@ namespace SharpInit.Units
                                                        // TODO: Investigate whether this could result in a deadlock
 
             CurrentState = next_state;
+            LastStateChangeTime = DateTime.UtcNow;
         }
 
         // Use the CreateActivationTransaction/CreateDeactivationTransaction in UnitRegistry, not these.

@@ -21,6 +21,9 @@ namespace SharpInit.Units
 
             EnumType = enum_type;
             DefaultValue = default_value;
+
+            if (PropertyType == UnitPropertyType.Time)
+                DefaultValue = UnitParser.ParseTimeSpan((string)DefaultValue);
         }
     }
 
@@ -31,6 +34,7 @@ namespace SharpInit.Units
         Bool,
         StringList,
         StringListSpaceSeparated,
-        Enum
+        Enum,
+        Time
     }
 }

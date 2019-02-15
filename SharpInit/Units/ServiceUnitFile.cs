@@ -21,6 +21,16 @@ namespace SharpInit.Units
         [UnitProperty("Service/BusName", UnitPropertyType.String)]
         public string BusName { get; set; }
 
+        #region Restart behavior
+        [UnitProperty("Service/Restart", UnitPropertyType.Enum, RestartBehavior.No, typeof(RestartBehavior))]
+        public RestartBehavior Restart { get; set; }
+
+        [UnitProperty("Service/RestartSec", UnitPropertyType.Time, "100ms")]
+        public TimeSpan RestartSec { get; set; }
+
+        #endregion
+
+        #region Exec= command lines
         [UnitProperty("Service/ExecStartPre", UnitPropertyType.StringList)]
         public List<string> ExecStartPre { get; set; }
 
@@ -35,9 +45,21 @@ namespace SharpInit.Units
 
         [UnitProperty("Service/ExecReload", UnitPropertyType.StringList)]
         public List<string> ExecReload { get; set; }
+        #endregion
 
         public ServiceUnitFile() { }
         public ServiceUnitFile(string path) => UnitParser.Parse<ServiceUnitFile>(path);
+    }
+
+    public enum RestartBehavior
+    {
+        No,
+        Always,
+        OnSuccess,
+        OnFailure,
+        OnAbnormal,
+        OnAbort,
+        OnWatchdog
     }
 
     public enum ServiceType

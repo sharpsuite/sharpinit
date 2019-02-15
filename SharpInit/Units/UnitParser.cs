@@ -130,7 +130,7 @@ namespace SharpInit.Units
             return unit;
         }
 
-        private static TimeSpan ParseTimeSpan(string str)
+        public static TimeSpan ParseTimeSpan(string str)
         {
             var span = TimeSpan.Zero;
 
