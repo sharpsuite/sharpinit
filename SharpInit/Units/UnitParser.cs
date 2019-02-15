@@ -30,6 +30,7 @@ namespace SharpInit.Units
                 ext = char.ToUpper(ext[0]) + ext.Substring(1);
 
             var properties = ParseProperties(file);
+            var properties_touched = new List<UnitPropertyAttribute>();
 
             foreach (var property in properties)
             {
@@ -79,13 +80,15 @@ namespace SharpInit.Units
                 var handler_type = attribute.PropertyType;
                 var last_value = values.Last();
 
+                properties_touched.Add(attribute);
+
                 switch (handler_type)
                 {
                     case UnitPropertyType.String:
-                        prop.SetValue(unit, values.Last());
+                        prop.SetValue(unit, last_value);
                         break;
                     case UnitPropertyType.Int:
-                        if (!int.TryParse(values.Last(), out int prop_val_int))
+                        if (!int.TryParse(last_value, out int prop_val_int))
                             break; // for now
                         prop.SetValue(unit, prop_val_int);
                         break;
@@ -102,7 +105,10 @@ namespace SharpInit.Units
                         prop.SetValue(unit, values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList());
                         break;
                     case UnitPropertyType.Time:
-                        prop.SetValue(unit, ParseTimeSpan(values.Last()));
+                        prop.SetValue(unit, ParseTimeSpan(last_value));
+                        break;
+                    case UnitPropertyType.Enum:
+                        prop.SetValue(unit, Enum.Parse(attribute.EnumType, last_value.Replace("-", ""), true));
                         break;
                 }
             }
@@ -114,17 +120,19 @@ namespace SharpInit.Units
             foreach(var prop in reflection_properties)
             {
                 var unit_property_attributes = prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false);
-                var attribute = (UnitPropertyAttribute)unit_property_attributes.Single();
-
+                
                 if (unit_property_attributes.Length == 0)
                     continue;
 
-                if (prop.PropertyType == typeof(List<string>) &&
-                    prop.GetValue(unit) == null)
-                    prop.SetValue(unit, new List<string>());
-
-                if (prop.GetValue(unit) == null)
-                    prop.SetValue(unit, attribute.DefaultValue);
+                var attribute = (UnitPropertyAttribute)unit_property_attributes.FirstOrDefault();
+                
+                if (!properties_touched.Contains(attribute))
+                {
+                    if (prop.PropertyType == typeof(List<string>) && attribute.DefaultValue == null)
+                        prop.SetValue(unit, new List<string>());
+                    else
+                        prop.SetValue(unit, attribute.DefaultValue);
+                }
             }
 
             return unit;
@@ -132,6 +140,9 @@ namespace SharpInit.Units
 
         public static TimeSpan ParseTimeSpan(string str)
         {
+            if (double.TryParse(str, out double seconds)) // if the entire string is one number, treat it as the number of seconds
+                return TimeSpan.FromSeconds(seconds);
+
             var span = TimeSpan.Zero;
 
             var zero = DateTime.MinValue;
@@ -154,7 +165,6 @@ namespace SharpInit.Units
                 double amount = 0;
                 string unit = "";
                 var word = words[i];
-                Console.WriteLine(word);
 
                 if (!double.TryParse(word, out amount))
                 {
@@ -185,8 +195,6 @@ namespace SharpInit.Units
                     if (!found)
                         continue;
                 }
-
-                Console.WriteLine(unit);
 
                 switch (unit)
                 {
