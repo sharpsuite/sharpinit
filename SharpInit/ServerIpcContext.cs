@@ -19,14 +19,14 @@ namespace SharpInit
 
         public bool ActivateUnit(string name)
         {
-            var transaction = UnitRegistry.GetUnit(name).GetActivationTransaction();
+            var transaction = UnitRegistry.CreateActivationTransaction(name);
             var result = transaction.Execute();
             return result.Type == Tasks.ResultType.Success;
         }
 
         public bool DeactivateUnit(string name)
         {
-            var transaction = UnitRegistry.GetUnit(name).GetDeactivationTransaction();
+            var transaction = UnitRegistry.CreateDeactivationTransaction(name);
             var result = transaction.Execute();
             return result.Type == Tasks.ResultType.Success;
         }

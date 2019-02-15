@@ -33,5 +33,42 @@ namespace SharpInit.Units
         {
             return Dependencies.Where(d => d.LeftUnit == unit || d.RightUnit == unit);
         }
+
+        public IEnumerable<T> TraverseDependencyGraph(string start_unit, Func<T, bool> filter, bool add_reverse = true)
+        {
+            string current_unit = start_unit;
+            var ret = new List<T>();
+            var nodes = new List<string>() { start_unit };
+            var visited = new Dictionary<string, bool>();
+
+            while(true)
+            {
+                var relevant_dependencies = GetDependencies(current_unit);
+
+                if (!add_reverse)
+                    relevant_dependencies = relevant_dependencies.Where(d => d.LeftUnit == current_unit);
+
+                relevant_dependencies = relevant_dependencies.Where(filter);
+
+                foreach(var dependency in relevant_dependencies)
+                {
+                    if (ret.Contains(dependency))
+                        continue;
+
+                    ret.Add(dependency);
+
+                    var other_end = dependency.LeftUnit == current_unit ? dependency.RightUnit : dependency.LeftUnit;
+                    nodes.Add(other_end);
+                    visited[other_end] = false;
+                }
+
+                visited[current_unit] = true;
+
+                if (!nodes.Any(n => !visited[n]))
+                    return ret;
+
+                current_unit = nodes.First(n => !visited[n]);
+            }
+        }
     }
 }

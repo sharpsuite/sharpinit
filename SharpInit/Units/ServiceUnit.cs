@@ -50,7 +50,7 @@ namespace SharpInit.Units
             File = UnitParser.Parse<ServiceUnitFile>(path);
         }
 
-        public override Transaction GetActivationTransaction()
+        internal override Transaction GetActivationTransaction()
         {
             var transaction = new Transaction();
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
@@ -96,7 +96,7 @@ namespace SharpInit.Units
             return transaction;
         }
 
-        public override Transaction GetDeactivationTransaction()
+        internal override Transaction GetDeactivationTransaction()
         {
             var transaction = new Transaction();
 

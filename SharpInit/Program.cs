@@ -42,7 +42,7 @@ namespace SharpInit
             {
                 ipc_listener.StopListening();
             };
-
+            
             Thread.Sleep(-1);
         }
 

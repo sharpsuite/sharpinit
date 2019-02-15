@@ -49,22 +49,9 @@ namespace SharpInit.Units
             CurrentState = next_state;
         }
 
-        /* TODO: A good abstraction for per-state-change tasks would be to separate each 
-         * task into its own object that is implemented and runs independently of others.
-         * 
-         * Example: the Alias directive creates a symlink that points to the original unit
-         * file. Alias could be represented as two 'Task's, one that is bound to activation
-         * and the other bound to deactivation (for removing the symlink).
-         * Similarly, this simplifies Exec{StartPre,Start,StartPost,Reload,Restart,Stop}
-         * handling as each part of the state change can be modularized, and not executed
-         * clumsily in the following functions.
-         * 
-         * Then, multiple tasks with different failure/success actions can be part of a 
-         * bigger abstraction, called a Transaction(?)
-         */
-
-        public abstract Transaction GetActivationTransaction();
-        public abstract Transaction GetDeactivationTransaction();
+        // Use the CreateActivationTransaction/CreateDeactivationTransaction in UnitRegistry, not these.
+        internal abstract Transaction GetActivationTransaction();
+        internal abstract Transaction GetDeactivationTransaction();
         public abstract Transaction GetReloadTransaction();
         
         public void ReloadUnitFile()
@@ -126,7 +113,7 @@ namespace SharpInit.Units
                 var wants_deps = File.Wants.Select(wants => new RequirementDependency(UnitName, wants, UnitName, RequirementDependencyType.Wants));
                 var binds_to_deps = File.BindsTo.Select(bind => new RequirementDependency(UnitName, bind, UnitName, RequirementDependencyType.BindsTo));
                 var part_of_deps = File.Requires.Select(part_of => new RequirementDependency(UnitName, part_of, UnitName, RequirementDependencyType.PartOf));
-                var conflicts_deps = File.Requires.Select(conflict => new RequirementDependency(UnitName, conflict, UnitName, RequirementDependencyType.Conflicts));
+                var conflicts_deps = File.Conflicts.Select(conflict => new RequirementDependency(UnitName, conflict, UnitName, RequirementDependencyType.Conflicts));
 
                 RequirementDependencyGraph.AddDependencies(requires_deps, requisite_deps, wants_deps, binds_to_deps, part_of_deps, conflicts_deps);
             }

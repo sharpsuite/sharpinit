@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <None Remove="NLog.config" />
+    <None Remove="Units\unit-test-files\dependency-test-1.service" />
+    <None Remove="Units\unit-test-files\dependency-test-2.service" />
+    <None Remove="Units\unit-test-files\dependency-test-3.service" />
+    <None Remove="Units\unit-test-files\dependency-test-4.service" />
+    <None Remove="Units\unit-test-files\dependency-test-5.service" />
     <None Remove="Units\unit-test-files\sshd.service" />
   </ItemGroup>
 
