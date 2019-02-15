@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace SharpInit.Units
 {
@@ -33,9 +34,36 @@ namespace SharpInit.Units
                 default:
                     // TODO: treat process exit differently based on service type
                     if (code != 0)
+                    {
                         SetState(UnitState.Failed);
+                    }
                     else
+                    {
                         SetState(UnitState.Inactive);
+                    }
+
+                    var should_restart = false;
+
+                    if (code == 0)
+                        should_restart =
+                            File.Restart == RestartBehavior.Always ||
+                            File.Restart == RestartBehavior.OnSuccess;
+                    else
+                        should_restart =
+                            File.Restart == RestartBehavior.Always ||
+                            File.Restart == RestartBehavior.OnFailure ||
+                            File.Restart == RestartBehavior.OnAbnormal;
+
+                    if(should_restart)
+                    {
+                        var restart_transaction = new Transaction(
+                            new DelayTask(File.RestartSec),
+                            UnitRegistry.CreateDeactivationTransaction(UnitName),
+                            UnitRegistry.CreateActivationTransaction(UnitName));
+
+                        // TODO: un-hack this
+                        new Thread((ThreadStart)delegate { restart_transaction.Execute(); }).Start();
+                    }
                     break;
             }
         }
