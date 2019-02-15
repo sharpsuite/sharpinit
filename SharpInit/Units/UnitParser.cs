@@ -41,7 +41,6 @@ namespace SharpInit.Units
                 if(name.StartsWith("Condition") || name.StartsWith("Assert"))
                 {
                     // handle conditions and assertions separately
-                    
                     if(name.StartsWith("Condition"))
                     {
                         var condition_name = name.Substring("Condition".Length);
@@ -102,15 +101,20 @@ namespace SharpInit.Units
                     case UnitPropertyType.StringListSpaceSeparated:
                         prop.SetValue(unit, values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList());
                         break;
+                    case UnitPropertyType.Time:
+                        prop.SetValue(unit, ParseTimeSpan(values.Last()));
+                        break;
                 }
             }
 
-            // initialize all List<string>s to make our life easier
+            // initialize default values of unspecified properties
+            // also initialize all List<string>s to make our life easier
             var reflection_properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             foreach(var prop in reflection_properties)
             {
                 var unit_property_attributes = prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false);
+                var attribute = (UnitPropertyAttribute)unit_property_attributes.Single();
 
                 if (unit_property_attributes.Length == 0)
                     continue;
@@ -118,9 +122,114 @@ namespace SharpInit.Units
                 if (prop.PropertyType == typeof(List<string>) &&
                     prop.GetValue(unit) == null)
                     prop.SetValue(unit, new List<string>());
+
+                if (prop.GetValue(unit) == null)
+                    prop.SetValue(unit, attribute.DefaultValue);
             }
 
             return unit;
+        }
+
+        private static TimeSpan ParseTimeSpan(string str)
+        {
+            var span = TimeSpan.Zero;
+
+            var zero = DateTime.MinValue;
+            var base_date = zero;
+            var words = str.Split(' ');
+
+            Dictionary<string, string> mappings = new Dictionary<string, string>()
+            {
+                {"y", "year" },
+                {"m", "minute" },
+                {"s", "second" },
+                {"d", "day" },
+                {"w", "week" },
+                {"h", "hour" },
+                {"ms", "millisecond" }
+            };
+
+            for (int i = 0; i < words.Length; i++)
+            {
+                double amount = 0;
+                string unit = "";
+                var word = words[i];
+                Console.WriteLine(word);
+
+                if (!double.TryParse(word, out amount))
+                {
+                    var chopped_off = Enumerable.Range(1, word.Length).Reverse().Select(offset =>
+                        word.Substring(0, offset)).Where(s => double.TryParse(s, out amount));
+
+                    if (!chopped_off.Any())
+                        continue;
+
+                    bool found = false;
+
+                    foreach (var fragment in chopped_off)
+                    {
+                        var longest = fragment;
+                        var possible_unit = word.Substring(longest.Length);
+
+                        if (double.TryParse(longest, out amount) &&
+                            mappings.ContainsKey(possible_unit))
+                        {
+                            unit = mappings[possible_unit];
+                            found = true;
+                            break;
+                        }
+                        else
+                            continue;
+                    }
+
+                    if (!found)
+                        continue;
+                }
+
+                Console.WriteLine(unit);
+
+                switch (unit)
+                {
+                    case "year":
+                        while (amount >= 1)
+                        {
+                            base_date = base_date.AddYears(1);
+                            amount -= 1;
+                        }
+
+                        base_date = base_date.AddDays(amount * (DateTime.IsLeapYear(base_date.Year) ? 366 : 365));
+                        break;
+                    case "month":
+                        while (amount >= 1)
+                        {
+                            base_date = base_date.AddMonths(1);
+                            amount -= 1;
+                        }
+
+                        base_date = base_date.AddDays(amount * DateTime.DaysInMonth(base_date.Year, base_date.Month));
+                        break;
+                    case "week":
+                        base_date = base_date.AddDays(amount * 7);
+                        break;
+                    case "day":
+                        base_date = base_date.AddDays(amount);
+                        break;
+                    case "hour":
+                        base_date = base_date.AddHours(amount);
+                        break;
+                    case "minute":
+                        base_date = base_date.AddMinutes(amount);
+                        break;
+                    case "second":
+                        base_date = base_date.AddSeconds(amount);
+                        break;
+                    case "millisecond":
+                        base_date = base_date.AddMilliseconds(amount);
+                        break;
+                }
+            }
+
+            return base_date - zero;
         }
 
         private static Dictionary<string, List<string>> ParseProperties(string path)
