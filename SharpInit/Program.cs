@@ -24,6 +24,7 @@ namespace SharpInit
             foreach(var unit in UnitRegistry.Units)
             {
                 unit.Value.ServiceManager = default_service_manager;
+                unit.Value.UnitStateChange += StateChangeHandler;
             }
 
             Log.Info("Registering IPC context...");
@@ -46,9 +47,9 @@ namespace SharpInit
             Thread.Sleep(-1);
         }
 
-        private static void StateChangeHandler(Unit source, UnitState next_state)
+        private static void StateChangeHandler(Unit source, Units.UnitState next_state)
         {
-            Console.WriteLine($"Unit {source.UnitName} is transitioning from {source.CurrentState} to {next_state}");
+            Log.Info($"Unit {source.UnitName} is transitioning from {source.CurrentState} to {next_state}");
         }
     }
 }

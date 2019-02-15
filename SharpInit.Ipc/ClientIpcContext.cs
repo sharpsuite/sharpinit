@@ -61,6 +61,12 @@ namespace SharpInit.Ipc
             return result.Success ? (bool)result.AdditionalData : false;
         }
 
+        public UnitInfo GetUnitInfo(string unit)
+        {
+            var result = InvokeIpcFunction("get-unit-info", unit);
+            return result.Success ? (UnitInfo)result.AdditionalData : null;
+        }
+
         public IpcResult InvokeIpcFunction(string name, params object[] args)
         {
             var ipc_message = new IpcMessage(SourceName, "sharpinit", name, 

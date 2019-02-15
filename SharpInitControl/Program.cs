@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 
 namespace SharpInitControl
@@ -16,7 +17,8 @@ namespace SharpInitControl
             {"stop", StopUnits },
             {"restart", RestartUnits },
             {"reload", ReloadUnits },
-            {"list", ListUnits }
+            {"list", ListUnits },
+            {"status", GetUnitStatus }
         };
 
         static IpcConnection Connection { get; set; }
@@ -40,6 +42,53 @@ namespace SharpInitControl
             Commands[verb](verb, args.Skip(1).ToArray());
             Connection.Tunnel.Socket.Close();
             Connection.Tunnel.Close();
+        }
+
+        static void GetUnitStatus(string verb, string[] args)
+        {
+            var unit = args.First();
+            var status = Context.GetUnitInfo(unit);
+
+            if (status == null)
+            {
+                Console.WriteLine($"Unknown unit {unit}");
+                return;
+            }
+
+            Console.OutputEncoding = Encoding.UTF8;
+            var status_color = ConsoleColor.Gray;
+
+            switch (status.State)
+            {
+                case UnitState.Activating:
+                case UnitState.Active:
+                case UnitState.Reloading:
+                    status_color = ConsoleColor.Green;
+                    break;
+                case UnitState.Deactivating:
+                case UnitState.Inactive:
+                    status_color = ConsoleColor.Gray;
+                    break;
+                case UnitState.Failed:
+                    status_color = ConsoleColor.Red;
+                    break;
+            }
+
+            Console.ForegroundColor = status_color;
+            Console.Write("•");
+            Console.ForegroundColor = ConsoleColor.Gray;
+
+            Console.WriteLine($" {status.Name}{(!string.IsNullOrWhiteSpace(status.Description) ? " - " + status.Description : "")}");
+            Console.WriteLine($"Loaded from: {status.Path} at {status.LoadTime.ToLocalTime()}");
+            Console.Write("Status: ");
+
+            Console.ForegroundColor = status_color;
+            Console.Write(status.State.ToString().ToLower());
+            Console.ForegroundColor = ConsoleColor.Gray;
+
+            Console.Write($" (last activated {(status.ActivationTime == DateTime.MinValue ? "never" : status.ActivationTime.ToLocalTime().ToString())})");
+            Console.WriteLine();
+            Console.WriteLine();
         }
 
         static void StartUnits(string verb, string[] args)

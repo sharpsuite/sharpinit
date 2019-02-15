@@ -58,5 +58,21 @@ namespace SharpInit
             UnitRegistry.GetUnit(unit).ReloadUnitFile();
             return true;
         }
+
+        public UnitInfo GetUnitInfo(string unit_name)
+        {
+            var unit = UnitRegistry.GetUnit(unit_name);
+            var info = new UnitInfo();
+
+            info.Name = unit.UnitName;
+            info.Path = unit.File.UnitPath;
+            info.Description = unit.File.Description;
+            info.State = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());
+            info.LastStateChangeTime = unit.LastStateChangeTime;
+            info.ActivationTime = unit.ActivationTime;
+            info.LoadTime = unit.LoadTime;
+
+            return info;
+        }
     }
 }
