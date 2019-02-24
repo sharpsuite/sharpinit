@@ -59,6 +59,11 @@ namespace SharpInit
             return true;
         }
 
+        public int RescanUnits()
+        {
+            return UnitRegistry.ScanDefaultDirectories();
+        }
+
         public UnitInfo GetUnitInfo(string unit_name)
         {
             var unit = UnitRegistry.GetUnit(unit_name);

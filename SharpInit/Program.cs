@@ -15,17 +15,11 @@ namespace SharpInit
             Log.Info("SharpInit starting");
 
             UnitRegistry.InitializeTypes();
-            UnitRegistry.ScanDirectory("./units", true);
+            UnitRegistry.ScanDefaultDirectories();
 
             Log.Info($"Loaded {UnitRegistry.Units.Count} units");
 
-            var default_service_manager = new ServiceManager();
-
-            foreach(var unit in UnitRegistry.Units)
-            {
-                unit.Value.ServiceManager = default_service_manager;
-                unit.Value.UnitStateChange += StateChangeHandler;
-            }
+            UnitRegistry.UnitStateChange += StateChangeHandler;
 
             Log.Info("Registering IPC context...");
 

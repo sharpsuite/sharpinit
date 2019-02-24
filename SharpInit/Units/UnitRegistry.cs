@@ -9,11 +9,22 @@ namespace SharpInit.Units
 {
     public static class UnitRegistry
     {
+        public static event OnUnitStateChange UnitStateChange;
+
         public static Dictionary<string, Unit> Units = new Dictionary<string, Unit>();
         public static Dictionary<string, Type> UnitTypes = new Dictionary<string, Type>();
 
         public static DependencyGraph<OrderingDependency> OrderingDependencies = new DependencyGraph<OrderingDependency>();
         public static DependencyGraph<RequirementDependency> RequirementDependencies = new DependencyGraph<RequirementDependency>();
+
+        public static ServiceManager ServiceManager = new ServiceManager();
+
+        public static List<string> DefaultScanDirectories = new List<string>()
+        {
+            "./units",
+            "/etc/sharpinit/units",
+            "/usr/local/sharpinit/units"
+        };
 
         public static void AddUnit(Unit unit)
         {
@@ -23,22 +34,66 @@ namespace SharpInit.Units
             if (Units.ContainsKey(unit.UnitName))
                 throw new InvalidOperationException();
 
+            unit.ServiceManager = ServiceManager;
+            unit.UnitStateChange += PropagateStateChange;
             unit.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             Units[unit.UnitName] = unit;
         }
 
+        private static void PropagateStateChange(Unit source, UnitState next_state)
+        {
+            UnitStateChange?.Invoke(source, next_state);
+        }
+
         public static void AddUnitByPath(string path) => AddUnit(CreateUnit(path));
 
-        public static void ScanDirectory(string path, bool recursive = false)
+        public static int ScanDefaultDirectories()
+        {
+            int count = 0;
+
+            OrderingDependencies.Dependencies.Clear();
+            RequirementDependencies.Dependencies.Clear();
+
+            foreach (var unit in Units)
+            {
+                unit.Value.ReloadUnitFile();
+                unit.Value.RegisterDependencies(OrderingDependencies, RequirementDependencies);
+            }
+
+            foreach (var dir in DefaultScanDirectories)
+            {
+                if (!Directory.Exists(dir))
+                    continue;
+
+                count += ScanDirectory(dir);
+            }
+
+            return count;
+        }
+
+        public static int ScanDirectory(string path, bool recursive = false)
         {
             var directories = recursive ? Directory.GetDirectories(path) : new string[0];
             var files = Directory.GetFiles(path);
 
+            int count = 0;
+
             foreach (var file in files)
-                AddUnitByPath(file);
+            {
+                var unit = CreateUnit(file);
+
+                if (!Units.ContainsKey(unit.UnitName))
+                {
+                    AddUnit(unit);
+                }
+
+                count++;
+            }
 
             foreach (var dir in directories)
-                ScanDirectory(dir, recursive);
+                count += ScanDirectory(dir, recursive);
+
+            return count;
         }
 
         public static Unit GetUnit(string name) => Units.ContainsKey(name) ? Units[name] : null;

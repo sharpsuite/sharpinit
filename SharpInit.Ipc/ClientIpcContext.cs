@@ -61,6 +61,12 @@ namespace SharpInit.Ipc
             return result.Success ? (bool)result.AdditionalData : false;
         }
 
+        public int RescanUnits()
+        {
+            var result = InvokeIpcFunction("rescan-units");
+            return result.Success ? Convert.ToInt32(result.AdditionalData) : -1;
+        }
+
         public UnitInfo GetUnitInfo(string unit)
         {
             var result = InvokeIpcFunction("get-unit-info", unit);

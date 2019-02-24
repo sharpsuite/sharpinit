@@ -18,6 +18,7 @@ namespace SharpInitControl
             {"restart", RestartUnits },
             {"reload", ReloadUnits },
             {"list", ListUnits },
+            {"daemon-reload", RescanUnits },
             {"status", GetUnitStatus }
         };
 
@@ -40,8 +41,22 @@ namespace SharpInitControl
             }
             
             Commands[verb](verb, args.Skip(1).ToArray());
-            Connection.Tunnel.Socket.Close();
+            
+            Connection.Disconnect();
             Connection.Tunnel.Close();
+            Environment.Exit(0);
+        }
+
+        static void RescanUnits(string verb, string[] args)
+        {
+            Console.Write("Rescanning unit directories...");
+
+            var loaded_units = Context.RescanUnits();
+
+            if (loaded_units > 0)
+                Console.WriteLine("loaded {0} units in total", loaded_units);
+            else
+                Console.WriteLine("error");
         }
 
         static void GetUnitStatus(string verb, string[] args)

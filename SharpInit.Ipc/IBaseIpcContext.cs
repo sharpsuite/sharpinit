@@ -26,6 +26,9 @@ namespace SharpInit.Ipc
         [IpcFunction("reload-unit-file")]
         bool ReloadUnitFile(string unit);
 
+        [IpcFunction("rescan-units")]
+        int RescanUnits();
+
         [IpcFunction("list-units")]
         List<string> ListUnits();
 
