@@ -23,7 +23,7 @@ namespace SharpInit.Tasks
             if (ProcessInfo.PlatformSupportsSignaling)
             {
                 ProcessInfo.SendSignal(Mono.Unix.Native.Signum.SIGTERM);
-                Thread.Sleep(GracePeriod);
+                ProcessInfo.Process.WaitForExit(GracePeriod);
 
                 if((ProcessInfo?.Process.HasExited) ?? false)
                     return new TaskResult(this, ResultType.Success);

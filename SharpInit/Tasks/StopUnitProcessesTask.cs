@@ -25,8 +25,9 @@ namespace SharpInit.Tasks
                 return new TaskResult(this, ResultType.Success);
 
             bool failed = false;
+            var processes = service_manager.ProcessesByUnit[Unit].ToArray();
 
-            foreach(var process in service_manager.ProcessesByUnit[Unit])
+            foreach (var process in processes)
             {
                 var stop_process_task = new StopProcessTask(process, GracePeriod);
                 var result = stop_process_task.Execute();
