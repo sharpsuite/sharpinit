@@ -25,14 +25,8 @@ namespace SharpInit.Tasks
                 ProcessInfo.SendSignal(Mono.Unix.Native.Signum.SIGTERM);
                 Thread.Sleep(GracePeriod);
 
-                try
-                {
-                    Process.GetProcessById(ProcessInfo.Id);
-                }
-                catch
-                {
+                if((ProcessInfo?.Process.HasExited) ?? false)
                     return new TaskResult(this, ResultType.Success);
-                }
 
                 ProcessInfo.SendSignal(Mono.Unix.Native.Signum.SIGKILL);
             }
