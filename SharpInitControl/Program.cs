@@ -53,7 +53,7 @@ namespace SharpInitControl
 
             var loaded_units = Context.RescanUnits();
 
-            if (loaded_units > 0)
+            if (loaded_units >= 0)
                 Console.WriteLine("loaded {0} units in total", loaded_units);
             else
                 Console.WriteLine("error");
