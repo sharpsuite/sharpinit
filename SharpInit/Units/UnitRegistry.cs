@@ -204,6 +204,17 @@ namespace SharpInit.Units
                 {
                     var dep = initial_nodes.First();
                     initial_nodes.Remove(dep);
+
+                    var dep_unit = GetUnit(dep);
+
+                    if (dep_unit == null)
+                    {
+                        if (!ignore_failure.ContainsKey(dep) || ignore_failure[dep])
+                            continue;
+                        else
+                            throw new Exception($"Couldn't find required unit {dep}");
+                    }
+                    
                     new_order.Add(GetUnit(dep));
 
                     var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
