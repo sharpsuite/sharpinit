@@ -65,6 +65,7 @@ namespace SharpInit
 
             proc.Process.EnableRaisingEvents = true;
             proc.Process.Exited += HandleProcessExit;
+            proc.Process.StandardOutput.Close(); // TODO: redirect stdout to a log file/system
         }
 
         public void RegisterProcess(Unit unit, Process proc)
