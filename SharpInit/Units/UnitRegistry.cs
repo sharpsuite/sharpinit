@@ -87,6 +87,11 @@ namespace SharpInit.Units
             {
                 var unit = CreateUnit(file);
 
+                if (unit == null)
+                {
+                    continue;
+                }
+
                 if (!Units.ContainsKey(unit.UnitName))
                 {
                     AddUnit(unit);
