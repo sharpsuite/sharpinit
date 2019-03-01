@@ -26,6 +26,8 @@ namespace SharpInit.Units
             "/usr/local/sharpinit/units"
         };
 
+        public static List<string> ScanDirectories = new List<string>();
+
         public static void AddUnit(Unit unit)
         {
             if (unit == null)
@@ -54,13 +56,19 @@ namespace SharpInit.Units
             OrderingDependencies.Dependencies.Clear();
             RequirementDependencies.Dependencies.Clear();
 
+            var env_units_parts = (Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH") ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries);
+
+            ScanDirectories.Clear();
+            ScanDirectories.AddRange(DefaultScanDirectories);
+            ScanDirectories.AddRange(env_units_parts.Where(Directory.Exists));
+
             foreach (var unit in Units)
             {
                 unit.Value.ReloadUnitFile();
                 unit.Value.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             }
 
-            foreach (var dir in DefaultScanDirectories)
+            foreach (var dir in ScanDirectories)
             {
                 if (!Directory.Exists(dir))
                     continue;
@@ -81,6 +89,11 @@ namespace SharpInit.Units
             foreach (var file in files)
             {
                 var unit = CreateUnit(file);
+
+                if (unit == null)
+                {
+                    continue;
+                }
 
                 if (!Units.ContainsKey(unit.UnitName))
                 {
@@ -112,15 +125,17 @@ namespace SharpInit.Units
         {
             UnitTypes[".unit"] = typeof(Unit);
             UnitTypes[".service"] = typeof(ServiceUnit);
+            UnitTypes[".target"] = typeof(TargetUnit);
         }
 
-        public static Transaction CreateActivationTransaction(string name)
+        public static UnitStateChangeTransaction CreateActivationTransaction(string name)
         {
             return CreateActivationTransaction(GetUnit(name));
         }
 
-        public static Transaction CreateActivationTransaction(Unit unit)
+        public static UnitStateChangeTransaction CreateActivationTransaction(Unit unit)
         {
+            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Activate {unit.UnitName}" };
             var unit_list = new List<Unit>() { unit };
 
             var ignore_conflict_deactivation_failure = new Dictionary<string, bool>();
@@ -136,8 +151,18 @@ namespace SharpInit.Units
 
                 var target_unit = GetUnit(child);
 
-                if(!unit_list.Contains(target_unit))
+                if (target_unit == null)
+                    continue;
+
+                if (!unit_list.Contains(target_unit))
                     unit_list.Add(target_unit);
+                
+                if (!transaction.Reasoning.ContainsKey(target_unit))
+                {
+                    transaction.Reasoning[target_unit] = new List<string>();
+                }
+
+                transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
             }
 
             // determine whether the failure of each unit activation makes the entire transaction fail
@@ -176,30 +201,43 @@ namespace SharpInit.Units
             var order_graph = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
             
             var new_order = new List<Unit>();
-            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit)).Select(t => t.LeftUnit).ToList(); // find the "first" nodes
+            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit));
+            var initial_nodes_filtered = initial_nodes.Where(dependency => unit_list.Any(u => dependency.LeftUnit == u.UnitName || dependency.RightUnit == u.UnitName));
+            var selected_nodes = initial_nodes_filtered.Select(t => t.LeftUnit).ToList(); // find the "first" nodes
 
-            if (!initial_nodes.Any() && order_graph.Any())
+            if (!initial_nodes_filtered.Any() && !initial_nodes.Any() && order_graph.Any())
             {
                 // possible dependency loop
                 throw new Exception($"Failed to order dependent units while preparing the activation transaction for {unit.UnitName}.");
             }
-            else if (!initial_nodes.Any())
+            else if (!initial_nodes_filtered.Any())
                 new_order = unit_list;
             else
             {
                 var processed_vertices = new List<string>();
 
-                while(initial_nodes.Any())
+                while(selected_nodes.Any())
                 {
-                    var dep = initial_nodes.First();
-                    initial_nodes.Remove(dep);
+                    var dep = selected_nodes.First();
+                    selected_nodes.Remove(dep);
+
+                    var dep_unit = GetUnit(dep);
+
+                    if (dep_unit == null)
+                    {
+                        if (!ignore_failure.ContainsKey(dep) || ignore_failure[dep])
+                            continue;
+                        else
+                            throw new Exception($"Couldn't find required unit {dep}");
+                    }
+                    
                     new_order.Add(GetUnit(dep));
 
                     var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
                     other_edges.ForEach(edge => order_graph.Remove(edge));
                     var edges_to_add = other_edges.Where(edge => { var m = edge.RightUnit; return !order_graph.Any(e => e.RightUnit == m && !processed_vertices.Contains(e.LeftUnit)); }).Select(t => t.RightUnit);
 
-                    initial_nodes.AddRange(edges_to_add);
+                    selected_nodes.AddRange(edges_to_add);
                 }
 
                 new_order.Reverse();
@@ -235,6 +273,8 @@ namespace SharpInit.Units
                 var left = GetUnit(conflicting_dep.LeftUnit);
                 var right = GetUnit(conflicting_dep.RightUnit);
 
+                Unit unit_to_stop = null;
+
                 if (unit_list.Contains(left) && unit_list.Contains(right)) // conflict inside transaction
                 {
                     var left_ignorable = !ignore_failure.ContainsKey(left.UnitName) || ignore_failure[left.UnitName];
@@ -245,22 +285,33 @@ namespace SharpInit.Units
 
                     if (left_ignorable && !units_to_stop.Contains(left))
                     {
-                        units_to_stop.Add(left);
+                        unit_to_stop = left;
                     }
 
                     if (right_ignorable && !units_to_stop.Contains(right))
                     {
-                        units_to_stop.Add(right);
+                        unit_to_stop = right;
                     }
                 }
                 else if (unit_list.Contains(left) && !units_to_stop.Contains(right))
                 {
-                    units_to_stop.Add(right);
+                    unit_to_stop = right;
                 }
                 else if (unit_list.Contains(right) && !units_to_stop.Contains(left))
                 {
-                    units_to_stop.Add(left);
+                    unit_to_stop = left;
                 }
+                else
+                {
+                    continue;
+                }
+
+                units_to_stop.Add(unit_to_stop);
+
+                if (!transaction.Reasoning.ContainsKey(unit_to_stop))
+                    transaction.Reasoning[unit_to_stop] = new List<string>();
+
+                transaction.Reasoning[unit_to_stop].Add($"Deactivating {unit_to_stop.UnitName} because of dependency {conflicting_dep}");
             }
 
             ignore_conflict_deactivation_failure = units_to_stop.ToDictionary(u => u.UnitName,
@@ -271,9 +322,8 @@ namespace SharpInit.Units
                 }));
 
             // actually create the transaction
-            var transaction = new Transaction() { Name = $"Activate {unit.UnitName}" };
 
-            foreach(var sub_unit in units_to_stop)
+            foreach (var sub_unit in units_to_stop)
             {
                 var deactivation_transaction = CreateDeactivationTransaction(sub_unit);
 
@@ -308,19 +358,46 @@ namespace SharpInit.Units
             return transaction;
         }
 
-        public static Transaction CreateDeactivationTransaction(string unit)
+        public static UnitStateChangeTransaction CreateDeactivationTransaction(string unit)
         {
             return CreateDeactivationTransaction(GetUnit(unit));
         }
 
-        public static Transaction CreateDeactivationTransaction(Unit unit)
+        public static UnitStateChangeTransaction CreateDeactivationTransaction(Unit unit)
         {
-            var transaction = new Transaction() { Name = $"Deactivate {unit.UnitName}" };
+            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Deactivate {unit.UnitName}" };
 
             var units_to_deactivate = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, 
                 t => t.RequirementType == RequirementDependencyType.BindsTo || 
                 t.RequirementType == RequirementDependencyType.Requires || 
-                t.RequirementType == RequirementDependencyType.PartOf).SelectMany(dep => new[] { dep.LeftUnit, dep.RightUnit }).Select(GetUnit).ToList();
+                t.RequirementType == RequirementDependencyType.PartOf).SelectMany(dep => 
+                {
+                    var ret = new[] { dep.LeftUnit, dep.RightUnit };
+
+                    if(dep.RequirementType == RequirementDependencyType.PartOf) // PartOf is a one way dependency
+                    {
+                        if (unit.UnitName != dep.RightUnit) // only when stopping the "right hand" side of a PartOf dependency should the action be propagated
+                            return new string[0];
+                    }
+
+                    foreach (var unit_name in ret)
+                    {
+                        var u = GetUnit(unit_name);
+
+                        if (u == null)
+                            continue;
+
+                        if (!transaction.Reasoning.ContainsKey(u))
+                        {
+                            transaction.Reasoning[u] = new List<string>();
+                        }
+
+                        transaction.Reasoning[u].Add($"Deactivating {u.UnitName} because of dependency {dep}");
+                    }
+
+                    return ret;
+                })
+                .Select(GetUnit).ToList();
 
             units_to_deactivate.Add(unit);
             units_to_deactivate = units_to_deactivate.Distinct().ToList();
@@ -336,7 +413,9 @@ namespace SharpInit.Units
                 throw new Exception($"Failed to order dependent units while preparing the deactivation transaction for {unit.UnitName}.");
             }
             else if (!initial_nodes.Any())
+            {
                 new_order = units_to_deactivate;
+            }
             else
             {
                 var processed_vertices = new List<string>();
@@ -353,7 +432,7 @@ namespace SharpInit.Units
 
                     initial_nodes.AddRange(edges_to_add);
                 }
-                
+
                 // prune the new order down to only units we've decided to deactivate, then append the unordered units not included in the new order
                 new_order = new_order.Where(units_to_deactivate.Contains).Concat(units_to_deactivate.Where(u => !new_order.Contains(u)).ToList()).ToList();
 
@@ -385,6 +464,7 @@ namespace SharpInit.Units
 
             foreach(var sub_unit in units_to_deactivate)
             {
+                transaction.AffectedUnits.Add(sub_unit);
                 transaction.Add(sub_unit.GetDeactivationTransaction());
             }
 

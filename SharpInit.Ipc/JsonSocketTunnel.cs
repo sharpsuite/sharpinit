@@ -73,7 +73,10 @@ namespace SharpInit.Ipc
                 var read = Socket.Receive(length_buffer);
 
                 if (read != 4)
+                {
+                    Close();
                     return null;
+                }
 
                 if (BitConverter.ToUInt32(length_buffer, 0) > 0)
                 {

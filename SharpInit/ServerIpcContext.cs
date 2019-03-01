@@ -31,6 +31,18 @@ namespace SharpInit
             return result.Type == Tasks.ResultType.Success;
         }
 
+        public Dictionary<string, List<string>> GetActivationPlan(string unit)
+        {
+            var transaction = UnitRegistry.CreateActivationTransaction(unit);
+            return transaction.Reasoning.ToDictionary(t => t.Key.UnitName, t => t.Value);
+        }
+
+        public Dictionary<string, List<string>> GetDeactivationPlan(string unit)
+        {
+            var transaction = UnitRegistry.CreateDeactivationTransaction(unit);
+            return transaction.Reasoning.ToDictionary(t => t.Key.UnitName, t => t.Value);
+        }
+
         public bool ReloadUnit(string name)
         {
             var transaction = UnitRegistry.GetUnit(name).GetReloadTransaction();

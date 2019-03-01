@@ -11,7 +11,9 @@ namespace SharpInit.Units
         public string UnitPath { get; set; }
         public string UnitName { get; set; }
 
-        // None of these properties are implemented correctly so far, but you gotta walk before you run
+        // Most of these properties are either half-complete or completely unsupported so far, but you gotta walk before you run
+
+        public Dictionary<string, List<string>> Properties { get; set; }
 
         #region Base properties
         [UnitProperty("Unit/Description")]

@@ -19,7 +19,8 @@ namespace SharpInitControl
             {"reload", ReloadUnits },
             {"list", ListUnits },
             {"daemon-reload", RescanUnits },
-            {"status", GetUnitStatus }
+            {"status", GetUnitStatus },
+            {"describe-deps", DescribeDependencies }
         };
 
         static IpcConnection Connection { get; set; }
@@ -47,13 +48,33 @@ namespace SharpInitControl
             Environment.Exit(0);
         }
 
+        static void DescribeDependencies(string verb, string[] args)
+        {
+            var indent_level = args.Length == 1 ? 0 : 2;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                var unit = args[i];
+                var activation_plan = Context.GetActivationPlan(unit);
+                var deactivation_plan = Context.GetDeactivationPlan(unit);
+
+                Console.WriteLine($"Activation plan for {unit}:");
+                activation_plan.SelectMany(t => t.Value).ToList().ForEach(Console.WriteLine);
+
+                Console.WriteLine();
+
+                Console.WriteLine($"Dectivation plan for {unit}:");
+                deactivation_plan.SelectMany(t => t.Value).ToList().ForEach(Console.WriteLine);
+            }
+        }
+
         static void RescanUnits(string verb, string[] args)
         {
             Console.Write("Rescanning unit directories...");
 
             var loaded_units = Context.RescanUnits();
 
-            if (loaded_units > 0)
+            if (loaded_units >= 0)
                 Console.WriteLine("loaded {0} units in total", loaded_units);
             else
                 Console.WriteLine("error");
@@ -71,6 +92,7 @@ namespace SharpInitControl
             }
 
             Console.OutputEncoding = Encoding.UTF8;
+            var default_color = Console.ForegroundColor;
             var status_color = ConsoleColor.Gray;
 
             switch (status.State)
@@ -82,7 +104,7 @@ namespace SharpInitControl
                     break;
                 case UnitState.Deactivating:
                 case UnitState.Inactive:
-                    status_color = ConsoleColor.Gray;
+                    status_color = default_color;
                     break;
                 case UnitState.Failed:
                     status_color = ConsoleColor.Red;
@@ -91,7 +113,7 @@ namespace SharpInitControl
 
             Console.ForegroundColor = status_color;
             Console.Write("•");
-            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.ForegroundColor = default_color;
 
             Console.WriteLine($" {status.Name}{(!string.IsNullOrWhiteSpace(status.Description) ? " - " + status.Description : "")}");
             Console.WriteLine($"Loaded from: {status.Path} at {status.LoadTime.ToLocalTime()}");
@@ -99,7 +121,7 @@ namespace SharpInitControl
 
             Console.ForegroundColor = status_color;
             Console.Write(status.State.ToString().ToLower());
-            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.ForegroundColor = default_color;
 
             Console.Write($" (last activated {(status.ActivationTime == DateTime.MinValue ? "never" : status.ActivationTime.ToLocalTime().ToString())})");
             Console.WriteLine();
