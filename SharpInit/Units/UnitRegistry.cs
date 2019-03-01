@@ -374,6 +374,12 @@ namespace SharpInit.Units
                 {
                     var ret = new[] { dep.LeftUnit, dep.RightUnit };
 
+                    if(dep.RequirementType == RequirementDependencyType.PartOf) // PartOf is a one way dependency
+                    {
+                        if (unit.UnitName != dep.RightUnit) // only when stopping the "right hand" side of a PartOf dependency should the action be propagated
+                            return new string[0];
+                    }
+
                     foreach (var unit_name in ret)
                     {
                         var u = GetUnit(unit_name);
