@@ -88,18 +88,23 @@ namespace SharpInit.Units
 
                     continue;
                 }
-
-                // handle .exec unit paths
-                // The execution specific configuration options are configured in the [Service], [Socket], [Mount], or [Swap] sections, depending on the unit type.
-                if(path.StartsWith("@"))
-                {
-                    path = ext + path.Substring(1);
-                }
-
+                
                 var prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(typeof(T), path);
 
-                if (prop == null) // unknown property
-                    continue;     // for now
+                if (prop == null)
+                {
+                    // handle .exec unit paths
+                    // The execution specific configuration options are configured in the [Service], [Socket], [Mount], or [Swap] sections, depending on the unit type.
+                    if (path.StartsWith(ext + "/", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        path = "@" + path.Substring(ext.Length);
+                    }
+
+                    prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(typeof(T), path);
+
+                    if(prop == null)
+                        continue;
+                }
 
                 var attribute = (UnitPropertyAttribute)prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false)[0];
                 var handler_type = attribute.PropertyType;
