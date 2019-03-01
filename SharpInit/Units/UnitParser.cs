@@ -32,6 +32,31 @@ namespace SharpInit.Units
             var properties = ParseProperties(file);
             var properties_touched = new List<UnitPropertyAttribute>();
 
+            unit.Properties = properties.ToDictionary(t => t.Key, t => t.Value); // make a copy of the list of properties and store
+                                                                                 // it in the UnitFile before we go ahead and spoil
+                                                                                 // the props by adding our ephemeral values
+
+            // detect .wants, .requires
+            var directory_maps = new Dictionary<string, string>()
+            {
+                {".wants", "Unit/Wants" },
+                {".requires", "Unit/Requires" },
+            };
+
+            foreach(var pair in directory_maps)
+            {
+                if(Directory.Exists(file + pair.Key))
+                {
+                    var prop_name = pair.Value;
+
+                    if (!properties.ContainsKey(prop_name))
+                        properties[prop_name] = new List<string>();
+
+                    // add the units we found in the relevant dir
+                    properties[prop_name].AddRange(Directory.GetFiles(file + pair.Key).Where(filename => UnitRegistry.UnitTypes.Any(type => filename.EndsWith(type.Key))).Select(Path.GetFileName));
+                }
+            }
+
             foreach (var property in properties)
             {
                 var path = property.Key;
