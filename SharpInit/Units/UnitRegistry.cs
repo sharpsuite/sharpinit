@@ -112,6 +112,7 @@ namespace SharpInit.Units
         {
             UnitTypes[".unit"] = typeof(Unit);
             UnitTypes[".service"] = typeof(ServiceUnit);
+            UnitTypes[".target"] = typeof(TargetUnit);
         }
 
         public static Transaction CreateActivationTransaction(string name)
