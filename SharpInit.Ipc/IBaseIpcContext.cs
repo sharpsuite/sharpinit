@@ -34,5 +34,11 @@ namespace SharpInit.Ipc
 
         [IpcFunction("get-unit-info")]
         UnitInfo GetUnitInfo(string unit);
+
+        [IpcFunction("get-activation-plan")]
+        Dictionary<string, List<string>> GetActivationPlan(string unit);
+
+        [IpcFunction("get-deactivation-plan")]
+        Dictionary<string, List<string>> GetDeactivationPlan(string unit);
     }
 }

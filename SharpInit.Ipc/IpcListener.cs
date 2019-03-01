@@ -112,6 +112,7 @@ namespace SharpInit.Ipc
                 catch (TargetInvocationException ex)
                 {
                     Log.Warn($"IPC function {ipc_function} threw an exception: {ex.InnerException.Message}");
+                    Log.Warn(ex.InnerException);
 
                     var ipc_response = new IpcResult(false, ex.InnerException.Message);
                     tunnel.Send(new IpcMessage(ipc_message, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(ipc_response, SerializerSettings))).Serialize());
