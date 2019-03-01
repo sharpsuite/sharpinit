@@ -26,6 +26,8 @@ namespace SharpInit.Units
             "/usr/local/sharpinit/units"
         };
 
+        public static List<string> ScanDirectories = new List<string>();
+
         public static void AddUnit(Unit unit)
         {
             if (unit == null)
@@ -54,13 +56,16 @@ namespace SharpInit.Units
             OrderingDependencies.Dependencies.Clear();
             RequirementDependencies.Dependencies.Clear();
 
+            var env_units_parts = Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH").Split(':', StringSplitOptions.RemoveEmptyEntries);
+            ScanDirectories.AddRange(env_units_parts.Where(Directory.Exists));
+
             foreach (var unit in Units)
             {
                 unit.Value.ReloadUnitFile();
                 unit.Value.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             }
 
-            foreach (var dir in DefaultScanDirectories)
+            foreach (var dir in ScanDirectories)
             {
                 if (!Directory.Exists(dir))
                     continue;
