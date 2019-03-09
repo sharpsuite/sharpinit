@@ -109,7 +109,7 @@ namespace SharpInit.Ipc
                 else
                     return null;
             }
-            catch (SocketException ex) // this socket is probably closed now
+            catch (SocketException) // this socket is probably closed now
             {
                 Close();
                 return null; // unblock anything waiting on Receive()
