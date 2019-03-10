@@ -192,9 +192,6 @@ namespace SharpInit.Units
                 transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
             }
 
-                transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
-            }
-
             // determine whether the failure of each unit activation makes the entire transaction fail
             string current_unit = unit.UnitName;
             var list = new List<RequirementDependency>();
