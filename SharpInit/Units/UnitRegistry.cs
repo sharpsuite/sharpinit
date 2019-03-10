@@ -109,7 +109,32 @@ namespace SharpInit.Units
             return count;
         }
 
-        public static Unit GetUnit(string name) => Units.ContainsKey(name) ? Units[name] : null;
+        public static Unit GetUnit(string name)
+        {
+            if (Units.ContainsKey(name))
+            {
+                return Units[name];
+            }
+
+            var name_without_suffix = string.Join(".", name.Split('.').SkipLast(1));
+            var suffix = "." + name.Split('.').Last();
+
+            if (!name_without_suffix.Contains("@"))
+                return null;
+
+            var nonparametrized_name = name_without_suffix.Split('@')[0];
+            var parameter = name_without_suffix.Split('@')[1];
+
+            if(Units.ContainsKey(nonparametrized_name))
+            {
+                // TODO: Customize the UnitFile passed to the Unit constructor here
+                var clone_unit = (Unit)Activator.CreateInstance(UnitTypes[suffix], Units[nonparametrized_name].File);
+                Units[name] = clone_unit;
+                return clone_unit;
+            }
+
+            return null;
+        }
 
         public static Unit CreateUnit(string path)
         {

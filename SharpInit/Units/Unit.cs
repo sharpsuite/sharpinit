@@ -31,6 +31,11 @@ namespace SharpInit.Units
         private DependencyGraph<RequirementDependency> RequirementDependencyGraph { get; set; }
         private DependencyGraph<OrderingDependency> OrderingDependencyGraph { get; set; }
         
+        protected Unit(UnitFile file)
+        {
+            
+        }
+
         protected Unit(string path)
         {
             LoadUnitFile(path);
@@ -44,7 +49,8 @@ namespace SharpInit.Units
 
         public abstract UnitFile GetUnitFile();
         public abstract void LoadUnitFile(string path);
-        
+        public abstract void LoadUnitFile(UnitFile file);
+
         internal void SetState(UnitState next_state)
         {
             UnitStateChange?.Invoke(this, next_state); // block while state changes are handled

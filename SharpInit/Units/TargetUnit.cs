@@ -24,6 +24,12 @@ namespace SharpInit.Units
             LoadTime = DateTime.UtcNow;
         }
 
+        public override void LoadUnitFile(UnitFile file)
+        {
+            File = file;
+            LoadTime = DateTime.UtcNow;
+        }
+
         internal override Transaction GetActivationTransaction()
         {
             var transaction = new Transaction();
