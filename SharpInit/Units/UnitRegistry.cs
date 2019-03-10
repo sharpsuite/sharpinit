@@ -230,7 +230,7 @@ namespace SharpInit.Units
             var new_order = new List<Unit>();
             var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit));
             var initial_nodes_filtered = initial_nodes.Where(dependency => unit_list.Any(u => dependency.LeftUnit == u.UnitName || dependency.RightUnit == u.UnitName));
-            var selected_nodes = initial_nodes_filtered.Select(t => t.LeftUnit).ToList(); // find the "first" nodes
+            var selected_nodes = initial_nodes_filtered.Select(t => t.LeftUnit).Distinct().ToList(); // find the "first" nodes
 
             if (!initial_nodes_filtered.Any() && !initial_nodes.Any() && order_graph.Any())
             {
