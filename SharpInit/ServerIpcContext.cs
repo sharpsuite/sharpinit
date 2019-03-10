@@ -1,5 +1,6 @@
 ﻿using NLog;
 using SharpInit.Ipc;
+using SharpInit.Tasks;
 using SharpInit.Units;
 using System;
 using System.Collections.Generic;
@@ -21,14 +22,38 @@ namespace SharpInit
         {
             var transaction = UnitRegistry.CreateActivationTransaction(name);
             var result = transaction.Execute();
-            return result.Type == Tasks.ResultType.Success;
+
+            if (result.Type != ResultType.Success)
+            {
+                Log.Info($"Activation transaction failed. Result type: {result.Type}, message: {result.Message}");
+                Log.Info("Transaction failed at highlighted task: ");
+
+                var tree = transaction.GenerateTree(0, result.Task);
+
+                foreach (var line in tree.Split('\n'))
+                    Log.Info(line);
+            }
+
+            return result.Type == ResultType.Success;
         }
 
         public bool DeactivateUnit(string name)
         {
             var transaction = UnitRegistry.CreateDeactivationTransaction(name);
             var result = transaction.Execute();
-            return result.Type == Tasks.ResultType.Success;
+
+            if (result.Type != ResultType.Success)
+            {
+                Log.Info($"Deactivation transaction failed. Result type: {result.Type}, message: {result.Message}");
+                Log.Info("Transaction failed at highlighted task: ");
+
+                var tree = transaction.GenerateTree(0, result.Task);
+
+                foreach (var line in tree.Split('\n'))
+                    Log.Info(line);
+            }
+
+            return result.Type == ResultType.Success;
         }
 
         public Dictionary<string, List<string>> GetActivationPlan(string unit)

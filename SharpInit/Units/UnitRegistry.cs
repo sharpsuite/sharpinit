@@ -19,6 +19,8 @@ namespace SharpInit.Units
 
         public static ServiceManager ServiceManager = new ServiceManager();
 
+        public static object GlobalTransactionLock = new object();
+
         public static List<string> DefaultScanDirectories = new List<string>()
         {
             "./units",
@@ -160,7 +162,7 @@ namespace SharpInit.Units
 
         public static UnitStateChangeTransaction CreateActivationTransaction(Unit unit)
         {
-            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Activate {unit.UnitName}" };
+            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Activate {unit.UnitName}", Lock = GlobalTransactionLock };
             var unit_list = new List<Unit>() { unit };
 
             var ignore_conflict_deactivation_failure = new Dictionary<string, bool>();
@@ -186,6 +188,9 @@ namespace SharpInit.Units
                 {
                     transaction.Reasoning[target_unit] = new List<string>();
                 }
+
+                transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
+            }
 
                 transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
             }
@@ -390,7 +395,7 @@ namespace SharpInit.Units
 
         public static UnitStateChangeTransaction CreateDeactivationTransaction(Unit unit)
         {
-            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Deactivate {unit.UnitName}" };
+            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Deactivate {unit.UnitName}", Lock = GlobalTransactionLock };
 
             var units_to_deactivate = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, 
                 t => t.RequirementType == RequirementDependencyType.BindsTo || 

@@ -129,6 +129,9 @@ namespace SharpInit.Units
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
+
+            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
+
             return transaction;
         }
 
@@ -139,6 +142,8 @@ namespace SharpInit.Units
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new StopUnitProcessesTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
+
+            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Inactive);
 
             return transaction;
         }
