@@ -50,8 +50,6 @@ namespace SharpInitControl
 
         static void DescribeDependencies(string verb, string[] args)
         {
-            var indent_level = args.Length == 1 ? 0 : 2;
-
             for (int i = 0; i < args.Length; i++)
             {
                 var unit = args[i];
