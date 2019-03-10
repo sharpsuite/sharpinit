@@ -432,7 +432,7 @@ namespace SharpInit.Units
             var order_graph = OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => units_to_deactivate.Any(u => u.UnitName == t.LeftUnit || u.UnitName == t.RightUnit), true).ToList();
 
             var new_order = new List<Unit>();
-            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit)).Select(t => t.LeftUnit).ToList(); // find the "first" nodes
+            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit)).Select(t => t.LeftUnit).Distinct().ToList(); // find the "first" nodes
 
             if (!initial_nodes.Any() && order_graph.Any())
             {
