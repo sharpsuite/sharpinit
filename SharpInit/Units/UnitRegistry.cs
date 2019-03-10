@@ -167,6 +167,9 @@ namespace SharpInit.Units
                 transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
             }
 
+                transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
+            }
+
             // determine whether the failure of each unit activation makes the entire transaction fail
             string current_unit = unit.UnitName;
             var list = new List<RequirementDependency>();
@@ -239,7 +242,7 @@ namespace SharpInit.Units
                     other_edges.ForEach(edge => order_graph.Remove(edge));
                     var edges_to_add = other_edges.Where(edge => { var m = edge.RightUnit; return !order_graph.Any(e => e.RightUnit == m && !processed_vertices.Contains(e.LeftUnit)); }).Select(t => t.RightUnit);
 
-                    initial_nodes.AddRange(edges_to_add);
+                    selected_nodes.AddRange(edges_to_add);
                 }
 
                 new_order.Reverse();
@@ -434,7 +437,7 @@ namespace SharpInit.Units
 
                     initial_nodes.AddRange(edges_to_add);
                 }
-                
+
                 // prune the new order down to only units we've decided to deactivate, then append the unordered units not included in the new order
                 new_order = new_order.Where(units_to_deactivate.Contains).Concat(units_to_deactivate.Where(u => !new_order.Contains(u)).ToList()).ToList();
 

@@ -73,6 +73,18 @@ namespace SharpInit.Ipc
             return result.Success ? (UnitInfo)result.AdditionalData : null;
         }
 
+        public Dictionary<string, List<string>> GetActivationPlan(string unit)
+        {
+            var result = InvokeIpcFunction("get-activation-plan", unit);
+            return result.Success ? (Dictionary<string, List<string>>)result.AdditionalData : null;
+        }
+
+        public Dictionary<string, List<string>> GetDeactivationPlan(string unit)
+        {
+            var result = InvokeIpcFunction("get-deactivation-plan", unit);
+            return result.Success ? (Dictionary<string, List<string>>)result.AdditionalData : null;
+        }
+
         public IpcResult InvokeIpcFunction(string name, params object[] args)
         {
             var ipc_message = new IpcMessage(SourceName, "sharpinit", name, 

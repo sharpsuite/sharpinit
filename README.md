@@ -10,7 +10,8 @@ sharpinit is not ready for production use!
     - [x] Unit file parser
     - [ ] Parametrized initialization
     - [x] Dependency builder
-    - [ ] Support for various dependency shorthands (.wants, .d directories)
+    - [x] Support for various dependency shorthands (.wants, .requires)
+    - [ ] Support for patching together unit files (.d, vendor control)
   - [ ] Process manager
     - [x] Start, stop and manage processes by targets, slices and services
     - [ ] Handle cgroups and namespace isolation for processes

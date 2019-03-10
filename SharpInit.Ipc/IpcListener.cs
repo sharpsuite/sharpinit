@@ -42,6 +42,13 @@ namespace SharpInit.Ipc
             Socket.Bind(SocketEndPoint);
             Socket.Listen(10);
 
+            if(SocketEndPoint.AddressFamily == AddressFamily.Unix && (Environment.GetEnvironmentVariable("SHARPINIT_IPC_FILE_WORLD_ACCESS") ?? "false") == "true") // set socket file to be readable by anyone
+            {
+                var unix_endpoint = SocketEndPoint as UnixEndPoint;
+                var fileinfo = new UnixFileInfo(unix_endpoint.Filename);
+                fileinfo.FileAccessPermissions = FileAccessPermissions.AllPermissions;
+            }
+
             Running = true;
             ListenerThread = new Thread(ListenerLoop);
             ListenerThread.Start();
@@ -112,6 +119,7 @@ namespace SharpInit.Ipc
                 catch (TargetInvocationException ex)
                 {
                     Log.Warn($"IPC function {ipc_function} threw an exception: {ex.InnerException.Message}");
+                    Log.Warn(ex.InnerException);
 
                     ipc_response = new IpcResult(false, ex.InnerException.Message);
                 }
