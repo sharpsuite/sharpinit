@@ -10,7 +10,10 @@ namespace SharpInit.Tasks
         public override string Type => "transaction";
         public string Name { get; set; }
         public List<Task> Tasks = new List<Task>();
+        public Task OnFailure { get; set; }
         public TransactionErrorHandlingMode ErrorHandlingMode { get; set; }
+
+        public object Lock { get; set; }
 
         public Transaction()
         {
@@ -39,24 +42,61 @@ namespace SharpInit.Tasks
 
         public override TaskResult Execute()
         {
-            foreach (var task in Tasks)
-            {
-                var result = task.Execute();
+            var lock_obj = Lock ?? new object();
 
-                if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore &&
-                    result.Type != ResultType.Success &&
-                    !result.Type.HasFlag(ResultType.Ignorable))
+            lock (lock_obj)
+            {
+                foreach (var task in Tasks)
                 {
-                    // fatal failure
-                    return result;
-                }
-                else if (result.Type == ResultType.StopExecution)
-                {
-                    break;
+                    var result = task.Execute();
+
+                    if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore &&
+                        result.Type != ResultType.Success &&
+                        !result.Type.HasFlag(ResultType.Ignorable))
+                    {
+                        if (OnFailure != null)
+                            OnFailure.Execute();
+
+                        // fatal failure
+                        return result;
+                    }
+                    else if (result.Type == ResultType.StopExecution)
+                    {
+                        break;
+                    }
                 }
             }
 
             return new TaskResult(this, ResultType.Success);
+        }
+
+        public string GenerateTree(int indent = 0, Task highlighted = null)
+        {
+            var sb = new StringBuilder();
+
+            var indent_str = new string(' ', indent);
+            sb.AppendLine($"{indent_str}+ {(string.IsNullOrWhiteSpace(Name) ? "(unnamed transaction)" : Name)}");
+
+            indent += 2;
+            indent_str = new string(' ', indent);
+
+            foreach (var task in Tasks)
+            {
+                if (task is Transaction)
+                {
+                    sb.Append((task as Transaction).GenerateTree(indent, highlighted));
+                }
+                else if (task == highlighted)
+                {
+                    sb.AppendLine($"{indent_str}{task.Type} <----- highlighted task");
+                }
+                else
+                {
+                    sb.AppendLine($"{indent_str}{task.Type}");
+                }
+            }
+
+            return sb.ToString();
         }
 
         public override string ToString()
