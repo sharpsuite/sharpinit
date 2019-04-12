@@ -356,7 +356,7 @@ namespace SharpInit.Units
 
                 var wrapper = new Transaction();
 
-                wrapper.Add(new CheckUnitActiveTask(sub_unit.UnitName, true));
+                wrapper.Add(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName, true));
                 wrapper.Add(deactivation_transaction);
 
                 wrapper.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
@@ -370,7 +370,7 @@ namespace SharpInit.Units
                 var activation_transaction = sub_unit.GetActivationTransaction();
 
                 if (fail_if_unstarted.ContainsKey(sub_unit.UnitName) && fail_if_unstarted[sub_unit.UnitName])
-                    activation_transaction = new Transaction(new CheckUnitActiveTask(sub_unit.UnitName));
+                    activation_transaction = new Transaction(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName));
 
                 if (ignore_failure.ContainsKey(sub_unit.UnitName) && !ignore_failure[sub_unit.UnitName])
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
