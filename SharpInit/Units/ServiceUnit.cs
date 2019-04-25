@@ -87,7 +87,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetActivationTransaction()
         {
-            var transaction = new Transaction();
+            var transaction = new Transaction($"Activation transaction for unit {UnitName}");
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
             switch (File.ServiceType)
@@ -137,7 +137,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetDeactivationTransaction()
         {
-            var transaction = new Transaction();
+            var transaction = new Transaction($"Deactivation transaction for unit {UnitName}");
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new StopUnitProcessesTask(this));

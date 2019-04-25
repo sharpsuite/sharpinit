@@ -377,8 +377,6 @@ namespace SharpInit.Units
                 else
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
 
-                activation_transaction.Name = $"Activate {sub_unit.UnitName}";
-
                 transaction.Tasks.Add(activation_transaction);
             }
 

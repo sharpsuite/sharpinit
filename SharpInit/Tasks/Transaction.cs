@@ -30,6 +30,23 @@ namespace SharpInit.Tasks
             Add(tasks);
         }
 
+        public Transaction(string name)
+        {
+            Name = name;
+        }
+
+        public Transaction(string name, params Task[] tasks)
+        {
+            Name = name;
+            Add(tasks);
+        }
+
+        public Transaction(string name, params IEnumerable<Task>[] tasks)
+        {
+            Name = name;
+            Add(tasks);
+        }
+
         public void Add(Task task)
         {
             Tasks.Add(task);
