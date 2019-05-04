@@ -87,7 +87,7 @@ namespace SharpInit.Tasks
             return new TaskResult(this, ResultType.Success);
         }
 
-        public string GenerateTree(int indent = 0, Task highlighted = null)
+        public string GenerateTree(int indent = 0, Task highlighted = null, string highlight_text = "highlighted task")
         {
             var sb = new StringBuilder();
 
@@ -101,11 +101,11 @@ namespace SharpInit.Tasks
             {
                 if (task is Transaction)
                 {
-                    sb.Append((task as Transaction).GenerateTree(indent, highlighted));
+                    sb.Append((task as Transaction).GenerateTree(indent, highlighted, highlight_text));
                 }
                 else if (task == highlighted)
                 {
-                    sb.AppendLine($"{indent_str}{task.Type} <----- highlighted task");
+                    sb.AppendLine($"{indent_str}{task.Type} <----- {highlight_text}");
                 }
                 else
                 {
