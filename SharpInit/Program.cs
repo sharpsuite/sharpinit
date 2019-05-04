@@ -4,6 +4,10 @@ using System.Threading;
 using SharpInit.Ipc;
 using NLog;
 
+using Mono.Unix;
+using Mono.Unix.Native;
+using SharpInit.Platform;
+
 namespace SharpInit
 {
     class Program
@@ -14,9 +18,12 @@ namespace SharpInit
         {
             Log.Info("SharpInit starting");
 
+            PlatformUtilities.RegisterImplementations();
+            PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
+
             UnitRegistry.InitializeTypes();
             UnitRegistry.ScanDefaultDirectories();
-
+            
             Log.Info($"Loaded {UnitRegistry.Units.Count} units");
 
             UnitRegistry.UnitStateChange += StateChangeHandler;

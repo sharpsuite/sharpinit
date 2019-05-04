@@ -1,20 +1,22 @@
-﻿using SharpInit.Units;
+﻿using SharpInit.Platform;
+using SharpInit.Units;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
 namespace SharpInit
 {
-    public delegate void OnProcessExit(Unit unit, ProcessInfo info, int code);
-    public delegate void OnProcessStart(Unit unit, ProcessInfo info);
+    public delegate void OnServiceProcessExit(Unit unit, ProcessInfo info, int code);
+    public delegate void OnServiceProcessStart(Unit unit, ProcessInfo info);
 
     public class ServiceManager
     {
         public List<ProcessInfo> ManagedProcesses = new List<ProcessInfo>();
         public Dictionary<int, ProcessInfo> ProcessesById = new Dictionary<int, ProcessInfo>();
         public Dictionary<Unit, List<ProcessInfo>> ProcessesByUnit = new Dictionary<Unit, List<ProcessInfo>>();
+
+        public IProcessHandler ProcessHandler;
         
         public ServiceManager()
         {

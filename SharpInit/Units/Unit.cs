@@ -21,8 +21,8 @@ namespace SharpInit.Units
         public ServiceManager ServiceManager { get; set; }
 
         public event OnUnitStateChange UnitStateChange;
-        public event OnProcessStart ProcessStart;
-        public event OnProcessExit ProcessExit;
+        public event OnServiceProcessStart ProcessStart;
+        public event OnServiceProcessExit ProcessExit;
 
         public DateTime LastStateChangeTime { get; set; }
         public DateTime ActivationTime { get; set; }
