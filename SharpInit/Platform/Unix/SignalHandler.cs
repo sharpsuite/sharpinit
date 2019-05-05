@@ -19,6 +19,7 @@ namespace SharpInit.Platform.Unix
             // SIGUSR2 is used to make the .WaitAny call return early when SignalHandlers has been changed
             AddSignalHandler(new UnixSignal(Signum.SIGUSR2), delegate { });
             AddSignalHandler(new UnixSignal(Signum.SIGCHLD), ReapChildren);
+            AddSignalHandler(new UnixSignal(Signum.SIGALRM), ReapChildren);
             new Thread((ThreadStart)HandlerLoop).Start();
         }
 
@@ -29,6 +30,8 @@ namespace SharpInit.Platform.Unix
             {
                 ProcessExit?.Invoke(pid, status);
             }
+
+            Syscall.alarm(60); // thanks sinit, this is neat
         }
 
         static void HandlerLoop()
