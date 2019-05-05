@@ -21,10 +21,10 @@ namespace SharpInit.Platform.Unix
 
         public ProcessInfo Start(ProcessStartInfo psi)
         {
-            if (!(psi.User is UnixUserIdentifier))
+            if (!(psi.User is UnixUserIdentifier) && psi.User != null)
                 throw new InvalidOperationException();
 
-            var user_identifier = (UnixUserIdentifier)psi.User;
+            var user_identifier = (UnixUserIdentifier)(psi.User ?? new UnixUserIdentifier((int)Syscall.getuid(), (int)Syscall.getgid()));
             var arguments = new string[] {Path.GetFileName(psi.Path)}.Concat(psi.Arguments).Concat(new string[] { null }).ToArray();
 
 #pragma warning disable CS0618 // Type or member is obsolete
