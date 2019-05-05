@@ -19,8 +19,10 @@ namespace SharpInit.Platform
 
         }
 
-        public ProcessInfo StartProcess(string path, string[] arguments, string working_dir, IUserIdentifier user)
+        public ProcessInfo Start(ProcessStartInfo psi)
         {
+            var path = psi.Path;
+
             if (File.Exists(path))
                 path = Path.GetFullPath(path);
             else
@@ -38,21 +40,21 @@ namespace SharpInit.Platform
                 }
             }
 
-            var psi = new ProcessStartInfo(path, string.Join(" ", arguments));
+            var net_psi = new System.Diagnostics.ProcessStartInfo(path, string.Join(" ", psi.Arguments));
 
-            if (Directory.Exists(working_dir))
-                psi.WorkingDirectory = working_dir;
-            
-            psi.UserName = user.Username;
-            psi.Domain = user.Group;
+            if (Directory.Exists(psi.WorkingDirectory))
+                net_psi.WorkingDirectory = psi.WorkingDirectory;
 
-            psi.RedirectStandardOutput = true;
-            psi.RedirectStandardError = true;
-            psi.RedirectStandardInput = true;
+            net_psi.UserName = psi.User.Username;
+            net_psi.Domain = psi.User.Group;
 
-            psi.UseShellExecute = false;
+            net_psi.RedirectStandardOutput = true;
+            net_psi.RedirectStandardError = true;
+            net_psi.RedirectStandardInput = true;
 
-            var process = Process.Start(psi);
+            net_psi.UseShellExecute = false;
+
+            var process = Process.Start(net_psi);
             process.Exited += HandleProcessExit;
             process.EnableRaisingEvents = true;
 

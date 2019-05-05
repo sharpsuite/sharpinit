@@ -6,6 +6,6 @@ namespace SharpInit.Platform
     public interface IProcessHandler
     {
         event OnProcessExit ProcessExit;
-        ProcessInfo StartProcess(string path, string[] arguments, string working_dir, IUserIdentifier user);
+        ProcessInfo Start(ProcessStartInfo psi);
     }
 }

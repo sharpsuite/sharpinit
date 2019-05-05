@@ -1,7 +1,7 @@
-﻿using SharpInit.Units;
+﻿using SharpInit.Platform;
+using SharpInit.Units;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 
 namespace SharpInit.Tasks
@@ -25,8 +25,7 @@ namespace SharpInit.Tasks
 
             try
             {
-                var process = Process.Start(ProcessStartInfo);
-                Unit.ServiceManager.RegisterProcess(Unit, process);
+                Unit.ServiceManager.StartProcess(Unit, ProcessStartInfo);
                 return new TaskResult(this, ResultType.Success);
             }
             catch (Exception ex)

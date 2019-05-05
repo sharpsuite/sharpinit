@@ -1,6 +1,6 @@
-﻿using System;
+﻿using SharpInit.Platform;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 
 namespace SharpInit.Tasks
@@ -9,10 +9,12 @@ namespace SharpInit.Tasks
     {
         public override string Type => "run-unregistered-process";
         public ProcessStartInfo ProcessStartInfo { get; set; }
+        public IProcessHandler ProcessHandler { get; set; }
         public int ExecutionTime = -1;
 
-        public RunUnregisteredProcessTask(ProcessStartInfo psi, int time = -1)
+        public RunUnregisteredProcessTask(IProcessHandler process_handler, ProcessStartInfo psi, int time = -1)
         {
+            ProcessHandler = process_handler;
             ProcessStartInfo = psi;
             ExecutionTime = time;
         }
@@ -24,15 +26,15 @@ namespace SharpInit.Tasks
 
             try
             {
-                var process = Process.Start(ProcessStartInfo);
+                var process = ProcessHandler.Start(ProcessStartInfo);
 
                 if (ExecutionTime == -1)
                     return new TaskResult(this, ResultType.Success);
                 else
                 {
-                    if (!process.WaitForExit(ExecutionTime))
+                    if (!process.Process.WaitForExit(ExecutionTime))
                     {
-                        process.Kill();
+                        process.Process.Kill();
                         return new TaskResult(this, ResultType.Timeout, "The process did not exit in the given amount of time.");
                     }
                     else

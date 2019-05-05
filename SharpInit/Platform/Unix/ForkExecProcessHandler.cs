@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 using System.Linq;
 
 using Mono.Unix.Native;
+using System.IO;
 
 namespace SharpInit.Platform.Unix
 {
@@ -19,13 +19,13 @@ namespace SharpInit.Platform.Unix
             SignalHandler.ProcessExit += HandleProcessExit;
         }
 
-        public ProcessInfo StartProcess(string filename, string[] arguments, string working_dir, IUserIdentifier user)
+        public ProcessInfo Start(ProcessStartInfo psi)
         {
-            if (!(user is UnixUserIdentifier))
+            if (!(psi.User is UnixUserIdentifier))
                 throw new InvalidOperationException();
 
-            var user_identifier = (UnixUserIdentifier)user;
-            arguments = new string[] {filename}.Concat(arguments).Concat(new string[] { null }).ToArray();
+            var user_identifier = (UnixUserIdentifier)psi.User;
+            var arguments = new string[] {Path.GetFileName(psi.Path)}.Concat(psi.Arguments).Concat(new string[] { null }).ToArray();
 
 #pragma warning disable CS0618 // Type or member is obsolete
             int fork_ret = Mono.Posix.Syscall.fork();
@@ -48,10 +48,10 @@ namespace SharpInit.Platform.Unix
                     Syscall.exit(error);
                 }
 
-                if(working_dir != "")
-                    Syscall.chdir(working_dir);
+                if(psi.WorkingDirectory != "")
+                    Syscall.chdir(psi.WorkingDirectory);
 
-                if ((error = Syscall.execv(filename, arguments)) != 0)
+                if ((error = Syscall.execv(psi.Path, arguments)) != 0)
                 {
                     Console.WriteLine($"execv error: {Syscall.GetLastError()}");
                     Syscall.exit(error);
@@ -64,7 +64,7 @@ namespace SharpInit.Platform.Unix
             }
 
             Processes.Add(fork_ret);
-            return new ProcessInfo(Process.GetProcessById(fork_ret));
+            return new ProcessInfo(System.Diagnostics.Process.GetProcessById(fork_ret));
         }
 
         private void HandleProcessExit(int pid, int exit_code)

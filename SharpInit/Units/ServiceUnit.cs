@@ -1,8 +1,8 @@
 ﻿using NLog;
+using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -90,6 +90,9 @@ namespace SharpInit.Units
             var transaction = new Transaction($"Activation transaction for unit {UnitName}");
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
+            var working_dir = File.WorkingDirectory;
+            var user = PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User);
+
             switch (File.ServiceType)
             {
                 case ServiceType.Simple:
@@ -110,15 +113,15 @@ namespace SharpInit.Units
                     if (File.ExecStartPre.Any())
                     {
                         foreach (var line in File.ExecStartPre)
-                            transaction.Add(new RunUnregisteredProcessTask(PrepareProcessStartInfoFromCommandLine(line), 5000));
+                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, working_dir, user), 5000));
                     }
 
-                    transaction.Add(new RunRegisteredProcessTask(PrepareProcessStartInfoFromCommandLine(File.ExecStart.Single()), this));
+                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(File.ExecStart.Single(), working_dir, user), this));
 
                     if (File.ExecStartPost.Any())
                     {
                         foreach (var line in File.ExecStartPost)
-                            transaction.Add(new RunUnregisteredProcessTask(PrepareProcessStartInfoFromCommandLine(line), 5000));
+                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, working_dir, user), 5000));
                     }
                     break;
                 default:
@@ -153,6 +156,9 @@ namespace SharpInit.Units
             var transaction = new Transaction();
             transaction.Add(new SetUnitStateTask(this, UnitState.Reloading, UnitState.Active));
 
+            var working_dir = File.WorkingDirectory;
+            var user = PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User);
+
             if (!File.ExecReload.Any())
             {
                 throw new Exception($"Unit {UnitName} has no ExecReload directives.");
@@ -160,32 +166,12 @@ namespace SharpInit.Units
             
             foreach(var reload_cmd in File.ExecReload)
             {
-                transaction.Add(new RunUnregisteredProcessTask(PrepareProcessStartInfoFromCommandLine(reload_cmd), 5000));
+                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(reload_cmd, working_dir, user), 5000));
             }
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Reloading));
 
             return transaction;
-        }
-
-        private ProcessStartInfo PrepareProcessStartInfoFromCommandLine(string cmdline)
-        {
-            ProcessStartInfo psi = new ProcessStartInfo();
-            
-            // let's set some sane defaults
-            psi.UseShellExecute = false;
-            psi.CreateNoWindow = true;
-            psi.RedirectStandardInput = true;
-            psi.RedirectStandardOutput = true;
-            psi.RedirectStandardError = true;
-            psi.WorkingDirectory = File.WorkingDirectory;
-
-            var parts = UnitParser.SplitSpaceSeparatedValues(cmdline);
-
-            psi.FileName = parts[0];
-            psi.Arguments = string.Join(" ", parts.Skip(1));
-            
-            return psi;
         }
     }
 }   
