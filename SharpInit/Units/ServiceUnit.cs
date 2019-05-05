@@ -70,7 +70,7 @@ namespace SharpInit.Units
 
         private void HandleProcessStart(Unit unit, ProcessInfo info)
         {
-            SetState(UnitState.Active);
+            // do nothing for now
         }
 
         public override void LoadUnitFile(string path)
@@ -91,7 +91,7 @@ namespace SharpInit.Units
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
             var working_dir = File.WorkingDirectory;
-            var user = PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User);
+            var user = (File.Group == null && File.User == null ? null : PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User));
 
             switch (File.ServiceType)
             {
@@ -157,7 +157,7 @@ namespace SharpInit.Units
             transaction.Add(new SetUnitStateTask(this, UnitState.Reloading, UnitState.Active));
 
             var working_dir = File.WorkingDirectory;
-            var user = PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User);
+            var user = (File.Group == null && File.User == null ? null : PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User));
 
             if (!File.ExecReload.Any())
             {
