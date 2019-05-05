@@ -19,6 +19,9 @@ namespace SharpInit.Platform
 
             RegisterImplementation(typeof(ForkExecProcessHandler));
             RegisterImplementation(typeof(DefaultProcessHandler));
+
+            RegisterImplementation(typeof(GenericPlatformInitialization));
+            RegisterImplementation(typeof(UnixInitialization));
         }
 
         public static void RegisterImplementation(Type type)
