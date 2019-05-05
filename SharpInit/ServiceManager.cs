@@ -65,6 +65,7 @@ namespace SharpInit
                 ProcessesByUnit[unit] = new List<ProcessInfo>();
 
             ProcessesByUnit[unit].Add(proc);
+            proc.SourceUnit = unit;
         }
 
         public void RegisterProcess(Unit unit, System.Diagnostics.Process proc)
