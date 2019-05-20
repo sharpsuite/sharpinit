@@ -61,6 +61,10 @@ namespace SharpInit.Platform
             process.Exited += HandleProcessExit;
             process.EnableRaisingEvents = true;
 
+            process.StandardInput.Close();
+            process.StandardOutput.Close();
+            process.StandardError.Close();
+
             return new ProcessInfo(process);
         }
 

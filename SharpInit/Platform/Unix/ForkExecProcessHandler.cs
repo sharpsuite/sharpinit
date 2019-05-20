@@ -31,8 +31,19 @@ namespace SharpInit.Platform.Unix
             var user_identifier = (UnixUserIdentifier)(psi.User ?? new UnixUserIdentifier((int)Syscall.getuid(), (int)Syscall.getgid()));
             var arguments = new string[] {Path.GetFileName(psi.Path)}.Concat(psi.Arguments).Concat(new string[] { null }).ToArray();
 
-            Syscall.pipe(out int stdout_read, out int stdout_write); // used to communicate stdout back to parent
-            Syscall.pipe(out int stderr_read, out int stderr_write); // used to communicate stderr back to parent
+            // instead of these, we just open /dev/null for now
+            // this might change when we get better logging facilities
+            //Syscall.pipe(out int stdout_read, out int stdout_write); // used to communicate stdout back to parent
+            //Syscall.pipe(out int stderr_read, out int stderr_write); // used to communicate stderr back to parent
+            int stdin_read = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+            int stdin_write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+
+            int stdout_read = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+            int stdout_write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+
+            int stderr_read = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+            int stderr_write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+
             Syscall.pipe(out int control_read, out int control_write); // used to communicate errors during process creation back to parent
 
             var stdout_w_ptr = new IntPtr(stdout_write);

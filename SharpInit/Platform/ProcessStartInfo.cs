@@ -50,10 +50,14 @@ namespace SharpInit.Platform
 
         public ProcessStartInfo()
         {
-
+            // these are the only ones supported so far
+            StandardInputTarget = "null";
+            StandardOutputTarget = "null";
+            StandardErrorTarget = "null";
         }
 
-        public ProcessStartInfo(string path, string[] arguments = null, IUserIdentifier user = null, string[] environment = null, string working_dir = null)
+        public ProcessStartInfo(string path, string[] arguments = null, IUserIdentifier user = null, string[] environment = null, string working_dir = null) 
+            : this()
         {
             Path = path;
             Arguments = arguments;
