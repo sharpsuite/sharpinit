@@ -5,9 +5,16 @@ using System.Runtime.InteropServices;
 
 namespace SharpInit.Platform
 {
+    /// <summary>
+    /// Identifies a platform.
+    /// </summary>
     public class PlatformIdentifier
     {
         private static PlatformIdentifier _cache;
+
+        /// <summary>
+        /// The platform codes that identify a particular platform. This list is ordered from most specific to least specific.
+        /// </summary>
         public List<string> PlatformCodes { get; set; }
 
         internal PlatformIdentifier()
@@ -20,6 +27,10 @@ namespace SharpInit.Platform
             PlatformCodes = identifiers.ToList();
         }
 
+        /// <summary>
+        /// Identifies the current platform, and returns a PlatformIdentifier that describes the current platform.
+        /// </summary>
+        /// <returns>A PlatformIdentifier that represents the current platform.</returns>
         public static PlatformIdentifier GetPlatformIdentifier()
         {
             if (_cache != null)

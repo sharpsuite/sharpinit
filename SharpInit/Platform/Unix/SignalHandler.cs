@@ -9,11 +9,18 @@ using Mono.Unix.Native;
 namespace SharpInit.Platform.Unix
 {
     public delegate void OnUnixProcessExit(int pid, int exitcode);
+
+    /// <summary>
+    /// Handles Unix signals.
+    /// </summary>
     public static class SignalHandler
     {
         public static event OnUnixProcessExit ProcessExit; 
         static Dictionary<UnixSignal, List<Action>> SignalHandlers = new Dictionary<UnixSignal, List<Action>>();
 
+        /// <summary>
+        /// Adds signal handlers, starts the main handling loop.
+        /// </summary>
         public static void Initialize()
         {
             // SIGUSR2 is used to make the .WaitAny call return early when SignalHandlers has been changed
@@ -74,6 +81,11 @@ namespace SharpInit.Platform.Unix
                 throw new IndexOutOfRangeException();
         }
 
+        /// <summary>
+        /// Adds an Action to be called whenever SharpInit receives the Unix signal <paramref name="signal"/>.
+        /// </summary>
+        /// <param name="signal">The Unix signal to trigger on.</param>
+        /// <param name="handler">The handler to be called whenever we receive the signal.</param>
         public static void AddSignalHandler(UnixSignal signal, Action handler)
         {
             if (!SignalHandlers.ContainsKey(signal))
@@ -83,6 +95,12 @@ namespace SharpInit.Platform.Unix
             Stdlib.raise(Signum.SIGUSR2);
         }
 
+        /// <summary>
+        /// Removes a Unix signal handler.
+        /// </summary>
+        /// <param name="signal">The Unix signal that <paramref name="handler"/> has been registered under.</param>
+        /// <param name="handler">The particular signal handler to remove.</param>
+        /// <returns>true if successful.</returns>
         public static bool RemoveSignalHandler(UnixSignal signal, Action handler)
         {
             if (!SignalHandlers.ContainsKey(signal))
@@ -95,6 +113,10 @@ namespace SharpInit.Platform.Unix
             return true;
         }
 
+        /// <summary>
+        /// Clears all signal handlers for a particular signal.
+        /// </summary>
+        /// <param name="signal">The Unix signal to clear the handlers of.</param>
         public static void ClearSignalHandlers(UnixSignal signal)
         {
             if (SignalHandlers.ContainsKey(signal))

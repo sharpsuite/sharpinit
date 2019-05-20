@@ -5,6 +5,9 @@ using System.Text;
 
 namespace SharpInit.Platform.Unix
 {
+    /// <summary>
+    /// Represents a Unix user account.
+    /// </summary>
     [SupportedOn("unix")]
     public class UnixUserIdentifier : IUserIdentifier
     {

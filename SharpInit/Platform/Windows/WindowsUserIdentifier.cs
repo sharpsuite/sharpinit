@@ -4,6 +4,9 @@ using System.Text;
 
 namespace SharpInit.Platform.Windows
 {
+    /// <summary>
+    /// Represents a Windows user account.
+    /// </summary>
     [SupportedOn("windows")]
     public class WindowsUserIdentifier : IUserIdentifier
     {

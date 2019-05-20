@@ -9,6 +9,9 @@ using System.IO;
 
 namespace SharpInit.Platform.Unix
 {
+    /// <summary>
+    /// An IProcessHandler that uses the fork() and exec() syscalls.
+    /// </summary>
     [SupportedOn("unix")]
     public class ForkExecProcessHandler : IProcessHandler
     {

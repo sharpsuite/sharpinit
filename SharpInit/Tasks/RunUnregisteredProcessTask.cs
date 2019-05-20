@@ -5,6 +5,9 @@ using System.Text;
 
 namespace SharpInit.Tasks
 {
+    /// <summary>
+    /// Starts a process, optionally waits for it to exit before continuing execution.
+    /// </summary>
     public class RunUnregisteredProcessTask : Task
     {
         public override string Type => "run-unregistered-process";
@@ -12,6 +15,14 @@ namespace SharpInit.Tasks
         public IProcessHandler ProcessHandler { get; set; }
         public int ExecutionTime = -1;
 
+        /// <summary>
+        /// Starts a process, optionally waits for it to exit before continuing execution.
+        /// </summary>
+        /// <param name="process_handler">The IProcessHandler that will start the process.</param>
+        /// <param name="psi">The ProcessStartInfo that defines the parameters of the newly started process.</param>
+        /// <param name="time">If -1, continue execution immediately after starting process. 
+        /// Else, waits the process to exit for this many milliseconds. If the process does not exit in the given timeframe, 
+        /// the process is killed, and a ResultType of Timeout is returned.</param>
         public RunUnregisteredProcessTask(IProcessHandler process_handler, ProcessStartInfo psi, int time = -1)
         {
             ProcessHandler = process_handler;

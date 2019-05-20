@@ -1,5 +1,8 @@
 ﻿namespace SharpInit.Units
 {
+    /// <summary>
+    /// A requirement dependency.
+    /// </summary>
     public class RequirementDependency : Dependency
     {
         public override DependencyType Type => DependencyType.Requirement;

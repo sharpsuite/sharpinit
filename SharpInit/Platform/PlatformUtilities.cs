@@ -12,6 +12,9 @@ namespace SharpInit.Platform
         public static Dictionary<Type, List<Type>> TypesPerInterface = new Dictionary<Type, List<Type>>();
         public static Dictionary<Type, List<string>> PlatformsPerType = new Dictionary<Type, List<string>>();
 
+        /// <summary>
+        /// Registers the default set of implementations.
+        /// </summary>
         public static void RegisterImplementations()
         {
             RegisterImplementation(typeof(UnixUserIdentifier));
@@ -24,6 +27,10 @@ namespace SharpInit.Platform
             RegisterImplementation(typeof(UnixPlatformInitialization));
         }
 
+        /// <summary>
+        /// Registers a particular platform-specific implementation.
+        /// </summary>
+        /// <param name="type">The type of the implementation.</param>
         public static void RegisterImplementation(Type type)
         {
             var implemented_interfaces = type.GetInterfaces();
@@ -48,11 +55,24 @@ namespace SharpInit.Platform
             PlatformsPerType[type] = ((SupportedOnAttribute)attributes.Single()).Platforms;
         }
 
+        /// <summary>
+        /// Constructs an instance of the platform-specific class that implements T interface with the given parameters.
+        /// </summary>
+        /// <typeparam name="T">An interface that has multiple platform-specific implementations.</typeparam>
+        /// <param name="constructor_params">The set of parameters to be passed to the constructor.</param>
+        /// <returns>A new instance of a class that implements T and matches the current platform identifier.</returns>
         public static T GetImplementation<T>(params object[] constructor_params)
         {
             return GetImplementation<T>(PlatformIdentifier.GetPlatformIdentifier(), constructor_params);
         }
 
+        /// <summary>
+        /// Constructs an instance of the platform-specific class that implements T interface with the given parameters.
+        /// </summary>
+        /// <typeparam name="T">An interface that has multiple platform-specific implementations.</typeparam>
+        /// <param name="id">The platform identifier to use when looking for the implementation.</param>
+        /// <param name="constructor_params">The set of parameters to be passed to the constructor.</param>
+        /// <returns>A new instance of a class that implements T and matches the provided platform identifier.</returns>
         public static T GetImplementation<T>(PlatformIdentifier id, params object[] constructor_params)
         {
             var T_type = typeof(T);

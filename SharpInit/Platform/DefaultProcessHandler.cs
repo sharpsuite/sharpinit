@@ -9,6 +9,9 @@ using System.Text;
 
 namespace SharpInit.Platform
 {
+    /// <summary>
+    /// Process handler that uses the <c>System.Diagnostic.Process</c> API for managing processes.
+    /// </summary>
     [SupportedOn("generic")]
     public class DefaultProcessHandler : IProcessHandler
     {
