@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 
+using Mono.Unix;
 using Mono.Unix.Native;
 using System.IO;
 
@@ -27,6 +28,14 @@ namespace SharpInit.Platform.Unix
             var user_identifier = (UnixUserIdentifier)(psi.User ?? new UnixUserIdentifier((int)Syscall.getuid(), (int)Syscall.getgid()));
             var arguments = new string[] {Path.GetFileName(psi.Path)}.Concat(psi.Arguments).Concat(new string[] { null }).ToArray();
 
+            Syscall.pipe(out int stdout_read, out int stdout_write); // used to communicate stdout back to parent
+            Syscall.pipe(out int stderr_read, out int stderr_write); // used to communicate stderr back to parent
+            Syscall.pipe(out int control_read, out int control_write); // used to communicate errors during process creation back to parent
+
+            var stdout_w_ptr = new IntPtr(stdout_write);
+            var stderr_w_ptr = new IntPtr(stderr_write);
+            var control_w_ptr = new IntPtr(control_write);
+
 #pragma warning disable CS0618 // Type or member is obsolete
             int fork_ret = Mono.Posix.Syscall.fork();
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -34,18 +43,48 @@ namespace SharpInit.Platform.Unix
             if (fork_ret == 0) // child process
             {
                 int error = 0;
-                
+
+                Syscall.close(stdout_read);
+                Syscall.close(stderr_read);
+                Syscall.close(control_read);
+
+                var control_w_stream = new UnixStream(control_write);
+                var write_to_control = (Action<string>)(_ => control_w_stream.Write(Encoding.ASCII.GetBytes(_), 0, _.Length));
+
+                write_to_control("starting\n");
+
+                while (Syscall.dup2(stdout_write, 1) == -1)
+                {
+                    if (Syscall.GetLastError() == Errno.EINTR)
+                        continue;
+                    else
+                    {
+                        write_to_control($"dup2-stdout:{(int)Syscall.GetLastError()}\n");
+                        Syscall.exit(1);
+                    }
+                }
+
+                while (Syscall.dup2(stderr_write, 2) == -1)
+                {
+                    if (Syscall.GetLastError() == Errno.EINTR)
+                        continue;
+                    else
+                    {
+                        write_to_control($"dup2-stderr:{(int)Syscall.GetLastError()}\n");
+                        Syscall.exit(1);
+                    }
+                }
+
                 if ((error = Syscall.setgid(user_identifier.GroupId)) != 0)
                 {
-                    // TODO: make these communicate back to the parent process properly
-                    Console.WriteLine($"setgid error: {Syscall.GetLastError()}");
-                    Syscall.exit(error);
+                    write_to_control($"setgid:{(int)Syscall.GetLastError()}\n");
+                    Syscall.exit(1);
                 }
 
                 if ((error = Syscall.setuid(user_identifier.UserId)) != 0)
                 {
-                    Console.WriteLine($"setuid error: {Syscall.GetLastError()}");
-                    Syscall.exit(error);
+                    write_to_control($"setuid:{(int)Syscall.GetLastError()}\n");
+                    Syscall.exit(1);
                 }
 
                 if(psi.WorkingDirectory != "")
@@ -53,8 +92,8 @@ namespace SharpInit.Platform.Unix
 
                 if ((error = Syscall.execv(psi.Path, arguments)) != 0)
                 {
-                    Console.WriteLine($"execv error: {Syscall.GetLastError()}");
-                    Syscall.exit(error);
+                    write_to_control($"execv:{(int)Syscall.GetLastError()}\n");
+                    Syscall.exit(1);
                 }
             }
 
@@ -63,6 +102,20 @@ namespace SharpInit.Platform.Unix
                 throw new InvalidOperationException($"fork() returned {fork_ret}, errno: {Syscall.GetLastError()}");
             }
 
+            Syscall.close(stdout_write);
+            Syscall.close(stderr_write);
+            Syscall.close(control_write);
+
+            var stdout_stream = new Mono.Unix.UnixStream(stdout_read);
+            var stderr_stream = new Mono.Unix.UnixStream(stderr_read);
+            var control_stream = new Mono.Unix.UnixStream(control_read);
+
+            var control_sr = new StreamReader(control_stream);
+
+            var starting_line = control_sr.ReadLine();
+            if(starting_line != "starting")
+                throw new Exception($"Expected starting message from control pipe, received {starting_line}");
+            
             Processes.Add(fork_ret);
             return new ProcessInfo(System.Diagnostics.Process.GetProcessById(fork_ret));
         }

@@ -5,7 +5,7 @@ using System.Text;
 namespace SharpInit.Platform.Unix
 {
     [SupportedOn("unix")]
-    public class UnixInitialization : IPlatformInitialization
+    public class UnixPlatformInitialization : IPlatformInitialization
     {
         public void Initialize()
         {
