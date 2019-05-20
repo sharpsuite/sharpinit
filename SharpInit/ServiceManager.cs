@@ -1,35 +1,40 @@
-﻿using SharpInit.Units;
+﻿using SharpInit.Platform;
+using SharpInit.Units;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
 namespace SharpInit
 {
-    public delegate void OnProcessExit(Unit unit, ProcessInfo info, int code);
-    public delegate void OnProcessStart(Unit unit, ProcessInfo info);
+    public delegate void OnServiceProcessExit(Unit unit, ProcessInfo info, int code);
+    public delegate void OnServiceProcessStart(Unit unit, ProcessInfo info);
 
     public class ServiceManager
     {
         public List<ProcessInfo> ManagedProcesses = new List<ProcessInfo>();
         public Dictionary<int, ProcessInfo> ProcessesById = new Dictionary<int, ProcessInfo>();
         public Dictionary<Unit, List<ProcessInfo>> ProcessesByUnit = new Dictionary<Unit, List<ProcessInfo>>();
-        
-        public ServiceManager()
-        {
 
+        public IProcessHandler ProcessHandler;
+        
+        public ServiceManager() :
+            this(PlatformUtilities.GetImplementation<IProcessHandler>())
+        {
+        }
+
+        public ServiceManager(IProcessHandler process_handler)
+        {
+            ProcessHandler = process_handler;
+            ProcessHandler.ProcessExit += HandleProcessExit;
         }
         
-        private void HandleProcessExit(object sender, EventArgs e)
+        private void HandleProcessExit(int pid, int exit_code)
         {
-            var proc = (Process)sender;
-            var pid = proc.Id;
-
             var proc_info = ProcessesById[pid];
             var unit = proc_info.SourceUnit;
 
-            unit.RaiseProcessExit(proc_info, proc.ExitCode);
+            unit.RaiseProcessExit(proc_info, exit_code);
 
             ManagedProcesses.Remove(proc_info);
             ProcessesById.Remove(pid);
@@ -40,14 +45,12 @@ namespace SharpInit
 
         public void StartProcess(Unit unit, ProcessStartInfo psi)
         {
-            var process = Process.Start(psi);
+            var process = ProcessHandler.Start(psi);
 
-            var proc_info = new ProcessInfo(process, unit);
+            if (!process.Process.HasExited)
+                unit.RaiseProcessStart(process);
 
-            if (!process.HasExited)
-                unit.RaiseProcessStart(proc_info);
-
-            RegisterProcess(unit, proc_info);
+            RegisterProcess(unit, process);
         }
 
         public void RegisterProcess(Unit unit, ProcessInfo proc)
@@ -62,21 +65,17 @@ namespace SharpInit
                 ProcessesByUnit[unit] = new List<ProcessInfo>();
 
             ProcessesByUnit[unit].Add(proc);
-
-            proc.Process.EnableRaisingEvents = true;
-            proc.Process.Exited += HandleProcessExit;
-            proc.Process.StandardOutput.Close(); // TODO: redirect stdout to a log file/system
-            proc.Process.StandardError.Close();  // we close these right now because child processes can hang on stdout/stderr IO
+            proc.SourceUnit = unit;
         }
 
-        public void RegisterProcess(Unit unit, Process proc)
+        public void RegisterProcess(Unit unit, System.Diagnostics.Process proc)
         {
             RegisterProcess(unit, new ProcessInfo(proc, unit));
         }
 
         public void RegisterProcess(Unit unit, int pid)
         {
-            RegisterProcess(unit, Process.GetProcessById(pid));
+            RegisterProcess(unit, System.Diagnostics.Process.GetProcessById(pid));
         }
     }
 }

@@ -55,5 +55,12 @@ namespace SharpInit.Units
 
         [UnitProperty("@/AmbientCapabilities", UnitPropertyType.StringListSpaceSeparated)]
         public List<string> AmbientCapabilities { get; set; }
+
+
+        [UnitProperty("@/StandardInput", UnitPropertyType.String, "null")]
+        public string StandardInput { get; set; }
+
+        [UnitProperty("@/StandardOutput", UnitPropertyType.String, "null")]
+        public string StandardOutput { get; set; }
     }
 }

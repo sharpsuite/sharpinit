@@ -15,4 +15,4 @@ sharpinit is not ready for production use!
   - [ ] Process manager
     - [x] Start, stop and manage processes by targets, slices and services
     - [ ] Handle cgroups and namespace isolation for processes
-    - [ ] Adopt orphaned processes and reap them
+    - [x] Adopt orphaned processes and reap them

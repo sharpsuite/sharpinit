@@ -5,6 +5,9 @@ using System.Text;
 
 namespace SharpInit.Tasks
 {
+    /// <summary>
+    /// Compares the state of a particular unit to the provided unit state.
+    /// </summary>
     public class CheckUnitStateTask : Task
     {
         public override string Type => "check-unit-state";
@@ -12,6 +15,12 @@ namespace SharpInit.Tasks
         public string TargetUnit { get; set; }
         public bool StopExecution { get; set; }
 
+        /// <summary>
+        /// Compares the state of the unit <paramref name="unit"/> to <paramref name="state"/>.
+        /// </summary>
+        /// <param name="state">The desired state of unit <paramref name="unit"/></param>
+        /// <param name="unit">The unit to perform the state check on.</param>
+        /// <param name="stop">true if the failure of this task should stop the parent transaction silently, false if the transaction should fail.</param>
         public CheckUnitStateTask(UnitState state, string unit, bool stop = false)
         {
             ComparisonState = state;

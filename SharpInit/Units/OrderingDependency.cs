@@ -1,5 +1,8 @@
 ﻿namespace SharpInit.Units
 {
+    /// <summary>
+    /// An ordering dependency.
+    /// </summary>
     public class OrderingDependency : Dependency
     {
         public override DependencyType Type => DependencyType.Ordering;
