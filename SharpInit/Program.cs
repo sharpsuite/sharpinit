@@ -21,6 +21,8 @@ namespace SharpInit
             PlatformUtilities.RegisterImplementations();
             PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
 
+            Log.Info("Platform initialization complete");
+
             UnitRegistry.InitializeTypes();
             UnitRegistry.ScanDefaultDirectories();
             
@@ -39,6 +41,17 @@ namespace SharpInit
             ipc_listener.StartListening();
 
             Log.Info($"Listening on {ipc_listener.SocketEndPoint}");
+
+            if(UnitRegistry.GetUnit("default.target") != null)
+            {
+                Log.Info("Activating default.target...");
+                var result = UnitRegistry.CreateActivationTransaction("default.target").Execute();
+
+                if (result.Type == Tasks.ResultType.Success)
+                    Log.Info("Successfully activated default.target.");
+                else
+                    Log.Info($"Error while activating default.target: {result.Type}, {result.Message}");
+            }
 
             Console.CancelKeyPress += (s, e) =>
             {
