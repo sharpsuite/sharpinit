@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27004.2002
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29102.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpInit", "SharpInit\SharpInit.csproj", "{17AB577E-7AAF-4F95-9A9C-689952A2C461}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpInit.Ipc", "SharpInit.Ipc\SharpInit.Ipc.csproj", "{0680CDAA-E88B-4AC8-A726-8F55A3E7EBB6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpInit.Ipc", "SharpInit.Ipc\SharpInit.Ipc.csproj", "{0680CDAA-E88B-4AC8-A726-8F55A3E7EBB6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpInitControl", "SharpInitControl\SharpInitControl.csproj", "{D0FB455B-8378-4174-81BD-BDCED75F1315}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpInitControl", "SharpInitControl\SharpInitControl.csproj", "{D0FB455B-8378-4174-81BD-BDCED75F1315}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpinitUnitTest", "SharpinitUnitTest\SharpinitUnitTest.csproj", "{AFA56531-C38D-4209-9865-51BC4C4875C4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{D0FB455B-8378-4174-81BD-BDCED75F1315}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D0FB455B-8378-4174-81BD-BDCED75F1315}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D0FB455B-8378-4174-81BD-BDCED75F1315}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AFA56531-C38D-4209-9865-51BC4C4875C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AFA56531-C38D-4209-9865-51BC4C4875C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AFA56531-C38D-4209-9865-51BC4C4875C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AFA56531-C38D-4209-9865-51BC4C4875C4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
