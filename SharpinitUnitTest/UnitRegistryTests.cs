@@ -3,6 +3,7 @@ using Moq;
 using SharpInit.Platform;
 using SharpInit.Units;
 using System;
+using System.IO;
 
 namespace UnitTests.Units
 {
@@ -30,7 +31,7 @@ namespace UnitTests.Units
         public void AddUnit_UnitIsAdded_True()
         {
             // Arrange
-            Unit unit = new ServiceUnit("C:\\Users\\DJ\\source\\repos\\sharpsuite\\sharpinit\\SharpInit\\Units\\unit-test-files\\sshd.service");
+            Unit unit = new ServiceUnit("..\\..\\..\\..\\sharpinit\\Units\\unit-test-files\\sshd.service");
 
             // Act
             UnitRegistry.AddUnit(unit);
@@ -59,7 +60,7 @@ namespace UnitTests.Units
         public void AddUnit_UnitHasAlreadyBeenAdded_ThrowsException()
         {
             // Arrange
-            Unit unit = new ServiceUnit("C:\\Users\\DJ\\source\\repos\\sharpsuite\\sharpinit\\SharpInit\\Units\\unit-test-files\\sshd.service");
+            Unit unit = new ServiceUnit("..\\..\\..\\..\\sharpinit\\Units\\unit-test-files\\sshd.service");
 
             // Act
             UnitRegistry.AddUnit(unit);
