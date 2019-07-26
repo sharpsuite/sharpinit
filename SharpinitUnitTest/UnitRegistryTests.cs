@@ -4,6 +4,7 @@ using SharpInit.Platform;
 using SharpInit.Units;
 using System;
 using System.IO;
+using System.Text;
 
 namespace UnitTests.Units
 {
@@ -11,13 +12,25 @@ namespace UnitTests.Units
     public class UnitRegistryTests
     {
 
+        static string path = ".\\test.service";
+        static string contents = "[Unit]\nDescription = Notepad\n\n[Service]\nExecStart = notepad.exe";
+
         [ClassInitialize]
-        public static void TestInitialize(TestContext value)
+        public static void ClassInitialize(TestContext value)
         {
             PlatformUtilities.RegisterImplementations();
             PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
             UnitRegistry.InitializeTypes();
             UnitRegistry.ScanDefaultDirectories();
+
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            FileStream unitFileStream = File.Create(path);
+            byte[] info = new UTF8Encoding(true).GetBytes(contents);
+            unitFileStream.Write(info, 0, info.Length);
+            unitFileStream.Close();
         }
 
         [TestCleanup]
@@ -26,12 +39,17 @@ namespace UnitTests.Units
             UnitRegistry.Units.Clear();
         }
 
+        [ClassCleanup]
+        static public void ClassCleanup()
+        {
+            File.Delete(path);
+        }
 
         [TestMethod]
         public void AddUnit_UnitIsAdded_True()
         {
             // Arrange
-            Unit unit = new ServiceUnit("..\\..\\..\\..\\sharpinit\\Units\\unit-test-files\\sshd.service");
+            Unit unit = new ServiceUnit(path);
 
             // Act
             UnitRegistry.AddUnit(unit);
@@ -60,7 +78,7 @@ namespace UnitTests.Units
         public void AddUnit_UnitHasAlreadyBeenAdded_ThrowsException()
         {
             // Arrange
-            Unit unit = new ServiceUnit("..\\..\\..\\..\\sharpinit\\Units\\unit-test-files\\sshd.service");
+            Unit unit = new ServiceUnit(path);
 
             // Act
             UnitRegistry.AddUnit(unit);
