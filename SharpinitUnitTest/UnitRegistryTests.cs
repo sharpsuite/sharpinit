@@ -20,8 +20,8 @@ namespace UnitTests.Units
         {
             PlatformUtilities.RegisterImplementations();
             PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
-            UnitRegistry.InitializeTypes();
-            UnitRegistry.ScanDefaultDirectories();
+            //UnitRegistry.InitializeTypes();
+            //UnitRegistry.ScanDefaultDirectories();
 
             if (File.Exists(path))
             {
@@ -43,6 +43,7 @@ namespace UnitTests.Units
         static public void ClassCleanup()
         {
             File.Delete(path);
+            Environment.SetEnvironmentVariable("SHARPINIT_UNIT_PATH", null);
         }
 
         [TestMethod]
@@ -87,35 +88,44 @@ namespace UnitTests.Units
             // Assert
             // Exception Thrown
         }
+        
+        [TestMethod]
+        public void AddUnitByPath_UnitFound_True()
+        {
+            // Arrange
+
+            // Act
+            UnitRegistry.AddUnitByPath(path);
+
+            // Assert
+            Assert.IsTrue(UnitRegistry.Units.Count == 1);
+        }
+
+        [TestMethod]
+        public void AddUnitByPath_UnitNotFound_True()
+        {
+            // Arrange
+
+            // Act
+            UnitRegistry.AddUnitByPath("");
+
+            // Assert
+            Assert.IsTrue(UnitRegistry.Units.Count == 0);
+        }
+
+        [TestMethod]
+        public void ScanDefaultDirectories_UnitsFound_True()
+        {
+            // Arrange
+            Environment.SetEnvironmentVariable("SHARPINIT_UNIT_PATH", ".");
+            var check = Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH");
+            // Act
+            var result = UnitRegistry.ScanDefaultDirectories();
+
+            // Assert
+            Assert.IsTrue(UnitRegistry.Units.Count > 0);
+        }
         /*
-        [TestMethod]
-        public void AddUnitByPath_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-            string path = null;
-
-            // Act
-            unitRegistry.AddUnitByPath(
-                path);
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void ScanDefaultDirectories_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-
-            // Act
-            var result = unitRegistry.ScanDefaultDirectories();
-
-            // Assert
-            Assert.Fail();
-        }
-
         [TestMethod]
         public void ScanDirectory_StateUnderTest_ExpectedBehavior()
         {
