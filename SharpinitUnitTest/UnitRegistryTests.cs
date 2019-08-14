@@ -13,24 +13,22 @@ namespace UnitTests.Units
     {
 
         static string path = ".\\test.service";
-        static string contents = "[Unit]\nDescription = Notepad\n\n[Service]\nExecStart = notepad.exe";
+        static string contents =
+                "[Unit]\n" +
+                "Description = Notepad\n" +
+                "\n" +
+                "[Service]\n" +
+                "ExecStart = notepad.exe";
 
         [ClassInitialize]
         public static void ClassInitialize(TestContext value)
         {
             PlatformUtilities.RegisterImplementations();
             PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
-            //UnitRegistry.InitializeTypes();
-            //UnitRegistry.ScanDefaultDirectories();
+            UnitRegistry.InitializeTypes();
+            UnitRegistry.ScanDefaultDirectories();
 
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-            FileStream unitFileStream = File.Create(path);
-            byte[] info = new UTF8Encoding(true).GetBytes(contents);
-            unitFileStream.Write(info, 0, info.Length);
-            unitFileStream.Close();
+            File.WriteAllText(path,contents); 
         }
 
         [TestCleanup]
