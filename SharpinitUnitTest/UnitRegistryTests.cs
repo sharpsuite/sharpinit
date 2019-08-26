@@ -10,8 +10,11 @@ namespace UnitTests.Units
     [TestClass]
     public class UnitRegistryTests
     {
-        static string path = ".\\test.service";
-        static string contents =
+        static string DirectoryName = "";
+        static string TestUnitFilename = "test.service";
+        static string TestUnitPath => Path.Combine(DirectoryName, TestUnitFilename);
+
+        static string TestUnitContents =
                 "[Unit]\n" +
                 "Description = Notepad\n" +
                 "\n" +
@@ -24,9 +27,15 @@ namespace UnitTests.Units
             PlatformUtilities.RegisterImplementations();
             PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
             UnitRegistry.InitializeTypes();
-            UnitRegistry.ScanDefaultDirectories();
 
-            File.WriteAllText(path,contents); 
+            Random rnd = new Random();
+            var random_buffer = new byte[8];
+
+            rnd.NextBytes(random_buffer);
+            DirectoryName = BitConverter.ToString(random_buffer).Replace("-", "").ToLower();
+            Directory.CreateDirectory(DirectoryName);
+
+            File.WriteAllText(TestUnitPath, TestUnitContents); 
         }
 
         [TestCleanup]
@@ -38,7 +47,8 @@ namespace UnitTests.Units
         [ClassCleanup]
         static public void ClassCleanup()
         {
-            File.Delete(path);
+            File.Delete(TestUnitPath);
+            Directory.Delete(DirectoryName, true);
             Environment.SetEnvironmentVariable("SHARPINIT_UNIT_PATH", null);
         }
 
@@ -46,14 +56,13 @@ namespace UnitTests.Units
         public void AddUnit_UnitIsAdded_True()
         {
             // Arrange
-            Unit unit = new ServiceUnit(path);
+            Unit unit = new ServiceUnit(TestUnitPath);
 
             // Act
             UnitRegistry.AddUnit(unit);
 
             // Assert
             Assert.IsTrue(UnitRegistry.Units.Count == 1);
-
         }
 
         [TestMethod]
@@ -67,7 +76,6 @@ namespace UnitTests.Units
 
             // Assert
             Assert.IsTrue(UnitRegistry.Units.Count == 0);
-
         }
 
         [TestMethod]
@@ -75,7 +83,7 @@ namespace UnitTests.Units
         public void AddUnit_UnitHasAlreadyBeenAdded_ThrowsException()
         {
             // Arrange
-            Unit unit = new ServiceUnit(path);
+            Unit unit = new ServiceUnit(TestUnitPath);
 
             // Act
             UnitRegistry.AddUnit(unit);
@@ -91,7 +99,7 @@ namespace UnitTests.Units
             // Arrange
 
             // Act
-            UnitRegistry.AddUnitByPath(path);
+            UnitRegistry.AddUnitByPath(TestUnitPath);
 
             // Assert
             Assert.IsTrue(UnitRegistry.Units.Count == 1);
@@ -103,7 +111,7 @@ namespace UnitTests.Units
             // Arrange
 
             // Act
-            UnitRegistry.AddUnitByPath("");
+            UnitRegistry.AddUnitByPath($"{DirectoryName}/nonexistent-unit.service");
 
             // Assert
             Assert.IsTrue(UnitRegistry.Units.Count == 0);
@@ -113,8 +121,9 @@ namespace UnitTests.Units
         public void ScanDefaultDirectories_UnitsFound_True()
         {
             // Arrange
-            Environment.SetEnvironmentVariable("SHARPINIT_UNIT_PATH", ".");
-            var check = Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH");
+            Environment.SetEnvironmentVariable("SHARPINIT_UNIT_PATH", DirectoryName);
+            UnitRegistry.DefaultScanDirectories.Clear();
+
             // Act
             var result = UnitRegistry.ScanDefaultDirectories();
 

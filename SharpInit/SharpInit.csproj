@@ -38,9 +38,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="test.unit">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="Units\unit-test-files\notepad.service">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -140,6 +140,9 @@ namespace SharpInit.Units
 
         public static Unit CreateUnit(string path)
         {
+            if (!File.Exists(path))
+                return null;
+
             var ext = Path.GetExtension(path);
 
             if (!UnitTypes.ContainsKey(ext))
