@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace UnitTests.Units
+namespace SharpInit.Tests
 {
     [TestClass]
     public class UnitRegistryTests
