@@ -1,5 +1,4 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
 using SharpInit.Platform;
 using SharpInit.Units;
 using System;
@@ -11,7 +10,6 @@ namespace UnitTests.Units
     [TestClass]
     public class UnitRegistryTests
     {
-
         static string path = ".\\test.service";
         static string contents =
                 "[Unit]\n" +
@@ -123,127 +121,5 @@ namespace UnitTests.Units
             // Assert
             Assert.IsTrue(UnitRegistry.Units.Count > 0);
         }
-        /*
-        [TestMethod]
-        public void ScanDirectory_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-            string path = null;
-            bool recursive = false;
-
-            // Act
-            var result = unitRegistry.ScanDirectory(
-                path,
-                recursive);
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void GetUnit_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-            string name = null;
-
-            // Act
-            var result = unitRegistry.GetUnit(
-                name);
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void CreateUnit_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-            string path = null;
-
-            // Act
-            var result = unitRegistry.CreateUnit(
-                path);
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void InitializeTypes_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-
-            // Act
-            unitRegistry.InitializeTypes();
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void CreateActivationTransaction_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-            string name = null;
-
-            // Act
-            var result = unitRegistry.CreateActivationTransaction(
-                name);
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void CreateActivationTransaction_StateUnderTest_ExpectedBehavior1()
-        {
-            // Arrange
-            
-            Unit unit = null;
-
-            // Act
-            var result = unitRegistry.CreateActivationTransaction(
-                unit);
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void CreateDeactivationTransaction_StateUnderTest_ExpectedBehavior()
-        {
-            // Arrange
-            
-            string unit = null;
-
-            // Act
-            var result = unitRegistry.CreateDeactivationTransaction(
-                unit);
-
-            // Assert
-            Assert.Fail();
-        }
-
-        [TestMethod]
-        public void CreateDeactivationTransaction_StateUnderTest_ExpectedBehavior1()
-        {
-            // Arrange
-            
-            Unit unit = null;
-
-            // Act
-            var result = unitRegistry.CreateDeactivationTransaction(
-                unit);
-
-            // Assert
-            Assert.Fail();
-        }
-        */
     }
-   
 }
