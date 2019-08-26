@@ -202,7 +202,7 @@ namespace SharpInitControl
             if (list == null)
                 Console.WriteLine("Couldn't retrieve the list of loaded units.");
             else
-                Console.WriteLine($"{list.Count} units loaded: [{string.Join(",", list)}]");
+                Console.WriteLine($"{list.Count} units loaded: [{string.Join(", ", list)}]");
         }
     }
 }
