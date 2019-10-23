@@ -24,6 +24,7 @@ namespace SharpInit.Units
 
             //unit.UnitName = Path.GetFileName(file);
             //unit.UnitPath = Path.GetFullPath(file);
+            var properties_touched = new List<UnitPropertyAttribute>();
 
             foreach (var file in files)
             {
@@ -37,7 +38,6 @@ namespace SharpInit.Units
                     ext = char.ToUpper(ext[0]) + ext.Substring(1);
 
                 var properties = file.Properties.ToDictionary(p => p.Key, p => p.Value);
-                var properties_touched = new List<UnitPropertyAttribute>();
 
                 // detect .wants, .requires
                 var directory_maps = new Dictionary<string, string>()
@@ -145,27 +145,27 @@ namespace SharpInit.Units
                             break;
                     }
                 }
+            }
+            
+            // initialize default values of unspecified properties
+             // also initialize all List<string>s to make our life easier
+            var reflection_properties = descriptor_type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-                // initialize default values of unspecified properties
-                // also initialize all List<string>s to make our life easier
-                var reflection_properties = descriptor_type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            foreach (var prop in reflection_properties)
+            {
+                var unit_property_attributes = prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false);
 
-                foreach (var prop in reflection_properties)
+                if (unit_property_attributes.Length == 0)
+                    continue;
+
+                var attribute = (UnitPropertyAttribute)unit_property_attributes.FirstOrDefault();
+
+                if (!properties_touched.Contains(attribute))
                 {
-                    var unit_property_attributes = prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false);
-
-                    if (unit_property_attributes.Length == 0)
-                        continue;
-
-                    var attribute = (UnitPropertyAttribute)unit_property_attributes.FirstOrDefault();
-
-                    if (!properties_touched.Contains(attribute))
-                    {
-                        if (prop.PropertyType == typeof(List<string>) && attribute.DefaultValue == null)
-                            prop.SetValue(descriptor, new List<string>());
-                        else
-                            prop.SetValue(descriptor, attribute.DefaultValue);
-                    }
+                    if (prop.PropertyType == typeof(List<string>) && attribute.DefaultValue == null)
+                        prop.SetValue(descriptor, new List<string>());
+                    else
+                        prop.SetValue(descriptor, attribute.DefaultValue);
                 }
             }
 

@@ -48,8 +48,11 @@ namespace SharpInit.Platform
             if (Directory.Exists(psi.WorkingDirectory))
                 net_psi.WorkingDirectory = psi.WorkingDirectory;
 
-            net_psi.UserName = psi.User.Username;
-            net_psi.Domain = psi.User.Group;
+            if (psi.User != null)
+            {
+                net_psi.UserName = psi.User.Username;
+                net_psi.Domain = psi.User.Group;
+            }
 
             net_psi.RedirectStandardOutput = true;
             net_psi.RedirectStandardError = true;

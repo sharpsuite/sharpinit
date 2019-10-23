@@ -16,7 +16,7 @@ namespace SharpInit.Units
         public string UnitName { get; set; }
         public UnitState CurrentState { get; internal set; }
 
-        public UnitDescriptor Descriptor { get; set; }
+        public UnitDescriptor Descriptor { get => GetUnitDescriptor(); set => SetUnitDescriptor(value); }
 
         public ServiceManager ServiceManager { get; set; }
 
@@ -48,14 +48,15 @@ namespace SharpInit.Units
             Descriptor = descriptor;
 
             if (Descriptor?.Files?.Any() == true)
-                UnitName = (Descriptor.Files.FirstOrDefault(f => f is OnDiskUnitFile) as OnDiskUnitFile)?.Path ?? "unknown.unit";
+                UnitName = UnitRegistry.GetUnitName((Descriptor.Files.FirstOrDefault(f => f is OnDiskUnitFile) as OnDiskUnitFile)?.Path ?? "unknown.unit");
         }
 
         protected Unit()
         {
         }
 
-        //public abstract UnitFile GetUnitFile();
+        public abstract UnitDescriptor GetUnitDescriptor();
+        public abstract void SetUnitDescriptor(UnitDescriptor desc);
         //public abstract void LoadUnitFile(string path);
         //public abstract void LoadUnitFile(UnitFile file);
 
@@ -81,7 +82,8 @@ namespace SharpInit.Units
 
         public void ReloadUnitDescriptor()
         {
-            throw new NotImplementedException();
+            var new_descriptor = UnitParser.FromFiles(Descriptor.GetType(), Descriptor.Files.Select(file => file is OnDiskUnitFile ? UnitParser.ParseFile((file as OnDiskUnitFile).Path) : file).ToArray());
+            Descriptor = new_descriptor;
         }
 
         internal void RaiseProcessExit(ProcessInfo proc, int exit_code)

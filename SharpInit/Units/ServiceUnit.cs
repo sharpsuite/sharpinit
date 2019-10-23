@@ -30,6 +30,9 @@ namespace SharpInit.Units
             ProcessExit += HandleProcessExit;
         }
 
+        public override UnitDescriptor GetUnitDescriptor() => Descriptor;
+        public override void SetUnitDescriptor(UnitDescriptor desc) => Descriptor = (ServiceUnitDescriptor)desc;
+
         private void HandleProcessExit(Unit unit, ProcessInfo info, int code)
         {
             switch(CurrentState)

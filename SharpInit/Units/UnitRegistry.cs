@@ -55,7 +55,9 @@ namespace SharpInit.Units
         public static void AddUnitByPath(string path)
         {
             IndexFile(path);
-            AddUnit(CreateUnit(GetUnitName(path)));
+
+            if (!Units.ContainsKey(GetUnitName(path)))
+                AddUnit(CreateUnit(GetUnitName(path)));
         }
 
         public static string GetUnitName(string path)
@@ -76,7 +78,7 @@ namespace SharpInit.Units
             OrderingDependencies.Dependencies.Clear();
             RequirementDependencies.Dependencies.Clear();
 
-            var env_units_parts = (Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH") ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries);
+            var env_units_parts = (Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
 
             ScanDirectories.Clear();
             ScanDirectories.AddRange(DefaultScanDirectories);

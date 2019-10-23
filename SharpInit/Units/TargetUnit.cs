@@ -10,11 +10,16 @@ namespace SharpInit.Units
     {
         Logger Log = LogManager.GetCurrentClassLogger();
         
+        public new UnitDescriptor Descriptor { get; set; }
+
         public TargetUnit(UnitDescriptor descriptor) 
             : base(descriptor)
         {
 
         }
+
+        public override UnitDescriptor GetUnitDescriptor() => Descriptor;
+        public override void SetUnitDescriptor(UnitDescriptor desc) => Descriptor = desc;
 
         internal override Transaction GetActivationTransaction()
         {
