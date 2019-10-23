@@ -2,6 +2,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SharpInit.Platform;
 using SharpInit.Units;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -131,6 +132,23 @@ namespace SharpInit.Tests
 
             // Assert
             Assert.IsTrue(UnitRegistry.Units.Count > 0);
+        }
+
+        [TestMethod]
+        public void GetUnitName_Checks()
+        {
+            var dictionary = new Dictionary<string, string>()
+            {
+                {"/home/user/.config/sharpinit/units/test@1001.service", "test.service" },
+                {"/etc/sharpinit/units/test@.service", "test.service" },
+                {"C:\\Users\\User\\.config\\sharpinit\\units\\notepad.service", "notepad.service" },
+                {"relative/path/to/sshd@22.service", "sshd.service" },
+                {"backslash\\relative\\path\\test.target", "test.target" }
+
+            };
+
+            foreach (var pair in dictionary)
+                Assert.AreEqual(UnitRegistry.GetUnitName(pair.Key), pair.Value);
         }
     }
 }
