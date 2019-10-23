@@ -9,25 +9,11 @@ namespace SharpInit.Units
     public class TargetUnit : Unit
     {
         Logger Log = LogManager.GetCurrentClassLogger();
-
-        public new UnitFile File { get; set; }
-        public override UnitFile GetUnitFile() => File;
-
-        public TargetUnit(string path) : base(path)
-        {
-
-        }
         
-        public override void LoadUnitFile(string path)
+        public TargetUnit(UnitDescriptor descriptor) 
+            : base(descriptor)
         {
-            File = UnitParser.Parse<UnitFile>(path);
-            LoadTime = DateTime.UtcNow;
-        }
 
-        public override void LoadUnitFile(UnitFile file)
-        {
-            File = file;
-            LoadTime = DateTime.UtcNow;
         }
 
         internal override Transaction GetActivationTransaction()

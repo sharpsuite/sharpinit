@@ -11,8 +11,11 @@ namespace SharpInit.Units
     {
         public static event OnUnitStateChange UnitStateChange;
 
+        public static Dictionary<string, List<UnitFile>> UnitFiles = new Dictionary<string, List<UnitFile>>();
+
         public static Dictionary<string, Unit> Units = new Dictionary<string, Unit>();
         public static Dictionary<string, Type> UnitTypes = new Dictionary<string, Type>();
+        public static Dictionary<Type, Type> UnitDescriptorTypes = new Dictionary<Type, Type>();
 
         public static DependencyGraph<OrderingDependency> OrderingDependencies = new DependencyGraph<OrderingDependency>();
         public static DependencyGraph<RequirementDependency> RequirementDependencies = new DependencyGraph<RequirementDependency>();
@@ -49,7 +52,22 @@ namespace SharpInit.Units
             UnitStateChange?.Invoke(source, next_state);
         }
 
-        public static void AddUnitByPath(string path) => AddUnit(CreateUnit(path));
+        public static void AddUnitByPath(string path)
+        {
+            IndexFile(path);
+            AddUnit(CreateUnit(GetUnitName(path)));
+        }
+
+        public static string GetUnitName(string path)
+        {
+            var filename = Path.GetFileName(path);
+            var filename_without_ext = Path.GetFileNameWithoutExtension(path);
+
+            if (filename_without_ext.Contains("@"))
+                return filename_without_ext.Split('@').First() + Path.GetExtension(filename);
+
+            return filename;
+        }
 
         public static int ScanDefaultDirectories()
         {
@@ -66,7 +84,7 @@ namespace SharpInit.Units
 
             foreach (var unit in Units)
             {
-                unit.Value.ReloadUnitFile();
+                unit.Value.ReloadUnitDescriptor();
                 unit.Value.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             }
 
@@ -90,17 +108,18 @@ namespace SharpInit.Units
 
             foreach (var file in files)
             {
-                var unit = CreateUnit(file);
+                AddUnitByPath(file);
+                //var unit = CreateUnit(file);
 
-                if (unit == null)
-                {
-                    continue;
-                }
+                //if (unit == null)
+                //{
+                //    continue;
+                //}
 
-                if (!Units.ContainsKey(unit.UnitName))
-                {
-                    AddUnit(unit);
-                }
+                //if (!Units.ContainsKey(unit.UnitName))
+                //{
+                //    AddUnit(unit);
+                //}
 
                 count++;
             }
@@ -118,37 +137,74 @@ namespace SharpInit.Units
                 return Units[name];
             }
 
-            var name_without_suffix = string.Join(".", name.Split('.').SkipLast(1));
-            var suffix = "." + name.Split('.').Last();
-
-            if (!name_without_suffix.Contains("@"))
-                return null;
-
-            var nonparametrized_name = name_without_suffix.Split('@')[0];
-            var parameter = name_without_suffix.Split('@')[1];
-
-            if(Units.ContainsKey(nonparametrized_name))
-            {
-                // TODO: Customize the UnitFile passed to the Unit constructor here
-                var clone_unit = (Unit)Activator.CreateInstance(UnitTypes[suffix], Units[nonparametrized_name].File);
-                Units[name] = clone_unit;
-                return clone_unit;
-            }
-
             return null;
+            //var name_without_suffix = string.Join(".", name.Split('.').SkipLast(1));
+            //var suffix = "." + name.Split('.').Last();
+
+            //if (!name_without_suffix.Contains("@"))
+            //    return null;
+
+            //var nonparametrized_name = name_without_suffix.Split('@')[0];
+            //var parameter = name_without_suffix.Split('@')[1];
+
+            //if(Units.ContainsKey(nonparametrized_name))
+            //{
+            //    // TODO: Customize the UnitFile passed to the Unit constructor here
+            //    var clone_unit = (Unit)Activator.CreateInstance(UnitTypes[suffix], Units[nonparametrized_name].File);
+            //    Units[name] = clone_unit;
+            //    return clone_unit;
+            //}
+
+            //return null;
         }
 
-        public static Unit CreateUnit(string path)
+        public static bool IndexFile(string path)
         {
-            if (!File.Exists(path))
+            path = Path.GetFullPath(path);
+
+            var unit_file = UnitParser.ParseFile(path);
+
+            if (unit_file == null)
+                return false;
+
+            var name = GetUnitName(path);
+
+            if (!UnitFiles.ContainsKey(name))
+                UnitFiles[name] = new List<UnitFile>();
+
+            UnitFiles[name].RemoveAll(u => u is OnDiskUnitFile && ((OnDiskUnitFile)u).Path == unit_file.Path);
+            UnitFiles[name].Add(unit_file);
+
+            return true;
+        }
+
+        //public static Unit CreateUnit(string path)
+        //{
+        //    if (!File.Exists(path))
+        //        return null;
+
+        //    var ext = Path.GetExtension(path);
+
+        //    if (!UnitTypes.ContainsKey(ext))
+        //        return null;
+
+        //    return (Unit)Activator.CreateInstance(UnitTypes[ext], path);
+        //}
+
+        public static Unit CreateUnit(string name)
+        {
+            if (!UnitFiles.ContainsKey(name))
                 return null;
 
-            var ext = Path.GetExtension(path);
+            var files = UnitFiles[name];
+            var ext = files.Select(f => f.Extension).FirstOrDefault();
 
             if (!UnitTypes.ContainsKey(ext))
                 return null;
 
-            return (Unit)Activator.CreateInstance(UnitTypes[ext], path);
+            var type = UnitTypes[ext];
+
+            return (Unit)Activator.CreateInstance(type, UnitParser.FromFiles(UnitDescriptorTypes[type], files.ToArray()));
         }
 
         public static void InitializeTypes()
@@ -156,6 +212,10 @@ namespace SharpInit.Units
             UnitTypes[".unit"] = typeof(Unit);
             UnitTypes[".service"] = typeof(ServiceUnit);
             UnitTypes[".target"] = typeof(TargetUnit);
+
+            UnitDescriptorTypes[typeof(Unit)] = typeof(UnitDescriptor);
+            UnitDescriptorTypes[typeof(ServiceUnit)] = typeof(ServiceUnitDescriptor);
+            UnitDescriptorTypes[typeof(TargetUnit)] = typeof(UnitDescriptor);
         }
 
         public static UnitStateChangeTransaction CreateActivationTransaction(string name)

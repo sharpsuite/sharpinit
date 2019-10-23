@@ -56,7 +56,8 @@ namespace SharpInit.Tests
         public void AddUnit_UnitIsAdded_True()
         {
             // Arrange
-            Unit unit = new ServiceUnit(TestUnitPath);
+            ServiceUnitDescriptor descriptor = UnitParser.FromFiles<ServiceUnitDescriptor>(UnitParser.ParseFile(TestUnitPath));
+            Unit unit = new ServiceUnit(descriptor);
 
             // Act
             UnitRegistry.AddUnit(unit);
@@ -83,7 +84,8 @@ namespace SharpInit.Tests
         public void AddUnit_UnitHasAlreadyBeenAdded_ThrowsException()
         {
             // Arrange
-            Unit unit = new ServiceUnit(TestUnitPath);
+            ServiceUnitDescriptor descriptor = UnitParser.FromFiles<ServiceUnitDescriptor>(UnitParser.ParseFile(TestUnitPath));
+            Unit unit = new ServiceUnit(descriptor);
 
             // Act
             UnitRegistry.AddUnit(unit);

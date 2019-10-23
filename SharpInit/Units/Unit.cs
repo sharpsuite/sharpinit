@@ -16,7 +16,7 @@ namespace SharpInit.Units
         public string UnitName { get; set; }
         public UnitState CurrentState { get; internal set; }
 
-        public UnitFile File { get => GetUnitFile(); }
+        public UnitDescriptor Descriptor { get; set; }
 
         public ServiceManager ServiceManager { get; set; }
 
@@ -31,25 +31,33 @@ namespace SharpInit.Units
         private DependencyGraph<RequirementDependency> RequirementDependencyGraph { get; set; }
         private DependencyGraph<OrderingDependency> OrderingDependencyGraph { get; set; }
         
-        protected Unit(UnitFile file)
-        {
+        //protected Unit(UnitFile file)
+        //{
             
-        }
+        //}
 
-        protected Unit(string path)
+        //protected Unit(string path)
+        //{
+        //    LoadUnitFile(path);
+        //    UnitName = File.UnitName;
+        //}
+
+        protected Unit(UnitDescriptor descriptor)
+            : this()
         {
-            LoadUnitFile(path);
-            UnitName = File.UnitName;
+            Descriptor = descriptor;
+
+            if (Descriptor?.Files?.Any() == true)
+                UnitName = (Descriptor.Files.FirstOrDefault(f => f is OnDiskUnitFile) as OnDiskUnitFile)?.Path ?? "unknown.unit";
         }
 
         protected Unit()
         {
-
         }
 
-        public abstract UnitFile GetUnitFile();
-        public abstract void LoadUnitFile(string path);
-        public abstract void LoadUnitFile(UnitFile file);
+        //public abstract UnitFile GetUnitFile();
+        //public abstract void LoadUnitFile(string path);
+        //public abstract void LoadUnitFile(UnitFile file);
 
         internal void SetState(UnitState next_state)
         {
@@ -65,10 +73,15 @@ namespace SharpInit.Units
         internal abstract Transaction GetDeactivationTransaction();
         public abstract Transaction GetReloadTransaction();
         
-        public void ReloadUnitFile()
+        //public void ReloadUnitFile()
+        //{
+        //    LoadUnitFile(File.UnitPath);
+        //    UnitName = File.UnitName;
+        //}
+
+        public void ReloadUnitDescriptor()
         {
-            LoadUnitFile(File.UnitPath);
-            UnitName = File.UnitName;
+            throw new NotImplementedException();
         }
 
         internal void RaiseProcessExit(ProcessInfo proc, int exit_code)
@@ -111,20 +124,20 @@ namespace SharpInit.Units
         {
             if(OrderingDependencyGraph != null)
             {
-                var after_deps = File.After.Select(after => new OrderingDependency(UnitName, after, UnitName, OrderingDependencyType.After));
-                var before_deps = File.Before.Select(before => new OrderingDependency(before, UnitName, UnitName, OrderingDependencyType.After));
+                var after_deps = Descriptor.After.Select(after => new OrderingDependency(UnitName, after, UnitName, OrderingDependencyType.After));
+                var before_deps = Descriptor.Before.Select(before => new OrderingDependency(before, UnitName, UnitName, OrderingDependencyType.After));
 
                 OrderingDependencyGraph.AddDependencies(after_deps, before_deps);
             }
 
             if(RequirementDependencyGraph != null)
             {
-                var requires_deps = File.Requires.Select(requires => new RequirementDependency(UnitName, requires, UnitName, RequirementDependencyType.Requires));
-                var requisite_deps = File.Requisite.Select(requisite => new RequirementDependency(UnitName, requisite, UnitName, RequirementDependencyType.Requisite));
-                var wants_deps = File.Wants.Select(wants => new RequirementDependency(UnitName, wants, UnitName, RequirementDependencyType.Wants));
-                var binds_to_deps = File.BindsTo.Select(bind => new RequirementDependency(UnitName, bind, UnitName, RequirementDependencyType.BindsTo));
-                var part_of_deps = File.PartOf.Select(part_of => new RequirementDependency(UnitName, part_of, UnitName, RequirementDependencyType.PartOf));
-                var conflicts_deps = File.Conflicts.Select(conflict => new RequirementDependency(UnitName, conflict, UnitName, RequirementDependencyType.Conflicts));
+                var requires_deps = Descriptor.Requires.Select(requires => new RequirementDependency(UnitName, requires, UnitName, RequirementDependencyType.Requires));
+                var requisite_deps = Descriptor.Requisite.Select(requisite => new RequirementDependency(UnitName, requisite, UnitName, RequirementDependencyType.Requisite));
+                var wants_deps = Descriptor.Wants.Select(wants => new RequirementDependency(UnitName, wants, UnitName, RequirementDependencyType.Wants));
+                var binds_to_deps = Descriptor.BindsTo.Select(bind => new RequirementDependency(UnitName, bind, UnitName, RequirementDependencyType.BindsTo));
+                var part_of_deps = Descriptor.PartOf.Select(part_of => new RequirementDependency(UnitName, part_of, UnitName, RequirementDependencyType.PartOf));
+                var conflicts_deps = Descriptor.Conflicts.Select(conflict => new RequirementDependency(UnitName, conflict, UnitName, RequirementDependencyType.Conflicts));
 
                 RequirementDependencyGraph.AddDependencies(requires_deps, requisite_deps, wants_deps, binds_to_deps, part_of_deps, conflicts_deps);
             }
@@ -132,7 +145,7 @@ namespace SharpInit.Units
 
         public override string ToString()
         {
-            return $"[Unit Type={this.GetType().Name}, Name={UnitName}, State={CurrentState}, Path={File.UnitPath}]";
+            return $"[Unit Type={this.GetType().Name}, Name={UnitName}, State={CurrentState}, Paths=[{string.Join(", ", Descriptor.Files.Select(file => file.ToString()))}]]";
         }
     }
 

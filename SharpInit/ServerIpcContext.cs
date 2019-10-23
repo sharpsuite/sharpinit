@@ -92,7 +92,7 @@ namespace SharpInit
 
         public bool ReloadUnitFile(string unit)
         {
-            UnitRegistry.GetUnit(unit).ReloadUnitFile();
+            UnitRegistry.GetUnit(unit).ReloadUnitDescriptor();
             return true;
         }
 
@@ -107,8 +107,10 @@ namespace SharpInit
             var info = new UnitInfo();
 
             info.Name = unit.UnitName;
-            info.Path = unit.File.UnitPath;
-            info.Description = unit.File.Description;
+            info.Path = unit.Descriptor.Files.Any(f => f is OnDiskUnitFile) ? 
+                (unit.Descriptor.Files.First(f => f is OnDiskUnitFile) as OnDiskUnitFile).Path :
+                "(not available)";
+            info.Description = unit.Descriptor.Description;
             info.State = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());
             info.LastStateChangeTime = unit.LastStateChangeTime;
             info.ActivationTime = unit.ActivationTime;
