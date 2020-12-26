@@ -12,8 +12,8 @@ namespace SharpInit.Units
         
         public new UnitDescriptor Descriptor { get; set; }
 
-        public TargetUnit(UnitDescriptor descriptor) 
-            : base(descriptor)
+        public TargetUnit(string name, UnitDescriptor descriptor) 
+            : base(name, descriptor)
         {
 
         }

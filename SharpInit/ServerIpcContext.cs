@@ -80,11 +80,16 @@ namespace SharpInit
             return UnitRegistry.Units.Select(u => u.Key).ToList();
         }
 
+        public List<string> ListUnitFiles()
+        {
+            return UnitRegistry.UnitFiles.Select(p => string.Join(", ", p.Value.Select(t => t.ToString()))).ToList();
+        }
+
         public bool LoadUnitFromFile(string path)
         {
             try
             {
-                UnitRegistry.AddUnitByPath(path);
+                UnitRegistry.IndexUnitFile(path);
                 return true;
             }
             catch { return false; }
@@ -106,9 +111,11 @@ namespace SharpInit
             var unit = UnitRegistry.GetUnit(unit_name);
             var info = new UnitInfo();
 
+            var unit_files = unit.Descriptor.Files.OfType<OnDiskUnitFile>();
+
             info.Name = unit.UnitName;
-            info.Path = unit.Descriptor.Files.Any(f => f is OnDiskUnitFile) ? 
-                (unit.Descriptor.Files.First(f => f is OnDiskUnitFile) as OnDiskUnitFile).Path :
+            info.Path = unit_files.Any() ? 
+                string.Join(", ", unit_files.Select(file => file.Path)) :
                 "(not available)";
             info.Description = unit.Descriptor.Description;
             info.State = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());

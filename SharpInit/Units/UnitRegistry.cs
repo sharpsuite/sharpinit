@@ -52,14 +52,6 @@ namespace SharpInit.Units
             UnitStateChange?.Invoke(source, next_state);
         }
 
-        public static void AddUnitByPath(string path)
-        {
-            IndexFile(path);
-
-            if (!Units.ContainsKey(GetUnitName(path)))
-                AddUnit(CreateUnit(GetUnitName(path)));
-        }
-
         public static string GetUnitName(string path)
         {
             var filename = Path.GetFileName(path);
@@ -69,6 +61,17 @@ namespace SharpInit.Units
                 return filename_without_ext.Split('@').First() + Path.GetExtension(filename);
 
             return filename;
+        }
+
+        public static string GetUnitParameter(string path)
+        {
+            var filename = Path.GetFileName(path);
+            var filename_without_ext = Path.GetFileNameWithoutExtension(path);
+
+            if (filename_without_ext.Contains("@"))
+                return string.Join('@', filename_without_ext.Split('@').Skip(1));
+
+            return "";
         }
 
         public static int ScanDefaultDirectories()
@@ -110,19 +113,7 @@ namespace SharpInit.Units
 
             foreach (var file in files)
             {
-                AddUnitByPath(file);
-                //var unit = CreateUnit(file);
-
-                //if (unit == null)
-                //{
-                //    continue;
-                //}
-
-                //if (!Units.ContainsKey(unit.UnitName))
-                //{
-                //    AddUnit(unit);
-                //}
-
+                IndexUnitFile(file);
                 count++;
             }
 
@@ -138,29 +129,18 @@ namespace SharpInit.Units
             {
                 return Units[name];
             }
+            
+            var new_unit = CreateUnit(name);
+            if (new_unit != null)
+            {
+                AddUnit(new_unit);
+                return new_unit;
+            }
 
             return null;
-            //var name_without_suffix = string.Join(".", name.Split('.').SkipLast(1));
-            //var suffix = "." + name.Split('.').Last();
-
-            //if (!name_without_suffix.Contains("@"))
-            //    return null;
-
-            //var nonparametrized_name = name_without_suffix.Split('@')[0];
-            //var parameter = name_without_suffix.Split('@')[1];
-
-            //if(Units.ContainsKey(nonparametrized_name))
-            //{
-            //    // TODO: Customize the UnitFile passed to the Unit constructor here
-            //    var clone_unit = (Unit)Activator.CreateInstance(UnitTypes[suffix], Units[nonparametrized_name].File);
-            //    Units[name] = clone_unit;
-            //    return clone_unit;
-            //}
-
-            //return null;
         }
 
-        public static bool IndexFile(string path)
+        public static bool IndexUnitFile(string path)
         {
             path = Path.GetFullPath(path);
 
@@ -180,33 +160,29 @@ namespace SharpInit.Units
             return true;
         }
 
-        //public static Unit CreateUnit(string path)
-        //{
-        //    if (!File.Exists(path))
-        //        return null;
-
-        //    var ext = Path.GetExtension(path);
-
-        //    if (!UnitTypes.ContainsKey(ext))
-        //        return null;
-
-        //    return (Unit)Activator.CreateInstance(UnitTypes[ext], path);
-        //}
-
         public static Unit CreateUnit(string name)
         {
-            if (!UnitFiles.ContainsKey(name))
+            var pure_unit_name = GetUnitName(name);
+
+            if (!UnitFiles.ContainsKey(pure_unit_name))
                 return null;
 
-            var files = UnitFiles[name];
+            var files = UnitFiles[pure_unit_name];
             var ext = files.Select(f => f.Extension).FirstOrDefault();
 
             if (!UnitTypes.ContainsKey(ext))
                 return null;
 
             var type = UnitTypes[ext];
+            var context = new UnitInstantiationContext();
 
-            return (Unit)Activator.CreateInstance(type, UnitParser.FromFiles(UnitDescriptorTypes[type], files.ToArray()));
+            if (!string.IsNullOrEmpty(GetUnitParameter(name)))
+            {
+                context.Substitutions["i"] = GetUnitParameter(name);
+            }
+
+            var descriptor = UnitParser.FromFiles(context, UnitDescriptorTypes[type], files.ToArray());
+            return (Unit)Activator.CreateInstance(type, name, descriptor);
         }
 
         public static void InitializeTypes()

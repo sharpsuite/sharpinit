@@ -1,6 +1,7 @@
 ﻿using SharpInit.Ipc;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -18,9 +19,11 @@ namespace SharpInitControl
             {"restart", RestartUnits },
             {"reload", ReloadUnits },
             {"list", ListUnits },
+            {"list-files", ListUnitFiles },
             {"daemon-reload", RescanUnits },
             {"status", GetUnitStatus },
-            {"describe-deps", DescribeDependencies }
+            {"describe-deps", DescribeDependencies },
+            {"load", LoadUnit }
         };
 
         static IpcConnection Connection { get; set; }
@@ -203,6 +206,34 @@ namespace SharpInitControl
                 Console.WriteLine("Couldn't retrieve the list of loaded units.");
             else
                 Console.WriteLine($"{list.Count} units loaded: [{string.Join(", ", list)}]");
+        }
+
+        static void ListUnitFiles(string verb, string[] args)
+        {
+            var list = Context.ListUnitFiles();
+
+            if (list == null)
+                Console.WriteLine("Couldn't retrieve the list of loaded unit files.");
+            else
+                Console.WriteLine($"{list.Count} unit files loaded: [{string.Join(", ", list)}]");
+        }
+
+        static void LoadUnit(string verb, string[] args)
+        {
+            var path = Path.GetFullPath(args[0]);
+
+            if (File.Exists(path))
+            {
+                var success = Context.LoadUnitFromFile(path);
+                if (success)
+                {
+                    Console.WriteLine($"Successfully indexed unit at \"{path}\".");
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to index unit at \"{path}\".");
+                }
+            }
         }
     }
 }

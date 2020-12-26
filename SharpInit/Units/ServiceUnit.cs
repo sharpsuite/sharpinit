@@ -17,8 +17,8 @@ namespace SharpInit.Units
 
         public int COMMAND_TIMEOUT = 5000;
 
-        public ServiceUnit(ServiceUnitDescriptor desc) :
-            base(desc)
+        public ServiceUnit(string name, ServiceUnitDescriptor desc) :
+            base(name, desc)
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
@@ -141,9 +141,9 @@ namespace SharpInit.Units
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new StopUnitProcessesTask(this));
-            transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
+            //transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
-            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Inactive);
+            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
 
             return transaction;
         }

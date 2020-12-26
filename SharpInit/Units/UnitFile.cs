@@ -8,7 +8,6 @@ namespace SharpInit.Units
     {
         public Dictionary<string, List<string>> Properties { get; set; }
         public string Extension { get; set; }
-        
     }
 
     public class OnDiskUnitFile : UnitFile
@@ -19,6 +18,11 @@ namespace SharpInit.Units
         {
             Path = path;
             Extension = System.IO.Path.GetExtension(path);
+        }
+
+        public override string ToString()
+        {
+            return $"Unit file loaded from \"{Path}\"";
         }
     }
 }

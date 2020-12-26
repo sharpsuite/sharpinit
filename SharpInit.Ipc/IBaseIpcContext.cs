@@ -32,6 +32,9 @@ namespace SharpInit.Ipc
         [IpcFunction("list-units")]
         List<string> ListUnits();
 
+        [IpcFunction("list-unit-files")]
+        List<string> ListUnitFiles();
+
         [IpcFunction("get-unit-info")]
         UnitInfo GetUnitInfo(string unit);
 

@@ -30,25 +30,12 @@ namespace SharpInit.Units
 
         private DependencyGraph<RequirementDependency> RequirementDependencyGraph { get; set; }
         private DependencyGraph<OrderingDependency> OrderingDependencyGraph { get; set; }
-        
-        //protected Unit(UnitFile file)
-        //{
-            
-        //}
 
-        //protected Unit(string path)
-        //{
-        //    LoadUnitFile(path);
-        //    UnitName = File.UnitName;
-        //}
-
-        protected Unit(UnitDescriptor descriptor)
+        protected Unit(string name, UnitDescriptor descriptor)
             : this()
         {
+            UnitName = name;
             Descriptor = descriptor;
-
-            if (Descriptor?.Files?.Any() == true)
-                UnitName = UnitRegistry.GetUnitName((Descriptor.Files.FirstOrDefault(f => f is OnDiskUnitFile) as OnDiskUnitFile)?.Path ?? "unknown.unit");
         }
 
         protected Unit()
