@@ -89,7 +89,7 @@ namespace SharpInit
         {
             try
             {
-                UnitRegistry.IndexUnitFile(path);
+                UnitRegistry.IndexUnitByPath(path);
                 return true;
             }
             catch { return false; }
@@ -121,7 +121,7 @@ namespace SharpInit
             info.State = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());
             info.LastStateChangeTime = unit.LastStateChangeTime;
             info.ActivationTime = unit.ActivationTime;
-            info.LoadTime = unit.LoadTime;
+            info.LoadTime = unit.Descriptor.Created;
 
             return info;
         }

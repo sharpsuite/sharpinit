@@ -33,6 +33,14 @@ namespace SharpInit.Units
 
         public static List<string> ScanDirectories = new List<string>();
 
+        public static void CreateBaseUnits()
+        {
+            var default_target_file = new GeneratedUnitFile("default.target")
+                .WithProperty("Unit/Description", "default.target");
+
+            IndexUnitFile(default_target_file);
+        }
+
         public static void AddUnit(Unit unit)
         {
             if (unit == null)
@@ -113,7 +121,7 @@ namespace SharpInit.Units
 
             foreach (var file in files)
             {
-                IndexUnitFile(file);
+                IndexUnitByPath(file);
                 count++;
             }
 
@@ -140,7 +148,34 @@ namespace SharpInit.Units
             return null;
         }
 
-        public static bool IndexUnitFile(string path)
+        public static bool IndexUnitFile(UnitFile file)
+        {
+            var name = file.UnitName;
+
+            if (!UnitFiles.ContainsKey(name))
+                UnitFiles[name] = new List<UnitFile>();
+
+            if (file is OnDiskUnitFile)
+                UnitFiles[name].RemoveAll(u => 
+                u is OnDiskUnitFile && 
+                (u as OnDiskUnitFile).Path == (file as OnDiskUnitFile).Path);
+
+            UnitFiles[name].Add(file);
+
+            if (Units.ContainsKey(name))
+            {
+                var unit = Units[name];
+                unit.SetUnitDescriptor(GetUnitDescriptor(name));
+            }
+            else
+            {
+                AddUnit(CreateUnit(name));
+            }
+
+            return true;
+        }
+
+        public static bool IndexUnitByPath(string path)
         {
             path = Path.GetFullPath(path);
 
@@ -148,16 +183,7 @@ namespace SharpInit.Units
 
             if (unit_file == null)
                 return false;
-
-            var name = GetUnitName(path);
-
-            if (!UnitFiles.ContainsKey(name))
-                UnitFiles[name] = new List<UnitFile>();
-
-            UnitFiles[name].RemoveAll(u => u is OnDiskUnitFile && ((OnDiskUnitFile)u).Path == unit_file.Path);
-            UnitFiles[name].Add(unit_file);
-
-            return true;
+            return IndexUnitFile(unit_file);
         }
 
         public static Unit CreateUnit(string name)
@@ -168,10 +194,20 @@ namespace SharpInit.Units
                 return null;
 
             var files = UnitFiles[pure_unit_name];
-            var ext = files.Select(f => f.Extension).FirstOrDefault();
+            var ext = Path.GetExtension(name);
 
             if (!UnitTypes.ContainsKey(ext))
                 return null;
+
+            var type = UnitTypes[ext];
+            var descriptor = GetUnitDescriptor(pure_unit_name);
+            return (Unit)Activator.CreateInstance(type, name, descriptor);
+        }
+
+        public static UnitDescriptor GetUnitDescriptor(string name)
+        {
+            var pure_unit_name = GetUnitName(name);
+            var ext = Path.GetExtension(pure_unit_name);
 
             var type = UnitTypes[ext];
             var context = new UnitInstantiationContext();
@@ -181,8 +217,8 @@ namespace SharpInit.Units
                 context.Substitutions["i"] = GetUnitParameter(name);
             }
 
-            var descriptor = UnitParser.FromFiles(context, UnitDescriptorTypes[type], files.ToArray());
-            return (Unit)Activator.CreateInstance(type, name, descriptor);
+            var files = UnitFiles[pure_unit_name];
+            return UnitParser.FromFiles(context, UnitDescriptorTypes[type], files.ToArray());
         }
 
         public static void InitializeTypes()
