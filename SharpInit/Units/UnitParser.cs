@@ -42,24 +42,30 @@ namespace SharpInit.Units
 
                 var properties = file.Properties.ToDictionary(p => p.Key, p => p.Value);
 
-                // detect .wants, .requires
-                var directory_maps = new Dictionary<string, string>()
+                if (file is OnDiskUnitFile)
                 {
-                    {".wants", "Unit/Wants" },
-                    {".requires", "Unit/Requires" },
-                };
-
-                foreach (var pair in directory_maps)
-                {
-                    if (Directory.Exists(file + pair.Key))
+                    // detect .wants, .requires
+                    var directory_maps = new Dictionary<string, string>()
                     {
-                        var prop_name = pair.Value;
+                        {".wants", "Unit/Wants" },
+                        {".requires", "Unit/Requires" },
+                    };
 
-                        if (!properties.ContainsKey(prop_name))
-                            properties[prop_name] = new List<string>();
+                    foreach (var pair in directory_maps)
+                    {
+                        var sub_dir = (file as OnDiskUnitFile).Path + pair.Key;
+                        if (Directory.Exists(sub_dir))
+                        {
+                            var prop_name = pair.Value;
 
-                        // add the units we found in the relevant dir
-                        properties[prop_name].AddRange(Directory.GetFiles(file + pair.Key).Where(filename => UnitRegistry.UnitTypes.Any(type => filename.EndsWith(type.Key))).Select(Path.GetFileName));
+                            if (!properties.ContainsKey(prop_name))
+                                properties[prop_name] = new List<string>();
+
+                            // add the units we found in the relevant dir
+                            properties[prop_name].AddRange(Directory.GetFiles(sub_dir).Where(filename => 
+                                UnitRegistry.UnitTypes.Any(type => filename.EndsWith(type.Key)))
+                                .Select(Path.GetFileName));
+                        }
                     }
                 }
 
@@ -120,9 +126,12 @@ namespace SharpInit.Units
                     last_value = last_value.Replace("%%", "%"); // this feels inadequate somehow....
                                                                 // TODO: check whether this logic works correctly
 
-                    foreach(var substitution in ctx?.Substitutions)
+                    if (ctx?.Substitutions != null)
                     {
-                        last_value = last_value.Replace($"%{substitution.Key}", substitution.Value);
+                        foreach (var substitution in ctx.Substitutions)
+                        {
+                            last_value = last_value.Replace($"%{substitution.Key}", substitution.Value);
+                        }
                     }
 
                     properties_touched.Add(attribute);
