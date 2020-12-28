@@ -62,7 +62,7 @@ namespace SharpInit.Tests
             UnitRegistry.Units.Clear();
 
             // Act
-            UnitRegistry.IndexUnitFile(TestUnitPath);
+            UnitRegistry.IndexUnitByPath(TestUnitPath);
 
             // Assert
             Assert.IsNotNull(UnitRegistry.GetUnit(TestUnitFilename));
@@ -76,7 +76,7 @@ namespace SharpInit.Tests
             UnitRegistry.Units.Clear();
 
             // Act
-            UnitRegistry.IndexUnitFile($"{DirectoryName}/nonexistent-unit.service");
+            UnitRegistry.IndexUnitByPath($"{DirectoryName}/nonexistent-unit.service");
 
             // Assert
             Assert.IsNull(UnitRegistry.GetUnit(TestUnitFilename));
