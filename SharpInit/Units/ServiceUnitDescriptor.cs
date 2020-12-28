@@ -47,7 +47,7 @@ namespace SharpInit.Units
         public List<string> ExecReload { get; set; }
         #endregion
 
-        public ServiceUnitDescriptor() { }
+        public ServiceUnitDescriptor() : base() { }
     }
 
     public enum RestartBehavior

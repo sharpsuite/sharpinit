@@ -141,9 +141,11 @@ namespace SharpInit.Units
         public Dictionary<string, List<string>> Assertions = new Dictionary<string, List<string>>();
         #endregion
         
+        public DateTime Created { get; set; }
+
         public UnitDescriptor()
         {
-
+            Created = DateTime.UtcNow;
         }
     }
 
