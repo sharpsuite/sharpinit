@@ -60,12 +60,31 @@ namespace SharpInitControl
                 var deactivation_plan = Context.GetDeactivationPlan(unit);
 
                 Console.WriteLine($"Activation plan for {unit}:");
-                activation_plan.SelectMany(t => t.Value).ToList().ForEach(Console.WriteLine);
+                foreach (var pair in activation_plan)
+                {
+                    var reasons_text = pair.Value.Count == 1 ? "" : $" ({pair.Value.Count} reasons)";
+                    var prefix = pair.Value.Count == 1 ? "  " : "  + ";
+                    Console.WriteLine($"{prefix}{pair.Key}{reasons_text}:");
+                    foreach (var reason in pair.Value)
+                    {
+                        Console.WriteLine($"      {reason}");
+                    }
+                }
+                //activation_plan.Select(t => ).ToList().ForEach(Console.WriteLine);
 
                 Console.WriteLine();
 
                 Console.WriteLine($"Dectivation plan for {unit}:");
-                deactivation_plan.SelectMany(t => t.Value).ToList().ForEach(Console.WriteLine);
+                foreach (var pair in deactivation_plan)
+                {
+                    var reasons_text = pair.Value.Count == 1 ? "" : $" ({pair.Value.Count} reasons)";
+                    var prefix = pair.Value.Count == 1 ? "  " : "  + ";
+                    Console.WriteLine($"{prefix}{pair.Key}{reasons_text}:");
+                    foreach (var reason in pair.Value)
+                    {
+                        Console.WriteLine($"      {reason}");
+                    }
+                }
             }
         }
 
