@@ -8,7 +8,7 @@ sharpinit is not ready for production use!
 - [ ] Service manager (the first and foremost priority for now)
   - [ ] Unit file loader
     - [x] Unit file parser
-    - [ ] Parametrized initialization
+    - [x] Parametrized initialization
     - [x] Dependency builder
     - [x] Support for various dependency shorthands (.wants, .requires)
     - [ ] Support for patching together unit files (.d, vendor control)
