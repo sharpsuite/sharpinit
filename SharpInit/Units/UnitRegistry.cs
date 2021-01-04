@@ -201,6 +201,14 @@ namespace SharpInit.Units
 
             var type = UnitTypes[ext];
             var descriptor = GetUnitDescriptor(pure_unit_name);
+            var context = new UnitInstantiationContext();
+
+            if (!string.IsNullOrEmpty(GetUnitParameter(name)))
+            {
+                context.Substitutions["i"] = GetUnitParameter(name);
+            }
+
+            descriptor.InstantiateDescriptor(context);
             return (Unit)Activator.CreateInstance(type, name, descriptor);
         }
 
@@ -210,15 +218,9 @@ namespace SharpInit.Units
             var ext = Path.GetExtension(pure_unit_name);
 
             var type = UnitTypes[ext];
-            var context = new UnitInstantiationContext();
-
-            if (!string.IsNullOrEmpty(GetUnitParameter(name)))
-            {
-                context.Substitutions["i"] = GetUnitParameter(name);
-            }
 
             var files = UnitFiles[pure_unit_name];
-            return UnitParser.FromFiles(context, UnitDescriptorTypes[type], files.ToArray());
+            return UnitParser.FromFiles(UnitDescriptorTypes[type], files.ToArray());
         }
 
         public static void InitializeTypes()

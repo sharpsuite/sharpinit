@@ -15,10 +15,7 @@ namespace SharpInit.Units
         public static T FromFiles<T>(params UnitFile[] files)
             where T : UnitDescriptor => (T)FromFiles(typeof(T), files);
 
-        public static UnitDescriptor FromFiles(Type descriptor_type, params UnitFile[] files) =>
-            FromFiles(default(UnitInstantiationContext), descriptor_type, files); // TODO: replace default(T) with a method that returns a base context
-
-        public static UnitDescriptor FromFiles(UnitInstantiationContext ctx, Type descriptor_type, params UnitFile[] files)
+        public static UnitDescriptor FromFiles(Type descriptor_type, params UnitFile[] files)
         {
             var descriptor = (UnitDescriptor)Activator.CreateInstance(descriptor_type);
             descriptor.Files = files;
@@ -121,18 +118,6 @@ namespace SharpInit.Units
                     var attribute = (UnitPropertyAttribute)prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false)[0];
                     var handler_type = attribute.PropertyType;
                     var last_value = values.Last();
-
-                    // substitute all percent sign specifiers
-                    last_value = last_value.Replace("%%", "%"); // this feels inadequate somehow....
-                                                                // TODO: check whether this logic works correctly
-
-                    if (ctx?.Substitutions != null)
-                    {
-                        foreach (var substitution in ctx.Substitutions)
-                        {
-                            last_value = last_value.Replace($"%{substitution.Key}", substitution.Value);
-                        }
-                    }
 
                     properties_touched.Add(attribute);
 

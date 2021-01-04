@@ -147,6 +147,29 @@ namespace SharpInit.Units
         {
             Created = DateTime.UtcNow;
         }
+
+        internal void InstantiateDescriptor(UnitInstantiationContext ctx)
+        {
+            var self_properties = this.GetType().GetProperties();
+            var properties_with_attribute = self_properties.Where(prop => prop.GetCustomAttributes(typeof(UnitPropertyAttribute), true).Any());
+
+            foreach (var property in properties_with_attribute)
+            {
+                switch (property.GetValue(this))
+                {
+                    case string str:
+                        property.SetValue(this, ctx.Substitute(str));
+                        break;
+                    case List<string> list:
+                        for (int i = 0; i < list.Count; i++)
+                        {
+                            list[i] = ctx.Substitute(list[i]);
+                        }
+                        break;
+
+                }
+            }
+        }
     }
 
     public enum OnFailureJobMode
