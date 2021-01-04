@@ -4,7 +4,7 @@ using System.Text;
 
 namespace SharpInit.Units
 {
-    public class ServiceUnitFile : ExecUnitFile
+    public class ServiceUnitDescriptor : ExecUnitDescriptor
     {
         [UnitProperty("Service/Type", UnitPropertyType.Enum, ServiceType.Simple, typeof(ServiceType))]
         public ServiceType ServiceType { get; set; }
@@ -47,8 +47,7 @@ namespace SharpInit.Units
         public List<string> ExecReload { get; set; }
         #endregion
 
-        public ServiceUnitFile() { }
-        public ServiceUnitFile(string path) => UnitParser.Parse<ServiceUnitFile>(path);
+        public ServiceUnitDescriptor() : base() { }
     }
 
     public enum RestartBehavior

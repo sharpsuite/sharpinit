@@ -56,7 +56,7 @@ namespace SharpInit.Platform
         }
 
         /// <summary>
-        /// Constructs an instance of the platform-specific class that implements T interface with the given parameters.
+        /// Constructs instances of all the platform-specific classes permitted by the current platform that implement interface T with the given parameters.
         /// </summary>
         /// <typeparam name="T">An interface that has multiple platform-specific implementations.</typeparam>
         /// <param name="constructor_params">The set of parameters to be passed to the constructor.</param>
@@ -67,13 +67,13 @@ namespace SharpInit.Platform
         }
 
         /// <summary>
-        /// Constructs an instance of the platform-specific class that implements T interface with the given parameters.
+        /// Constructs instances of all the platform-specific classes permitted by the PlatformIdentifier that implement T interface with the given parameters.
         /// </summary>
         /// <typeparam name="T">An interface that has multiple platform-specific implementations.</typeparam>
         /// <param name="id">The platform identifier to use when looking for the implementation.</param>
         /// <param name="constructor_params">The set of parameters to be passed to the constructor.</param>
-        /// <returns>A new instance of a class that implements T and matches the provided platform identifier.</returns>
-        public static T GetImplementation<T>(PlatformIdentifier id, params object[] constructor_params)
+        /// <returns>Classes that implement T and match the provided platform identifier.</returns>
+        public static IEnumerable<T> GetImplementations<T>(PlatformIdentifier id, params object[] constructor_params)
         {
             var T_type = typeof(T);
 
@@ -88,11 +88,12 @@ namespace SharpInit.Platform
                 foreach(var type in types)
                 {
                     if (PlatformsPerType[type].Contains(platform))
-                        return (T)Activator.CreateInstance(type, constructor_params);
+                        yield return (T)Activator.CreateInstance(type, constructor_params);
                 }
             }
-
-            throw new Exception();
         }
+
+        public static T GetImplementation<T>(PlatformIdentifier id, params object[] constructor_params) =>
+            GetImplementations<T>(id, constructor_params).FirstOrDefault();
     }
 }

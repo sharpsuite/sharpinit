@@ -1,6 +1,8 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SharpInit.Ipc
@@ -13,10 +15,17 @@ namespace SharpInit.Ipc
         public IpcConnection Connection { get; set; }
         public string SourceName { get; set; }
 
+        private static Dictionary<string, string> FunctionNameToIpcName = new Dictionary<string, string>();
+
         public ClientIpcContext(IpcConnection connection, string name)
         {
             Connection = connection;
             SourceName = name;
+
+            if (!FunctionNameToIpcName.Any())
+            {
+                PopulateFunctionNameMappings();
+            }
         }
 
         public ClientIpcContext() :
@@ -25,53 +34,42 @@ namespace SharpInit.Ipc
 
         }
 
-        public bool ActivateUnit(string unit)
+        private void PopulateFunctionNameMappings()
         {
-            var result = InvokeIpcFunction("activate-unit", unit);
-            return result.Success ? (bool)result.AdditionalData : false;
+            var type = typeof(IBaseIpcContext);
+
+            foreach (var method in type.GetMethods())
+            {
+                var attributes = method.GetCustomAttributes(typeof(IpcFunctionAttribute), true);
+                if (attributes.Any())
+                {
+                    FunctionNameToIpcName[method.Name] = (attributes.First() as IpcFunctionAttribute).Name;
+                }
+            }
         }
 
-        public bool DeactivateUnit(string unit)
+        private object[] Wrap(params object[] args) => args;
+        public T MakeCall<T>(object[] args = null, [CallerMemberName] string name = null)
         {
-            var result = InvokeIpcFunction("deactivate-unit", unit);
-            return result.Success ? (bool)result.AdditionalData : false;
+            args = args ?? new object[0];
+            var method_name = FunctionNameToIpcName[name];
+            var result = InvokeIpcFunction(method_name, args);
+            if (result.Success)
+                return (T)result.AdditionalData;
+            
+            return default(T);
         }
 
-        public bool ReloadUnit(string unit)
-        {
-            var result = InvokeIpcFunction("reload-unit", unit);
-            return result.Success ? (bool)result.AdditionalData : false;
-        }
+        public bool ActivateUnit(string unit) => MakeCall<bool>(Wrap(unit));
+        public bool DeactivateUnit(string unit) => MakeCall<bool>(Wrap(unit));
+        public bool ReloadUnit(string unit) => MakeCall<bool>(Wrap(unit));
+        public List<string> ListUnits() => MakeCall<List<string>>();
+        public List<string> ListUnitFiles() => MakeCall<List<string>>();
+        public bool LoadUnitFromFile(string path) => MakeCall<bool>(Wrap(path));
 
-        public List<string> ListUnits()
-        {
-            var result = InvokeIpcFunction("list-units");
-            return result.Success ? (List<string>)result.AdditionalData : null;
-        }
-
-        public bool LoadUnitFromFile(string path)
-        {
-            var result = InvokeIpcFunction("load-unit", path);
-            return result.Success ? (bool)result.AdditionalData : false;
-        }
-
-        public bool ReloadUnitFile(string unit)
-        {
-            var result = InvokeIpcFunction("reload-unit", unit);
-            return result.Success ? (bool)result.AdditionalData : false;
-        }
-
-        public int RescanUnits()
-        {
-            var result = InvokeIpcFunction("rescan-units");
-            return result.Success ? Convert.ToInt32(result.AdditionalData) : -1;
-        }
-
-        public UnitInfo GetUnitInfo(string unit)
-        {
-            var result = InvokeIpcFunction("get-unit-info", unit);
-            return result.Success ? (UnitInfo)result.AdditionalData : null;
-        }
+        public bool ReloadUnitFile(string unit) => MakeCall<bool>(Wrap(unit));
+        public int RescanUnits() => MakeCall<int>();
+        public UnitInfo GetUnitInfo(string unit) => MakeCall<UnitInfo>(Wrap(unit));
 
         public Dictionary<string, List<string>> GetActivationPlan(string unit)
         {

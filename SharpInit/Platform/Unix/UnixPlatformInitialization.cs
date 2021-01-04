@@ -8,10 +8,11 @@ namespace SharpInit.Platform.Unix
     /// Unix platform initialization code. Sets up signals.
     /// </summary>
     [SupportedOn("unix")]
-    public class UnixPlatformInitialization : IPlatformInitialization
+    public class UnixPlatformInitialization : GenericPlatformInitialization
     {
-        public void Initialize()
+        public new void Initialize()
         {
+            base.Initialize();
             SignalHandler.Initialize();
         }
     }

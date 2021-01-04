@@ -7,7 +7,7 @@ namespace SharpInit.Units
     /// <summary>
     /// Common denominator unit type for .service, .socket, .swap and .mount
     /// </summary>
-    public class ExecUnitFile : UnitFile
+    public class ExecUnitDescriptor : UnitDescriptor
     {
         [UnitProperty("@/WorkingDirectory", UnitPropertyType.String)]
         public string WorkingDirectory { get; set; }

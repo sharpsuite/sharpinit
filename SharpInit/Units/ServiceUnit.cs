@@ -13,16 +13,25 @@ namespace SharpInit.Units
     {
         Logger Log = LogManager.GetCurrentClassLogger();
 
-        public new ServiceUnitFile File { get; set; }
-        public override UnitFile GetUnitFile() => (UnitFile)File;
+        public new ServiceUnitDescriptor Descriptor { get; set; }
 
         public int COMMAND_TIMEOUT = 5000;
 
-        public ServiceUnit(string path) : base(path)
+        public ServiceUnit(string name, ServiceUnitDescriptor desc) :
+            base(name, desc)
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
         }
+
+        public ServiceUnit() : base()
+        {
+            ProcessStart += HandleProcessStart;
+            ProcessExit += HandleProcessExit;
+        }
+
+        public override UnitDescriptor GetUnitDescriptor() => Descriptor;
+        public override void SetUnitDescriptor(UnitDescriptor desc) => Descriptor = (ServiceUnitDescriptor)desc;
 
         private void HandleProcessExit(Unit unit, ProcessInfo info, int code)
         {
@@ -46,18 +55,18 @@ namespace SharpInit.Units
 
                     if (code == 0)
                         should_restart =
-                            File.Restart == RestartBehavior.Always ||
-                            File.Restart == RestartBehavior.OnSuccess;
+                            Descriptor.Restart == RestartBehavior.Always ||
+                            Descriptor.Restart == RestartBehavior.OnSuccess;
                     else
                         should_restart =
-                            File.Restart == RestartBehavior.Always ||
-                            File.Restart == RestartBehavior.OnFailure ||
-                            File.Restart == RestartBehavior.OnAbnormal;
+                            Descriptor.Restart == RestartBehavior.Always ||
+                            Descriptor.Restart == RestartBehavior.OnFailure ||
+                            Descriptor.Restart == RestartBehavior.OnAbnormal;
 
                     if(should_restart)
                     {
                         var restart_transaction = new Transaction(
-                            new DelayTask(File.RestartSec),
+                            new DelayTask(Descriptor.RestartSec),
                             UnitRegistry.CreateDeactivationTransaction(UnitName),
                             UnitRegistry.CreateActivationTransaction(UnitName));
 
@@ -73,59 +82,47 @@ namespace SharpInit.Units
             // do nothing for now
         }
 
-        public override void LoadUnitFile(string path)
-        {
-            File = UnitParser.Parse<ServiceUnitFile>(path);
-            LoadTime = DateTime.UtcNow;
-        }
-
-        public override void LoadUnitFile(UnitFile file)
-        {
-            File = (ServiceUnitFile)file;
-            LoadTime = DateTime.UtcNow;
-        }
-
         internal override Transaction GetActivationTransaction()
         {
             var transaction = new Transaction($"Activation transaction for unit {UnitName}");
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
-            var working_dir = File.WorkingDirectory;
-            var user = (File.Group == null && File.User == null ? null : PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User));
+            var working_dir = Descriptor.WorkingDirectory;
+            var user = (Descriptor.Group == null && Descriptor.User == null ? null : PlatformUtilities.GetImplementation<IUserIdentifier>(Descriptor.Group, Descriptor.User));
 
-            switch (File.ServiceType)
+            switch (Descriptor.ServiceType)
             {
                 case ServiceType.Simple:
-                    if (File.ExecStart == null)
+                    if (Descriptor.ExecStart == null)
                     {
                         Log.Error($"Unit {UnitName} has no ExecStart directives.");
                         SetState(UnitState.Failed);
                         return null;
                     }
 
-                    if (File.ExecStart.Count != 1)
+                    if (Descriptor.ExecStart.Count != 1)
                     {
-                        Log.Error($"Service type \"simple\" only supports one ExecStart value, {UnitName} has {File.ExecStart.Count}");
+                        Log.Error($"Service type \"simple\" only supports one ExecStart value, {UnitName} has {Descriptor.ExecStart.Count}");
                         SetState(UnitState.Failed);
                         return null;
                     }
 
-                    if (File.ExecStartPre.Any())
+                    if (Descriptor.ExecStartPre.Any())
                     {
-                        foreach (var line in File.ExecStartPre)
+                        foreach (var line in Descriptor.ExecStartPre)
                             transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, working_dir, user), 5000));
                     }
 
-                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(File.ExecStart.Single(), working_dir, user), this));
+                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), working_dir, user), this));
 
-                    if (File.ExecStartPost.Any())
+                    if (Descriptor.ExecStartPost.Any())
                     {
-                        foreach (var line in File.ExecStartPost)
+                        foreach (var line in Descriptor.ExecStartPost)
                             transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, working_dir, user), 5000));
                     }
                     break;
                 default:
-                    Log.Error($"Only the \"simple\" service type is supported for now, {UnitName} has type {File.ServiceType}");
+                    Log.Error($"Only the \"simple\" service type is supported for now, {UnitName} has type {Descriptor.ServiceType}");
                     SetState(UnitState.Failed);
                     break;
             }
@@ -144,9 +141,9 @@ namespace SharpInit.Units
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new StopUnitProcessesTask(this));
-            transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
+            //transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
-            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Inactive);
+            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
 
             return transaction;
         }
@@ -156,15 +153,15 @@ namespace SharpInit.Units
             var transaction = new Transaction();
             transaction.Add(new SetUnitStateTask(this, UnitState.Reloading, UnitState.Active));
 
-            var working_dir = File.WorkingDirectory;
-            var user = (File.Group == null && File.User == null ? null : PlatformUtilities.GetImplementation<IUserIdentifier>(File.Group, File.User));
+            var working_dir = Descriptor.WorkingDirectory;
+            var user = (Descriptor.Group == null && Descriptor.User == null ? null : PlatformUtilities.GetImplementation<IUserIdentifier>(Descriptor.Group, Descriptor.User));
 
-            if (!File.ExecReload.Any())
+            if (!Descriptor.ExecReload.Any())
             {
                 throw new Exception($"Unit {UnitName} has no ExecReload directives.");
             }
             
-            foreach(var reload_cmd in File.ExecReload)
+            foreach(var reload_cmd in Descriptor.ExecReload)
             {
                 transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(reload_cmd, working_dir, user), 5000));
             }

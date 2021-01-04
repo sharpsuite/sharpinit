@@ -40,7 +40,7 @@ namespace SharpInit.Tasks
             }
             else
             {
-                ProcessInfo.Process.Kill();
+                ProcessInfo.Process.Kill(true);
             }
 
             return new TaskResult(this, ResultType.Success);

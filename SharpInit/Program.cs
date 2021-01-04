@@ -23,7 +23,6 @@ namespace SharpInit
 
             Log.Info("Platform initialization complete");
 
-            UnitRegistry.InitializeTypes();
             UnitRegistry.ScanDefaultDirectories();
             
             Log.Info($"Loaded {UnitRegistry.Units.Count} units");
