@@ -66,7 +66,7 @@ namespace SharpInit.Units
             var filename_without_ext = Path.GetFileNameWithoutExtension(path);
 
             if (filename_without_ext.Contains("@"))
-                return filename_without_ext.Split('@').First() + Path.GetExtension(filename);
+                return filename_without_ext.Split('@').First() + "@" + Path.GetExtension(filename);
 
             return filename;
         }
@@ -131,18 +131,20 @@ namespace SharpInit.Units
             return count;
         }
 
-        public static Unit GetUnit(string name)
+        public static Unit GetUnit(string name) => GetUnit<Unit>(name);
+
+        public static T GetUnit<T>(string name) where T : Unit
         {
             if (Units.ContainsKey(name))
             {
-                return Units[name];
+                return Units[name] as T;
             }
             
             var new_unit = CreateUnit(name);
             if (new_unit != null)
             {
                 AddUnit(new_unit);
-                return new_unit;
+                return new_unit as T;
             }
 
             return null;
@@ -203,9 +205,23 @@ namespace SharpInit.Units
             var descriptor = GetUnitDescriptor(pure_unit_name);
             var context = new UnitInstantiationContext();
 
-            if (!string.IsNullOrEmpty(GetUnitParameter(name)))
+            context.Substitutions["p"] = pure_unit_name;
+            context.Substitutions["P"] = StringEscaper.Unescape(pure_unit_name);
+            context.Substitutions["f"] = "/" + StringEscaper.Unescape(pure_unit_name);
+            context.Substitutions["H"] = Environment.MachineName;
+
+            var unit_parameter = GetUnitParameter(name);
+
+            if (string.IsNullOrEmpty(unit_parameter))
             {
-                context.Substitutions["i"] = GetUnitParameter(name);
+                unit_parameter = descriptor.DefaultInstance;
+            }
+
+            if (!string.IsNullOrEmpty(unit_parameter))
+            {
+                context.Substitutions["i"] = unit_parameter;
+                context.Substitutions["I"] = StringEscaper.Unescape(unit_parameter);
+                context.Substitutions["f"] = "/" + StringEscaper.Unescape(unit_parameter);
             }
 
             descriptor.InstantiateDescriptor(context);

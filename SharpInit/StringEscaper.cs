@@ -40,10 +40,6 @@ namespace SharpInit
             {
                 var original_char = input[i];
 
-                if (!char.IsLetterOrDigit(original_char) && original_char != '_' ||
-                    (i == 0 && original_char == '.')) // escape '.' if it's the first char in the string
-                    new_output.Append($"\\x{Convert.ToString((int)original_char, 16)}");
-                else
                     new_output.Append(original_char);
             }
 

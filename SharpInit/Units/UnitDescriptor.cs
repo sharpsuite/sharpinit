@@ -119,6 +119,14 @@ namespace SharpInit.Units
         public string JobTimeoutRebootArgument { get; set; }
         #endregion
 
+        #region Install section
+        [UnitProperty("Install/DefaultInstance")]
+        public string DefaultInstance { get; set; }
+
+        [UnitProperty("Install/WantedBy", UnitPropertyType.StringListSpaceSeparated)]
+        public List<string> WantedBy { get; set; }
+        #endregion
+
         #region Limiting properties
         [UnitProperty("Unit/StartLimitIntervalSec", UnitPropertyType.Int, -1)]
         public int StartLimitIntervalSec { get; set; }
