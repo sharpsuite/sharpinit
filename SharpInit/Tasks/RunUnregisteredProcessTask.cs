@@ -30,7 +30,7 @@ namespace SharpInit.Tasks
             ExecutionTime = time;
         }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             if (ProcessStartInfo == null)
                 return new TaskResult(this, ResultType.Failure, "No ProcessStartInfo supplied.");

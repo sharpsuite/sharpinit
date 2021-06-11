@@ -30,7 +30,7 @@ namespace SharpInit.Tasks
             NextState = next_state;
         }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             if (AllowedInputStates != UnitState.Any && !AllowedInputStates.HasFlag(Unit.CurrentState))
                 return new TaskResult(this, ResultType.Failure, "Invalid input Unit state.");

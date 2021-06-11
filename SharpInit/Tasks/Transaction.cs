@@ -15,6 +15,7 @@ namespace SharpInit.Tasks
         public string Name { get; set; }
         public List<Task> Tasks = new List<Task>();
         public Task OnFailure { get; set; }
+        public TaskContext Context { get; set; }
 
         /// <summary>
         /// The error handling mode of this transaction. Set to Ignore if execution should continue upon the failure of a child Task.
@@ -103,22 +104,23 @@ namespace SharpInit.Tasks
         /// </summary>
         /// <returns>A TaskResult that has the ResultType Success if all tasks executed successfully, 
         /// or the TaskResult returned by a failed task, depending on ErrorHandlingMode.</returns>
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context = null)
         {
+            Context = context ?? default;
             var lock_obj = Lock ?? new object();
 
             lock (lock_obj)
             {
                 foreach (var task in Tasks)
                 {
-                    var result = task.Execute();
+                    var result = task.Execute(Context);
 
                     if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore &&
                         result.Type != ResultType.Success &&
                         !result.Type.HasFlag(ResultType.Ignorable))
                     {
                         if (OnFailure != null)
-                            OnFailure.Execute();
+                            OnFailure.Execute(Context);
 
                         // fatal failure
                         return result;

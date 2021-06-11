@@ -10,6 +10,6 @@ namespace SharpInit.Tasks
     public abstract class Task
     {
         public abstract string Type { get; }
-        public abstract TaskResult Execute();
+        public abstract TaskResult Execute(TaskContext context);
     }
 }

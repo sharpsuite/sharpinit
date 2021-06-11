@@ -26,7 +26,7 @@ namespace SharpInit.Tasks
             GracePeriod = grace_period;
         }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             if (ProcessInfo.PlatformSupportsSignaling)
             {

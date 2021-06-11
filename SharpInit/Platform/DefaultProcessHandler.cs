@@ -60,6 +60,11 @@ namespace SharpInit.Platform
 
             net_psi.UseShellExecute = false;
 
+            foreach (var env_var in psi.Environment)
+            {
+                net_psi.Environment[env_var.Key] = env_var.Value;
+            }
+
             var process = Process.Start(net_psi);
             process.Exited += HandleProcessExit;
             process.EnableRaisingEvents = true;

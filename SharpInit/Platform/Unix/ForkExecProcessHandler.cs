@@ -101,6 +101,16 @@ namespace SharpInit.Platform.Unix
                     Syscall.exit(1);
                 }
 
+                if (psi.Environment.ContainsKey("LISTEN_PID") && psi.Environment["LISTEN_PID"] == "fill")
+                {
+                    psi.Environment["LISTEN_PID"] = Syscall.getpid().ToString();
+                }
+
+                foreach (var env_var in psi.Environment) 
+                {
+                    Environment.SetEnvironmentVariable(env_var.Key, env_var.Value);
+                }
+
                 if(psi.WorkingDirectory != "")
                     Syscall.chdir(psi.WorkingDirectory);
 

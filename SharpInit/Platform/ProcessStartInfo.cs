@@ -26,7 +26,7 @@ namespace SharpInit.Platform
         /// <summary>
         /// An array of environment variables to be passed to the executed process.
         /// </summary>
-        public string[] Environment { get; set; }
+        public Dictionary<string, string> Environment { get; set; }
 
         /// <summary>
         /// Sets the working directory of the executed process.
@@ -56,7 +56,7 @@ namespace SharpInit.Platform
             StandardErrorTarget = "null";
         }
 
-        public ProcessStartInfo(string path, string[] arguments = null, IUserIdentifier user = null, string[] environment = null, string working_dir = null) 
+        public ProcessStartInfo(string path, string[] arguments = null, IUserIdentifier user = null, Dictionary<string, string> environment = null, string working_dir = null) 
             : this()
         {
             Path = path;

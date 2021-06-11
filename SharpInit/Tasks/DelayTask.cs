@@ -29,7 +29,7 @@ namespace SharpInit.Tasks
             this(TimeSpan.FromMilliseconds(milliseconds))
         { }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             Thread.Sleep(Delay);
             return new TaskResult(this, ResultType.Success);
