@@ -9,12 +9,17 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using NLog;
+
 namespace SharpInit
 {
-    public delegate void OnSocketActivation(Unit unit, Socket socket);
+    public delegate void OnSocketActivation(SocketWrapper wrapper);
 
     public class SocketManager
     {
+        Logger Log = LogManager.GetCurrentClassLogger();
+
+        Dictionary<SocketWrapper, Unit> IgnoredSockets = new Dictionary<SocketWrapper, Unit>();
         List<SocketWrapper> Sockets = new List<SocketWrapper>();
 
         public SocketManager()
@@ -90,6 +95,47 @@ namespace SharpInit
             return socket;
         }
 
+        public void IgnoreSocket(SocketWrapper socket, Unit target_unit)
+        {
+            if (Sockets.Contains(socket) && !IgnoredSockets.ContainsKey(socket))
+            {
+                Log.Debug($"Ignoring socket {socket.Unit.UnitName} because of activated unit {target_unit.UnitName}");
+                IgnoredSockets[socket] = target_unit;
+            }
+        }
+
+        public void UnignoreSocket(SocketWrapper socket)
+        {
+            if (Sockets.Contains(socket) && IgnoredSockets.ContainsKey(socket))
+            {
+                Log.Debug($"Unignoring socket {socket.Unit.UnitName}");
+                IgnoredSockets.Remove(socket);
+            }
+        }
+
+        public void UnignoreSocketsByUnit(Unit unit)
+        {
+            if (!IgnoredSockets.Values.Contains(unit))
+            {
+                return;
+            }
+
+            var sockets_to_unignore = new List<SocketWrapper>();
+
+            foreach (var pair in IgnoredSockets)
+            {
+                if (pair.Value == unit)
+                {
+                    sockets_to_unignore.Add(pair.Key);
+                }
+            }
+
+            foreach (var socket in sockets_to_unignore)
+            {
+                UnignoreSocket(socket);
+            }
+        }
+
         public void AddSocket(SocketWrapper socket)
         {
             Sockets.Add(socket);
@@ -130,14 +176,21 @@ namespace SharpInit
 
         private void Select()
         {
-            var list = Sockets.Select(w => w.Socket).ToList();
+            var list = Sockets.Where(w => !IgnoredSockets.ContainsKey(w)).Select(w => w.Socket).ToList();
+
+            if (list.Count == 0)
+            {
+                Thread.Sleep(10);
+                return;
+            }
+
             Socket.Select(list, null, null, 1000);
 
             foreach (var socket in Sockets)
             {
                 if (list.Contains(socket.Socket))
                 {
-                    socket.Unit.RaiseSocketActivated(socket.Socket);
+                    socket.Unit.RaiseSocketActivated(socket);
                 }
             }
         }

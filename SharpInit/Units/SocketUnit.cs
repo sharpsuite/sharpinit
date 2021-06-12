@@ -25,10 +25,12 @@ namespace SharpInit.Units
             SocketActivated += HandleSocketActivated;
         }
 
-        internal void RaiseSocketActivated(Socket socket) => SocketActivated?.Invoke(this, socket);
+        internal void RaiseSocketActivated(SocketWrapper wrapper) => SocketActivated?.Invoke(wrapper);
 
-        private void HandleSocketActivated(Unit unit, Socket socket)
+        private void HandleSocketActivated(SocketWrapper wrapper)
         {
+            var socket = wrapper.Socket;
+
             var activation_target = Descriptor.Service ?? Path.GetFileNameWithoutExtension(this.UnitName) + ".service";
             var target_unit = UnitRegistry.GetUnit(activation_target);
 
@@ -58,6 +60,11 @@ namespace SharpInit.Units
 
             transaction.Add(new AlterTransactionContextTask("socket.fds", file_descriptors));
             transaction.Add(target_unit.GetActivationTransaction());
+
+            if (!Descriptor.Accept)
+            {
+                transaction.Add(new IgnoreSocketsTask(this, target_unit));
+            }
 
             transaction.Execute();
         }

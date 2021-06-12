@@ -35,6 +35,8 @@ namespace SharpInit.Units
 
         private void HandleProcessExit(Unit unit, ProcessInfo info, int code)
         {
+            SocketManager.UnignoreSocketsByUnit(this);
+            
             switch(CurrentState)
             {
                 case UnitState.Deactivating:
@@ -141,7 +143,6 @@ namespace SharpInit.Units
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new StopUnitProcessesTask(this));
-            //transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
             transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
 

@@ -19,7 +19,8 @@ namespace SharpInit
             Log.Info("SharpInit starting");
 
             PlatformUtilities.RegisterImplementations();
-            PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
+            var platform_init = PlatformUtilities.GetImplementation<IPlatformInitialization>();
+            platform_init.Initialize();
 
             Log.Info("Platform initialization complete");
 
@@ -44,16 +45,8 @@ namespace SharpInit
 
             Log.Info($"Listening on {ipc_listener.SocketEndPoint}");
 
-            if(UnitRegistry.GetUnit("default.target") != null)
-            {
-                Log.Info("Activating default.target...");
-                var result = UnitRegistry.CreateActivationTransaction("default.target").Execute();
-
-                if (result.Type == Tasks.ResultType.Success)
-                    Log.Info("Successfully activated default.target.");
-                else
-                    Log.Info($"Error while activating default.target: {result.Type}, {result.Message}");
-            }
+            ActivateUnitIfExists("sockets.target");
+            ActivateUnitIfExists("default.target");
 
             Console.CancelKeyPress += (s, e) =>
             {
@@ -61,6 +54,20 @@ namespace SharpInit
             };
             
             Thread.Sleep(-1);
+        }
+
+        private static void ActivateUnitIfExists(string name)
+        {
+            if (UnitRegistry.GetUnit(name) != null)
+            {
+                Log.Info($"Activating {name}...");
+                var result = UnitRegistry.CreateActivationTransaction(name).Execute();
+
+                if (result.Type == Tasks.ResultType.Success)
+                    Log.Info($"Successfully activated {name}.");
+                else
+                    Log.Info($"Error while activating {name}: {result.Type}, {result.Message}");
+            }
         }
 
         private static void StateChangeHandler(Unit source, Units.UnitState next_state)

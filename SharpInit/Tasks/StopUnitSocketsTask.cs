@@ -30,9 +30,9 @@ namespace SharpInit.Tasks
             foreach (var socket in sockets) 
             {
                 //socket.Socket.Disconnect(false);
+                Unit.SocketManager.RemoveSocket(socket);
                 socket.Socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
                 socket.Socket.Close();
-                Unit.SocketManager.RemoveSocket(socket);
             }
 
             return new TaskResult(this, ResultType.Success);

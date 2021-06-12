@@ -10,7 +10,7 @@ namespace SharpInit.Platform.Unix
     [SupportedOn("unix")]
     public class UnixPlatformInitialization : GenericPlatformInitialization
     {
-        public new void Initialize()
+        public override void Initialize()
         {
             base.Initialize();
             SignalHandler.Initialize();

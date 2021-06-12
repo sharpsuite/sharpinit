@@ -47,6 +47,11 @@ namespace SharpInit.Units
                 .WithProperty("Unit/Description", "default.target");
 
             IndexUnitFile(default_target_file);
+
+            var sockets_target_file = new GeneratedUnitFile("sockets.target")
+                .WithProperty("Unit/Description", "sockets.target");
+            
+            IndexUnitFile(sockets_target_file);
         }
 
         public static void AddUnit(Unit unit)
@@ -550,7 +555,6 @@ namespace SharpInit.Units
 
             var units_to_deactivate = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, 
                 t => t.RequirementType == RequirementDependencyType.BindsTo || 
-                t.RequirementType == RequirementDependencyType.Requires || 
                 t.RequirementType == RequirementDependencyType.PartOf).SelectMany(dep => 
                 {
                     var ret = new[] { dep.LeftUnit, dep.RightUnit };
