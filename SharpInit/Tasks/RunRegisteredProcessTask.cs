@@ -38,9 +38,15 @@ namespace SharpInit.Tasks
 
                 if (fds?.Count > 0)
                 {
+                    if (ProcessStartInfo.Environment == null)
+                    {
+                        ProcessStartInfo.Environment = new Dictionary<string, string>();
+                    }
+
                     ProcessStartInfo.Environment["LISTEN_FDS"] = fds.Count.ToString();
                     ProcessStartInfo.Environment["LISTEN_PID"] = "fill";
                     ProcessStartInfo.Environment["LISTEN_FDNAMES"] = string.Join(':', fds.Select(fd => fd.Name));
+                    ProcessStartInfo.Environment["LISTEN_FDNUMS"] = string.Join(':', fds.Select(fd => fd.Number));
                 }
 
                 Unit.ServiceManager.StartProcess(Unit, ProcessStartInfo);

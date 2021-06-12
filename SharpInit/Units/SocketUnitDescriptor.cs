@@ -8,15 +8,25 @@ namespace SharpInit.Units
 {
     public class SocketUnitDescriptor : ExecUnitDescriptor
     {
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenStream { get; set; }
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenDatagram { get; set; }
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenSequentialPacket { get; set; }
 
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenFIFO { get; set; }
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenSpecial { get; set; }
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenNetlink { get; set; }
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenMessageQueue { get; set; }
+        [UnitProperty("Socket/@", UnitPropertyType.StringList)]
         public List<string> ListenUSBFunction { get; set; }
+
+        [UnitProperty("Socket/@", UnitPropertyType.Int)]
 
         public int Backlog { get; set; }
 
@@ -46,6 +56,8 @@ namespace SharpInit.Units
         public string FileDescriptorName { get; set; }
         public List<string> Symlinks { get; set; }
         public bool RemoveOnStop { get; set; }
+
+        [UnitProperty("Socket/@")]
         public string Service { get; set; }
         public int TimeoutSec { get; set; }
 

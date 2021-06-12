@@ -17,6 +17,6 @@ namespace SharpInit.Tasks
 
         public T Get<T>(string key) => (T)this[key];
 
-        public TaskContext() { }
+        public TaskContext() { Values = new Dictionary<string, object>(); }
     }
 }

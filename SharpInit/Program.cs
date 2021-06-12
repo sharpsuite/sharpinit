@@ -29,6 +29,9 @@ namespace SharpInit
 
             UnitRegistry.UnitStateChange += StateChangeHandler;
 
+            Log.Info("Starting socket manager...");
+            UnitRegistry.SocketManager.StartSelectLoop();
+
             Log.Info("Registering IPC context...");
 
             var context = new ServerIpcContext();

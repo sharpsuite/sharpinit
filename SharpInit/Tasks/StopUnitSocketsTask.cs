@@ -1,0 +1,41 @@
+using SharpInit.Units;
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Linq;
+
+namespace SharpInit.Tasks
+{
+    /// <summary>
+    /// Stops all sockets registered under a unit.
+    /// </summary>
+    public class StopUnitSocketsTask : Task
+    {
+        public override string Type => "stop-sockets-by-unit";
+        public Unit Unit { get; set; }
+
+        /// <summary>
+        /// Stops all sockets registered under a unit.
+        /// </summary>
+        /// <param name="unit">The unit that owns the sockets.</param>
+        public StopUnitSocketsTask(Unit unit)
+        {
+            Unit = unit;
+        }
+
+        public override TaskResult Execute(TaskContext context)
+        {
+            var sockets = Unit.SocketManager.GetSocketsByUnit(Unit).ToList();
+
+            foreach (var socket in sockets) 
+            {
+                //socket.Socket.Disconnect(false);
+                socket.Socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
+                socket.Socket.Close();
+                Unit.SocketManager.RemoveSocket(socket);
+            }
+
+            return new TaskResult(this, ResultType.Success);
+        }
+    }
+}

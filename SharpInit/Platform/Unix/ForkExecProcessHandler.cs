@@ -104,6 +104,21 @@ namespace SharpInit.Platform.Unix
                 if (psi.Environment.ContainsKey("LISTEN_PID") && psi.Environment["LISTEN_PID"] == "fill")
                 {
                     psi.Environment["LISTEN_PID"] = Syscall.getpid().ToString();
+
+                    if (psi.Environment.ContainsKey("LISTEN_FDNUMS"))
+                    {
+                        var fd_nums = psi.Environment["LISTEN_FDNUMS"].Split(':');
+                        
+                        for (int i = 0, fd = 3; i < fd_nums.Length; i++, fd++)
+                        {
+                            var num_str = fd_nums[i];
+
+                            if (int.TryParse(num_str, out int num))
+                            {
+                                Syscall.dup2(num, fd);
+                            }
+                        }
+                    }
                 }
 
                 foreach (var env_var in psi.Environment) 

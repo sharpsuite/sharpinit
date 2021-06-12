@@ -1,4 +1,6 @@
 ﻿using SharpInit.Tasks;
+using SharpInit.Platform;
+using NLog;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,6 +13,8 @@ namespace SharpInit.Units
     {
         public static event OnUnitStateChange UnitStateChange;
 
+        public static Logger Log = LogManager.GetCurrentClassLogger();
+
         public static Dictionary<string, List<UnitFile>> UnitFiles = new Dictionary<string, List<UnitFile>>();
 
         public static Dictionary<string, Unit> Units = new Dictionary<string, Unit>();
@@ -21,6 +25,10 @@ namespace SharpInit.Units
         public static DependencyGraph<RequirementDependency> RequirementDependencies = new DependencyGraph<RequirementDependency>();
 
         public static ServiceManager ServiceManager = new ServiceManager();
+
+        public static SocketManager SocketManager = new SocketManager();
+
+        public static ISymlinkTools SymlinkTools { get; set; }
 
         public static object GlobalTransactionLock = new object();
 
@@ -50,6 +58,7 @@ namespace SharpInit.Units
                 throw new InvalidOperationException();
 
             unit.ServiceManager = ServiceManager;
+            unit.SocketManager = SocketManager;
             unit.UnitStateChange += PropagateStateChange;
             unit.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             Units[unit.UnitName] = unit;
@@ -62,6 +71,8 @@ namespace SharpInit.Units
 
         public static string GetUnitName(string path)
         {
+            path = path.Replace('\\', '/');
+
             var filename = Path.GetFileName(path);
             var filename_without_ext = Path.GetFileNameWithoutExtension(path);
 
@@ -112,7 +123,7 @@ namespace SharpInit.Units
             return count;
         }
 
-        public static int ScanDirectory(string path, bool recursive = false)
+        public static int ScanDirectory(string path, bool recursive = true)
         {
             var directories = recursive ? Directory.GetDirectories(path) : new string[0];
             var files = Directory.GetFiles(path);
@@ -121,7 +132,52 @@ namespace SharpInit.Units
 
             foreach (var file in files)
             {
-                IndexUnitByPath(file);
+                if (!UnitTypes.Any(type => file.EndsWith(type.Key))) 
+                {
+                    continue;
+                }
+                
+                if (SymlinkTools.IsSymlink(file))
+                {
+                    var target = SymlinkTools.GetTarget(file);
+
+                    Log.Warn($"Symlink detected from {file} to {target}");
+
+                    // Check if this unit file has already been indexed or not.
+                    if (!UnitFiles.Any(unit_files => unit_files.Value.OfType<OnDiskUnitFile>().Any(unit_file => unit_file.Path == file)))
+                    {
+                        // If the file hasn't been indexed yet, do so. This check prevent symlinked files from being parsed more than once.
+                        IndexUnitByPath(target);
+                    }
+
+                    // detect .wants, .requires
+                    var directory_maps = new Dictionary<string, string>()
+                    {
+                        {".wants", "Unit/Wants" },
+                        {".requires", "Unit/Requires" },
+                    };
+
+                    var directory_name = Path.GetDirectoryName(file);
+
+                    foreach (var directory_mapping in directory_maps) 
+                    {
+                        if (directory_name.EndsWith(directory_mapping.Key))
+                        {
+                            // If we find a directory mapping (like default.target.wants/sshd.service), create an in-memory unit file to
+                            // store the mapped property (in this example, it would be a unit file for default.target that contains
+                            // Wants=sshd.service.
+                            var unit_name = Path.GetFileName(directory_name);
+                            unit_name = unit_name.Substring(0, unit_name.Length - directory_mapping.Key.Length);
+                            var temp_unit_file = new GeneratedUnitFile(unit_name).WithProperty(directory_mapping.Value, GetUnitName(file));
+                            IndexUnitFile(temp_unit_file);
+                        }
+                    }
+                }
+                else
+                {
+                    IndexUnitByPath(file);
+                }
+
                 count++;
             }
 
@@ -168,6 +224,7 @@ namespace SharpInit.Units
             {
                 var unit = Units[name];
                 unit.SetUnitDescriptor(GetUnitDescriptor(name));
+                unit.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             }
             else
             {
@@ -244,10 +301,14 @@ namespace SharpInit.Units
             UnitTypes[".unit"] = typeof(Unit);
             UnitTypes[".service"] = typeof(ServiceUnit);
             UnitTypes[".target"] = typeof(TargetUnit);
+            UnitTypes[".socket"] = typeof(SocketUnit);
 
             UnitDescriptorTypes[typeof(Unit)] = typeof(UnitDescriptor);
             UnitDescriptorTypes[typeof(ServiceUnit)] = typeof(ServiceUnitDescriptor);
             UnitDescriptorTypes[typeof(TargetUnit)] = typeof(UnitDescriptor);
+            UnitDescriptorTypes[typeof(SocketUnit)] = typeof(SocketUnitDescriptor);
+
+            SymlinkTools = PlatformUtilities.GetImplementation<ISymlinkTools>();
         }
 
         public static UnitStateChangeTransaction CreateActivationTransaction(string name)

@@ -106,7 +106,7 @@ namespace SharpInit.Tasks
         /// or the TaskResult returned by a failed task, depending on ErrorHandlingMode.</returns>
         public override TaskResult Execute(TaskContext context = null)
         {
-            Context = context ?? default;
+            Context = context ?? new TaskContext();
             var lock_obj = Lock ?? new object();
 
             lock (lock_obj)

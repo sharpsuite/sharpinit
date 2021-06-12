@@ -25,6 +25,9 @@ namespace SharpInit.Platform
 
             RegisterImplementation(typeof(GenericPlatformInitialization));
             RegisterImplementation(typeof(UnixPlatformInitialization));
+
+            RegisterImplementation(typeof(UnixSymlinkTools));
+            RegisterImplementation(typeof(WindowsSymlinkTools));
         }
 
         /// <summary>

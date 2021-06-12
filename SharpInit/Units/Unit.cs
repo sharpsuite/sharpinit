@@ -18,6 +18,8 @@ namespace SharpInit.Units
 
         public UnitDescriptor Descriptor { get => GetUnitDescriptor(); set => SetUnitDescriptor(value); }
 
+        public SocketManager SocketManager { get; set; }
+
         public ServiceManager ServiceManager { get; set; }
 
         public event OnUnitStateChange UnitStateChange;

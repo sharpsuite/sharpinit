@@ -9,7 +9,7 @@ namespace SharpInit.Units
     /// </summary>
     public class ExecUnitDescriptor : UnitDescriptor
     {
-        [UnitProperty("@/WorkingDirectory", UnitPropertyType.String)]
+        [UnitProperty("@/@", UnitPropertyType.String)]
         public string WorkingDirectory { get; set; }
 
         [UnitProperty("@/RootDirectory", UnitPropertyType.String)]
