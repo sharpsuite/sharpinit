@@ -39,33 +39,6 @@ namespace SharpInit.Units
 
                 var properties = file.Properties.ToDictionary(p => p.Key, p => p.Value);
 
-                if (file is OnDiskUnitFile)
-                {
-                    // detect .wants, .requires
-                    var directory_maps = new Dictionary<string, string>()
-                    {
-                        {".wants", "Unit/Wants" },
-                        {".requires", "Unit/Requires" },
-                    };
-
-                    foreach (var pair in directory_maps)
-                    {
-                        var sub_dir = (file as OnDiskUnitFile).Path + pair.Key;
-                        if (Directory.Exists(sub_dir))
-                        {
-                            var prop_name = pair.Value;
-
-                            if (!properties.ContainsKey(prop_name))
-                                properties[prop_name] = new List<string>();
-
-                            // add the units we found in the relevant dir
-                            properties[prop_name].AddRange(Directory.GetFiles(sub_dir).Where(filename => 
-                                UnitRegistry.UnitTypes.Any(type => filename.EndsWith(type.Key)))
-                                .Select(Path.GetFileName));
-                        }
-                    }
-                }
-
                 foreach (var property in properties)
                 {
                     var path = property.Key;
@@ -138,10 +111,25 @@ namespace SharpInit.Units
                                 prop.SetValue(descriptor, false);
                             break;
                         case UnitPropertyType.StringList:
-                            prop.SetValue(descriptor, values);
+                            if (prop.GetValue(descriptor) != null)
+                            {
+                                (prop.GetValue(descriptor) as List<string>).AddRange(values);
+                            }
+                            else 
+                            {
+                                prop.SetValue(descriptor, values);
+                            }
                             break;
                         case UnitPropertyType.StringListSpaceSeparated:
-                            prop.SetValue(descriptor, values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList());
+                            values = values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList();
+                            if (prop.GetValue(descriptor) != null)
+                            {
+                                (prop.GetValue(descriptor) as List<string>).AddRange(values);
+                            }
+                            else 
+                            {
+                                prop.SetValue(descriptor, values);
+                            }
                             break;
                         case UnitPropertyType.Time:
                             prop.SetValue(descriptor, ParseTimeSpan(last_value));
