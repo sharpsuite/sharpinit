@@ -69,6 +69,9 @@ namespace SharpInit.Units
         public int SendBuffer { get; set; }
         public string IPTOS { get; set; }
         public int IPTTL { get; set; }
+
+        [UnitProperty("Socket/@", UnitPropertyType.Bool)]
+        public bool RemoveOnExit { get; set; }
         public int Mark { get; set; }
         [UnitProperty("Socket/@", UnitPropertyType.Bool)]
         public bool ReusePort { get; set; }
