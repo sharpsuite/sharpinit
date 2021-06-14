@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.IO;
 
 using NLog;
 
@@ -27,7 +28,7 @@ namespace SharpInit
 
         }
 
-        public Socket CreateSocket(string property_name, string address)
+        public Socket CreateSocket(Unit unit, string property_name, string address)
         {
             SocketType socket_type = SocketType.Unknown;
             ProtocolType protocol_type = ProtocolType.Unknown;
@@ -54,6 +55,29 @@ namespace SharpInit
                 address_family = AddressFamily.Unix; 
                 protocol_type = ProtocolType.Unspecified;
                 socket_ep = new UnixEndPoint(address);
+
+                var dir = Path.GetDirectoryName(address);
+
+                if (!Directory.Exists(dir))
+                {
+                    var discarded_segments = new List<string>();
+                    
+                    while (!Directory.Exists(dir) && Path.GetDirectoryName(dir) != dir) 
+                    {
+                        discarded_segments.Add(Path.GetFileName(dir));
+                        dir = Path.GetDirectoryName(dir);
+                    }
+                    
+                    discarded_segments.Reverse();
+
+                    foreach (var segment in discarded_segments)
+                    {
+                        var concatted = dir + "/" + segment;
+                        Directory.CreateDirectory(concatted);
+                        new UnixDirectoryInfo(concatted).FileAccessPermissions = (FileAccessPermissions)(unit as SocketUnit).Descriptor.DirectoryMode;
+                        dir = concatted;
+                    }
+                }
             }
 
             if (address.StartsWith('@')) 

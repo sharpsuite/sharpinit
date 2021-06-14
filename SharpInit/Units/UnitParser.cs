@@ -99,6 +99,13 @@ namespace SharpInit.Units
                                 break; // for now
                             prop.SetValue(descriptor, prop_val_int);
                             break;
+                        case UnitPropertyType.IntOctal:
+                            try 
+                            {
+                                prop.SetValue(descriptor, Convert.ToInt32(last_value, 8));
+                            }
+                            catch {}
+                            break;
                         case UnitPropertyType.Bool:
                             if (TrueAliases.Contains(last_value.ToLower()))
                                 prop.SetValue(descriptor, true);
@@ -167,6 +174,9 @@ namespace SharpInit.Units
         {
             if (double.TryParse(str, out double seconds)) // if the entire string is one number, treat it as the number of seconds
                 return TimeSpan.FromSeconds(seconds);
+            
+            if (string.IsNullOrWhiteSpace(str))
+                return TimeSpan.Zero;
 
             var span = TimeSpan.Zero;
 
