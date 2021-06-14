@@ -30,6 +30,12 @@ namespace SharpInit.Tasks
             ExecutionTime = time;
         }
 
+        public RunUnregisteredProcessTask(IProcessHandler process_handler, ProcessStartInfo psi, TimeSpan time = default) :
+            this(process_handler, psi, time == default ? -1 : (int)time.TotalMilliseconds)
+        {
+            
+        }
+
         public override TaskResult Execute(TaskContext context)
         {
             if (ProcessStartInfo == null)

@@ -115,15 +115,14 @@ namespace SharpInit.Tasks
                 {
                     var result = task.Execute(Context);
 
-                    if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore &&
-                        result.Type != ResultType.Success &&
+                    if (result.Type != ResultType.Success &&
                         !result.Type.HasFlag(ResultType.Ignorable))
                     {
                         if (OnFailure != null)
                             OnFailure.Execute(Context);
-
-                        // fatal failure
-                        return result;
+                        
+                        if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore)
+                            return result;
                     }
                     else if (result.Type == ResultType.StopExecution)
                     {

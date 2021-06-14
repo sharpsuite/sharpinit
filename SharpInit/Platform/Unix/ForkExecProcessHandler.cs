@@ -6,6 +6,7 @@ using System.Linq;
 using Mono.Unix;
 using Mono.Unix.Native;
 using System.IO;
+using System.Threading;
 
 namespace SharpInit.Platform.Unix
 {
@@ -25,7 +26,7 @@ namespace SharpInit.Platform.Unix
             SignalHandler.ProcessExit += HandleProcessExit;
         }
 
-        private (int, int) CreateFileDescriptorsForStandardStreamTarget(ProcessStartInfo psi, string target)
+        private (int, int) CreateFileDescriptorsForStandardStreamTarget(ProcessStartInfo psi, string target, string stream)
         {
             int read = -1, write = -1;
 
@@ -40,6 +41,72 @@ namespace SharpInit.Platform.Unix
                     read = journal_client.ReadFd.Number;
                     write = journal_client.WriteFd.Number;
                     break;
+                case "socket":
+                    if (psi.Environment.ContainsKey("LISTEN_FDNUMS"))
+                    {
+                        var first_fd_str = psi.Environment["LISTEN_FDNUMS"].Split(':')[0];
+
+                        if (int.TryParse(first_fd_str, out int first_fd)) 
+                        {
+                            if (stream == "input")
+                            {
+                                read = Syscall.dup(first_fd);
+                            }
+                            else if (stream == "output" || stream == "error")
+                            {
+                                write = Syscall.dup(first_fd);
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            if (target.StartsWith("file:") || target.StartsWith("append:") || target.StartsWith("truncate:"))
+            {
+                var colon_index = target.IndexOf(':');
+                var path = target.Substring(colon_index + 1);
+                var mode = target.Substring(0, colon_index);
+                OpenFlags open_mode = 0;
+
+                switch(stream)
+                {
+                    case "input":
+                        open_mode = OpenFlags.O_RDONLY;
+                        read = Syscall.open(path, open_mode);
+                        break;
+                    case "output":
+                    case "error":
+                        open_mode = OpenFlags.O_WRONLY;
+                        break;
+                    case "both":
+                        open_mode = OpenFlags.O_RDWR;
+                        break;
+                }
+
+                if (stream == "output" || stream == "error" || stream == "both")
+                {
+                    if (mode == "append")
+                    {
+                        open_mode |= OpenFlags.O_APPEND;
+                    }
+
+                    if (mode == "truncate")
+                    {
+                        open_mode |= OpenFlags.O_TRUNC;
+                    }
+
+                    if (!File.Exists(path))
+                    {
+                        open_mode |= OpenFlags.O_CREAT;
+                    }
+                    
+                    write = Syscall.open(path, open_mode);
+
+                    if (stream == "both")
+                    {
+                        read = Syscall.dup(write);
+                    }
+                }
             }
 
             return (read, write);
@@ -53,15 +120,52 @@ namespace SharpInit.Platform.Unix
             var user_identifier = (UnixUserIdentifier)(psi.User ?? new UnixUserIdentifier((int)Syscall.getuid(), (int)Syscall.getgid()));
             var arguments = new string[] {Path.GetFileName(psi.Path)}.Concat(psi.Arguments).Concat(new string[] { null }).ToArray();
 
-            // instead of these, we just open /dev/null for now
-            // this might change when we get better logging facilities
-            //Syscall.pipe(out int stdout_read, out int stdout_write); // used to communicate stdout back to parent
-            //Syscall.pipe(out int stderr_read, out int stderr_write); // used to communicate stderr back to parent
-            int stdin_read, stdin_write, stdout_read, stdout_write, stderr_read, stderr_write;
+            Action<int> close_if_open = (Action<int>)(fd => { if (fd >= 0) {Syscall.close(fd);} });
 
-            (stdin_read, stdin_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget);
-            (stdout_read, stdout_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardOutputTarget);
-            (stderr_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardErrorTarget);
+            int stdin_read, stdin_write, stdout_read, stdout_write, stderr_read, stderr_write;
+            stdin_read = stdin_write = stdout_read = stdout_write = stderr_read = stderr_write = -1;
+
+            if (psi.StandardOutputTarget == "inherit")
+            {
+                psi.StandardOutputTarget = psi.StandardInputTarget;
+            }
+
+            if (psi.StandardErrorTarget == "inherit")
+            {
+                psi.StandardErrorTarget = psi.StandardOutputTarget;
+            }
+
+            var file_prefixes = new [] { "file:", "append:", "truncate:" };
+
+            if (psi.StandardInputTarget.StartsWith("file:") &&
+                file_prefixes.Any(prefix => psi.StandardOutputTarget.StartsWith(prefix) || psi.StandardInputTarget.StartsWith(prefix)))
+            {
+                if (file_prefixes.Any(psi.StandardOutputTarget.StartsWith))
+                {
+                    var in_path = psi.StandardInputTarget.Substring("file:".Length);
+                    var out_path = psi.StandardOutputTarget.Substring(psi.StandardOutputTarget.IndexOf(':'));
+
+                    if (in_path == out_path)
+                        (stdin_read, stdout_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "both");
+                }
+                else if (file_prefixes.Any(psi.StandardErrorTarget.StartsWith))
+                {
+                    var in_path = psi.StandardInputTarget.Substring("file:".Length);
+                    var err_path = psi.StandardErrorTarget.Substring(psi.StandardOutputTarget.IndexOf(':'));
+
+                    if (in_path == err_path)
+                        (stdin_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "both");
+                }
+            }
+            
+            if (stdin_read == -1 && stdin_write == -1)
+                (stdin_read, stdin_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "input");
+            
+            if (stdout_read == -1 && stdout_write == -1)
+                (stdout_read, stdout_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardOutputTarget, "output");
+            
+            if (stderr_read == -1 && stderr_write == -1)
+                (stderr_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardErrorTarget, "error");
 
             Syscall.pipe(out int control_read, out int control_write); // used to communicate errors during process creation back to parent
 
@@ -77,9 +181,10 @@ namespace SharpInit.Platform.Unix
             {
                 int error = 0;
 
-                Syscall.close(stdout_read);
-                Syscall.close(stderr_read);
-                Syscall.close(control_read);
+                close_if_open(stdin_read);
+                close_if_open(stdout_read);
+                close_if_open(stderr_read);
+                close_if_open(control_read);
 
                 var control_w_stream = new UnixStream(control_write);
                 var write_to_control = (Action<string>)(_ => control_w_stream.Write(Encoding.ASCII.GetBytes(_), 0, _.Length));
@@ -153,6 +258,8 @@ namespace SharpInit.Platform.Unix
                     write_to_control($"execv:{(int)Syscall.GetLastError()}\n");
                     Syscall.exit(1);
                 }
+
+                Syscall.exit(1);
             }
 
             if(fork_ret < 0)
@@ -160,15 +267,26 @@ namespace SharpInit.Platform.Unix
                 throw new InvalidOperationException($"fork() returned {fork_ret}, errno: {Syscall.GetLastError()}");
             }
 
-            Syscall.close(stdout_write);
-            Syscall.close(stderr_write);
-            Syscall.close(control_write);
+            close_if_open(stdin_read);
+            close_if_open(stdout_write);
+            close_if_open(stderr_write);
+            close_if_open(control_write);
 
-            var stdout_stream = new Mono.Unix.UnixStream(stdout_read);
-            var stderr_stream = new Mono.Unix.UnixStream(stderr_read);
             var control_stream = new Mono.Unix.UnixStream(control_read);
-
             var control_sr = new StreamReader(control_stream);
+
+            var timeout = (int)Math.Min(int.MaxValue, psi.Timeout.TotalMilliseconds);
+
+            if (timeout == int.MaxValue)
+                timeout = -1;
+
+            var poll_fds = new [] {new Pollfd() { fd = control_read, events = PollEvents.POLLIN }};
+            
+            if (Syscall.poll(poll_fds, 1, timeout) <= 0)
+            {
+                Syscall.kill(fork_ret, Signum.SIGKILL);
+                throw new Exception("Process launch timed out");
+            }
 
             var starting_line = control_sr.ReadLine();
             if(starting_line != "starting")

@@ -50,6 +50,8 @@ namespace SharpInit.Platform
 
         public Unit Unit { get; set; }
 
+        public TimeSpan Timeout { get; set; }
+
         public ProcessStartInfo()
         {
             // these are the only ones supported so far
@@ -76,8 +78,10 @@ namespace SharpInit.Platform
         /// <param name="working_dir">Optional working directory information.</param>
         /// <param name="user">The user to execute the command line under.</param>
         /// <returns></returns>
-        public static ProcessStartInfo FromCommandLine(string cmdline, Unit unit = null)
+        public static ProcessStartInfo FromCommandLine(string cmdline, Unit unit = null, TimeSpan timeout = default)
         {
+            timeout = timeout == default ? TimeSpan.MaxValue : timeout;
+
             var parts = UnitParser.SplitSpaceSeparatedValues(cmdline);
 
             var filename = parts[0];
@@ -87,6 +91,7 @@ namespace SharpInit.Platform
             psi.Path = filename;
             psi.Arguments = args;
             psi.Unit = unit;
+            psi.Timeout = timeout;
 
             if (unit != null && unit is ServiceUnit)  
             {

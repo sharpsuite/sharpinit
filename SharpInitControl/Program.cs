@@ -46,8 +46,6 @@ namespace SharpInitControl
             
             Commands[verb](verb, args.Skip(1).ToArray());
             
-            Connection.Disconnect();
-            Connection.Tunnel.Close();
             Environment.Exit(0);
         }
 

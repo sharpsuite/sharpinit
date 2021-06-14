@@ -38,7 +38,8 @@ namespace SharpInit.Ipc
             if (Closed)
                 return;
 
-            Socket.Close();
+            if (Socket.Connected)            
+                Socket.Close();
 
             Closed = true;
             TunnelClosed?.Invoke(this);

@@ -88,7 +88,16 @@ namespace SharpInit
             }
 
             var socket = new Socket(address_family, socket_type, protocol_type);
-            socket.Bind(socket_ep);
+
+            try 
+            {
+                socket.Bind(socket_ep);
+            } 
+            catch (Exception ex)
+            {
+                Log.Error($"Could not bind to socket \"{address}\" of type {property_name}: {ex.Message}");
+                return null;
+            }
 
             return socket;
         }

@@ -153,6 +153,8 @@ namespace SharpInit.Units
                 {
                     if (prop.PropertyType == typeof(List<string>) && attribute.DefaultValue == null)
                         prop.SetValue(descriptor, new List<string>());
+                    else if (prop.PropertyType == typeof(TimeSpan) && attribute.DefaultValue is string)
+                        prop.SetValue(descriptor, ParseTimeSpan((string)attribute.DefaultValue));
                     else
                         prop.SetValue(descriptor, attribute.DefaultValue);
                 }

@@ -81,6 +81,8 @@ namespace SharpInit.Units
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
 
+            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
+
             return transaction;
         }
 

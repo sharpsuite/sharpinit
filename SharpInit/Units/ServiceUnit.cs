@@ -109,15 +109,16 @@ namespace SharpInit.Units
                     if (Descriptor.ExecStartPre.Any())
                     {
                         foreach (var line in Descriptor.ExecStartPre)
-                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this), 5000));
+                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
                     }
 
-                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this), this));
+                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec), this));
 
                     if (Descriptor.ExecStartPost.Any())
                     {
                         foreach (var line in Descriptor.ExecStartPost)
-                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this), 5000));
+                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
+                            ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
                     }
                     break;
                 default:
@@ -161,7 +162,8 @@ namespace SharpInit.Units
             
             foreach(var reload_cmd in Descriptor.ExecReload)
             {
-                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(reload_cmd, this), 5000));
+                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
+                    ProcessStartInfo.FromCommandLine(reload_cmd, this), 5000));
             }
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Reloading));

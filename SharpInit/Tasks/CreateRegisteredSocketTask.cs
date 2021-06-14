@@ -39,6 +39,12 @@ namespace SharpInit.Tasks
                     foreach (var address in listen.Value)
                     {
                         var socket = Unit.SocketManager.CreateSocket(listen.Key, address);
+
+                        if (socket == null)
+                        {
+                            return new TaskResult(this, ResultType.Failure, $"Could not create socket \"{address}\" of type {listen.Key}");
+                        }
+
                         socket.Listen();
                         Unit.SocketManager.AddSocket(new SocketWrapper(socket, Unit));
                     }
