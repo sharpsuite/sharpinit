@@ -16,11 +16,33 @@ namespace SharpInit.Platform.Unix
     public class ForkExecProcessHandler : IProcessHandler
     {
         public event OnProcessExit ProcessExit;
+        public ServiceManager ServiceManager { get; set; }
+
         private List<int> Processes = new List<int>();
 
         public ForkExecProcessHandler()
         {
             SignalHandler.ProcessExit += HandleProcessExit;
+        }
+
+        private (int, int) CreateFileDescriptorsForStandardStreamTarget(ProcessStartInfo psi, string target)
+        {
+            int read = -1, write = -1;
+
+            switch (target)
+            {
+                case "null":
+                    read = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+                    write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+                    break;
+                case "journal":
+                    var journal_client = ServiceManager.Journal.CreateClient(psi.Unit?.UnitName ?? Path.GetFileName(psi.Path));
+                    read = journal_client.ReadFd.Number;
+                    write = journal_client.WriteFd.Number;
+                    break;
+            }
+
+            return (read, write);
         }
 
         public ProcessInfo Start(ProcessStartInfo psi)
@@ -35,14 +57,11 @@ namespace SharpInit.Platform.Unix
             // this might change when we get better logging facilities
             //Syscall.pipe(out int stdout_read, out int stdout_write); // used to communicate stdout back to parent
             //Syscall.pipe(out int stderr_read, out int stderr_write); // used to communicate stderr back to parent
-            int stdin_read = Syscall.open("/dev/null", OpenFlags.O_RDWR);
-            int stdin_write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+            int stdin_read, stdin_write, stdout_read, stdout_write, stderr_read, stderr_write;
 
-            int stdout_read = Syscall.open("/dev/null", OpenFlags.O_RDWR);
-            int stdout_write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
-
-            int stderr_read = Syscall.open("/dev/null", OpenFlags.O_RDWR);
-            int stderr_write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
+            (stdin_read, stdin_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget);
+            (stdout_read, stdout_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardOutputTarget);
+            (stderr_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardErrorTarget);
 
             Syscall.pipe(out int control_read, out int control_write); // used to communicate errors during process creation back to parent
 

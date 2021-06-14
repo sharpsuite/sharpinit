@@ -147,6 +147,7 @@ namespace SharpInit.Units
         // Conditions["PathExists"] = { "!/usr/bin" } (shortened for brevity)
         public Dictionary<string, List<string>> Conditions = new Dictionary<string, List<string>>();
         public Dictionary<string, List<string>> Assertions = new Dictionary<string, List<string>>();
+        public Dictionary<string, List<string>> ListenStatements = new Dictionary<string, List<string>>();
         #endregion
         
         public DateTime Created { get; set; }

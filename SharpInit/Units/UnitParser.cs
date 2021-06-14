@@ -46,29 +46,24 @@ namespace SharpInit.Units
 
                     var name = string.Join("/", path.Split('/').Skip(1));
 
-                    if (name.StartsWith("Condition") || name.StartsWith("Assert"))
+                    var reaggregate_names = new Dictionary<string, Dictionary<string, List<string>>>()
                     {
-                        // handle conditions and assertions separately
-                        if (name.StartsWith("Condition"))
+                        {"Condition", descriptor.Conditions},
+                        {"Assert", descriptor.Assertions},
+                        {"Listen", descriptor.ListenStatements},
+                    };
+
+                    foreach (var reaggregation_pair in reaggregate_names)
+                    {
+                        if (name.StartsWith(reaggregation_pair.Key))
                         {
-                            var condition_name = name.Substring("Condition".Length);
+                            var trimmed_name = name.Substring(reaggregation_pair.Key.Length);
 
-                            if (descriptor.Conditions.ContainsKey(condition_name))
-                                descriptor.Conditions[condition_name] = descriptor.Conditions[condition_name].Concat(values).ToList();
+                            if (reaggregation_pair.Value.ContainsKey(trimmed_name))
+                                reaggregation_pair.Value[trimmed_name] = reaggregation_pair.Value[trimmed_name].Concat(values).ToList();
                             else
-                                descriptor.Conditions[condition_name] = values.ToList();
+                                reaggregation_pair.Value[trimmed_name] = values.ToList();
                         }
-                        else if (name.StartsWith("Assert"))
-                        {
-                            var assertion_name = name.Substring("Assert".Length);
-
-                            if (descriptor.Assertions.ContainsKey(assertion_name))
-                                descriptor.Assertions[assertion_name] = descriptor.Assertions[assertion_name].Concat(values).ToList();
-                            else
-                                descriptor.Assertions[assertion_name] = values.ToList();
-                        }
-
-                        continue;
                     }
 
                     var prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(descriptor_type, path);

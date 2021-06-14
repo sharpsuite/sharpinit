@@ -17,6 +17,8 @@ namespace SharpInit.Platform
     {
         public event OnProcessExit ProcessExit;
 
+        public ServiceManager ServiceManager { get; set; }
+
         public DefaultProcessHandler()
         {
 

@@ -60,7 +60,10 @@ namespace SharpInit.Units
         [UnitProperty("@/StandardInput", UnitPropertyType.String, "null")]
         public string StandardInput { get; set; }
 
-        [UnitProperty("@/StandardOutput", UnitPropertyType.String, "null")]
+        [UnitProperty("@/StandardOutput", UnitPropertyType.String, "journal")]
         public string StandardOutput { get; set; }
+
+        [UnitProperty("@/StandardError", UnitPropertyType.String, "journal")]
+        public string StandardError { get; set; }
     }
 }

@@ -34,14 +34,14 @@ namespace SharpInit.Tasks
 
             try
             {
-                // TODO: Streamline different socket types, only implements stream sockets for now
-                var sockets = Unit.Descriptor.ListenStream;
-
-                foreach (var socket_addr in sockets) 
+                foreach (var listen in Unit.Descriptor.ListenStatements) 
                 {
-                    var socket = Unit.SocketManager.CreateSocket("ListenStream", socket_addr);
-                    socket.Listen();
-                    Unit.SocketManager.AddSocket(new SocketWrapper(socket, Unit));
+                    foreach (var address in listen.Value)
+                    {
+                        var socket = Unit.SocketManager.CreateSocket(listen.Key, address);
+                        socket.Listen();
+                        Unit.SocketManager.AddSocket(new SocketWrapper(socket, Unit));
+                    }
                 }
 
                 return new TaskResult(this, ResultType.Success);

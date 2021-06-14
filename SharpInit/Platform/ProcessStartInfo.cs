@@ -48,6 +48,8 @@ namespace SharpInit.Platform
         /// </summary>
         public string StandardErrorTarget { get; set; }
 
+        public Unit Unit { get; set; }
+
         public ProcessStartInfo()
         {
             // these are the only ones supported so far
@@ -74,14 +76,29 @@ namespace SharpInit.Platform
         /// <param name="working_dir">Optional working directory information.</param>
         /// <param name="user">The user to execute the command line under.</param>
         /// <returns></returns>
-        public static ProcessStartInfo FromCommandLine(string cmdline, string working_dir, IUserIdentifier user)
+        public static ProcessStartInfo FromCommandLine(string cmdline, Unit unit = null)
         {
             var parts = UnitParser.SplitSpaceSeparatedValues(cmdline);
 
             var filename = parts[0];
             var args = parts.Skip(1).ToArray();
 
-            ProcessStartInfo psi = new ProcessStartInfo(filename, args, user, null, working_dir);
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.Path = filename;
+            psi.Arguments = args;
+            psi.Unit = unit;
+
+            if (unit != null && unit is ServiceUnit)  
+            {
+                var descriptor = unit.Descriptor as ServiceUnitDescriptor;
+
+                psi.WorkingDirectory = descriptor.WorkingDirectory;
+                psi.User = (descriptor.Group == null && descriptor.User == null ? null : 
+                    PlatformUtilities.GetImplementation<IUserIdentifier>(descriptor.Group, descriptor.User));
+                psi.StandardInputTarget = descriptor.StandardInput;
+                psi.StandardOutputTarget = descriptor.StandardOutput;
+                psi.StandardErrorTarget = descriptor.StandardError;
+            }
 
             return psi;
         }

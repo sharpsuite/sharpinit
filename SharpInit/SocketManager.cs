@@ -29,14 +29,12 @@ namespace SharpInit
 
         public Socket CreateSocket(string property_name, string address)
         {
-            var listen_type = property_name.Substring("Listen".Length);
-
             SocketType socket_type = SocketType.Unknown;
             ProtocolType protocol_type = ProtocolType.Unknown;
             AddressFamily address_family = AddressFamily.Unknown;
             EndPoint socket_ep = default;
 
-            switch (listen_type) 
+            switch (property_name) 
             {
                 case "Stream":
                     socket_type = SocketType.Stream;
