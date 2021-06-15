@@ -55,7 +55,7 @@ namespace SharpInit.Ipc
             var method_name = FunctionNameToIpcName[name];
             var result = InvokeIpcFunction(method_name, args);
             if (result.Success)
-                return (T)result.AdditionalData;
+                return (T)Convert.ChangeType(result.AdditionalData, typeof(T));
             
             return default(T);
         }
