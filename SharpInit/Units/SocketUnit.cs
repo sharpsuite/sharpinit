@@ -54,9 +54,17 @@ namespace SharpInit.Units
             }
 
             var transaction = new Transaction($"Socket activation for {this.UnitName}");
+            var file_descriptors = new List<FileDescriptor>();
 
-            var file_descriptors = SocketManager.GetSocketsByUnit(this).Select(wrapper => 
-                new FileDescriptor(wrapper.Socket.Handle.ToInt32(), Descriptor.FileDescriptorName ?? this.UnitName, -1)).ToList();
+            if (!Descriptor.Accept)
+            {
+                file_descriptors.AddRange(SocketManager.GetSocketsByUnit(this).Select(wrapper => 
+                    new FileDescriptor(wrapper.Socket.Handle.ToInt32(), Descriptor.FileDescriptorName ?? this.UnitName, -1)));
+            }
+            else
+            {
+                file_descriptors.Add(new FileDescriptor(socket.Handle.ToInt32(), Descriptor.FileDescriptorName ?? this.UnitName, -1));
+            }
 
             transaction.Add(new AlterTransactionContextTask("socket.fds", file_descriptors));
             transaction.Add(target_unit.GetActivationTransaction());

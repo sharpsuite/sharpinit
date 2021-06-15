@@ -181,7 +181,7 @@ namespace SharpInit.Platform.Unix
             {
                 int error = 0;
 
-                close_if_open(stdin_read);
+                close_if_open(stdin_write);
                 close_if_open(stdout_read);
                 close_if_open(stderr_read);
                 close_if_open(control_read);
@@ -190,6 +190,17 @@ namespace SharpInit.Platform.Unix
                 var write_to_control = (Action<string>)(_ => control_w_stream.Write(Encoding.ASCII.GetBytes(_), 0, _.Length));
 
                 write_to_control("starting\n");
+
+                while (Syscall.dup2(stdin_read, 0) == -1)
+                {
+                    if (Syscall.GetLastError() == Errno.EINTR)
+                        continue;
+                    else
+                    {
+                        write_to_control($"dup2-stdin:{(int)Syscall.GetLastError()}\n");
+                        Syscall.exit(1);
+                    }
+                }
 
                 while (Syscall.dup2(stdout_write, 1) == -1)
                 {
