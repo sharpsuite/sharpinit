@@ -11,5 +11,7 @@ namespace SharpInit.Platform
     {
         event OnProcessExit ProcessExit;
         ProcessInfo Start(ProcessStartInfo psi);
+
+        ServiceManager ServiceManager { get; set; }
     }
 }

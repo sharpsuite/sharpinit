@@ -16,6 +16,8 @@ namespace SharpInit
         public Dictionary<int, ProcessInfo> ProcessesById = new Dictionary<int, ProcessInfo>();
         public Dictionary<Unit, List<ProcessInfo>> ProcessesByUnit = new Dictionary<Unit, List<ProcessInfo>>();
 
+        public Journal Journal;
+
         public IProcessHandler ProcessHandler;
         
         public ServiceManager() :
@@ -27,6 +29,9 @@ namespace SharpInit
         {
             ProcessHandler = process_handler;
             ProcessHandler.ProcessExit += HandleProcessExit;
+            ProcessHandler.ServiceManager = this;
+
+            Journal = new Journal();
         }
         
         private void HandleProcessExit(int pid, int exit_code)

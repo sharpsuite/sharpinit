@@ -31,6 +31,7 @@ namespace SharpInit.Units
     {
         String,
         Int,
+        IntOctal,
         Bool,
         StringList,
         StringListSpaceSeparated,

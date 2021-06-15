@@ -11,7 +11,7 @@ namespace SharpInit.Platform
     [SupportedOn("generic")]
     public class GenericPlatformInitialization : IPlatformInitialization
     {
-        public void Initialize()
+        public virtual void Initialize()
         {
             UnitRegistry.InitializeTypes();
             UnitRegistry.CreateBaseUnits();

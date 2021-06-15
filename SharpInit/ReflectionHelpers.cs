@@ -17,7 +17,13 @@ namespace SharpInit
                     var attribs = p.GetCustomAttributes(typeof(UnitPropertyAttribute), false);
                     if (attribs.Count() == 1)
                     {
-                        if (((UnitPropertyAttribute)attribs.First()).PropertyPath == path)
+                        var attribute_path = ((UnitPropertyAttribute)attribs.First()).PropertyPath;
+                        if (attribute_path.EndsWith('@')) 
+                        {
+                            attribute_path = attribute_path.Substring(0, attribute_path.Length - 1) + p.Name;
+                        }
+
+                        if (attribute_path == path)
                         {
                             return true;
                         }

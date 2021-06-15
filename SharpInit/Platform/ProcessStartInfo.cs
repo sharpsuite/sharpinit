@@ -26,7 +26,7 @@ namespace SharpInit.Platform
         /// <summary>
         /// An array of environment variables to be passed to the executed process.
         /// </summary>
-        public string[] Environment { get; set; }
+        public Dictionary<string, string> Environment { get; set; }
 
         /// <summary>
         /// Sets the working directory of the executed process.
@@ -48,6 +48,10 @@ namespace SharpInit.Platform
         /// </summary>
         public string StandardErrorTarget { get; set; }
 
+        public Unit Unit { get; set; }
+
+        public TimeSpan Timeout { get; set; }
+
         public ProcessStartInfo()
         {
             // these are the only ones supported so far
@@ -56,7 +60,7 @@ namespace SharpInit.Platform
             StandardErrorTarget = "null";
         }
 
-        public ProcessStartInfo(string path, string[] arguments = null, IUserIdentifier user = null, string[] environment = null, string working_dir = null) 
+        public ProcessStartInfo(string path, string[] arguments = null, IUserIdentifier user = null, Dictionary<string, string> environment = null, string working_dir = null) 
             : this()
         {
             Path = path;
@@ -74,14 +78,32 @@ namespace SharpInit.Platform
         /// <param name="working_dir">Optional working directory information.</param>
         /// <param name="user">The user to execute the command line under.</param>
         /// <returns></returns>
-        public static ProcessStartInfo FromCommandLine(string cmdline, string working_dir, IUserIdentifier user)
+        public static ProcessStartInfo FromCommandLine(string cmdline, Unit unit = null, TimeSpan timeout = default)
         {
+            timeout = timeout == default ? TimeSpan.MaxValue : timeout;
+
             var parts = UnitParser.SplitSpaceSeparatedValues(cmdline);
 
             var filename = parts[0];
             var args = parts.Skip(1).ToArray();
 
-            ProcessStartInfo psi = new ProcessStartInfo(filename, args, user, null, working_dir);
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.Path = filename;
+            psi.Arguments = args;
+            psi.Unit = unit;
+            psi.Timeout = timeout;
+
+            if (unit != null && unit is ServiceUnit)  
+            {
+                var descriptor = unit.Descriptor as ServiceUnitDescriptor;
+
+                psi.WorkingDirectory = descriptor.WorkingDirectory;
+                psi.User = (descriptor.Group == null && descriptor.User == null ? null : 
+                    PlatformUtilities.GetImplementation<IUserIdentifier>(descriptor.Group, descriptor.User));
+                psi.StandardInputTarget = descriptor.StandardInput;
+                psi.StandardOutputTarget = descriptor.StandardOutput;
+                psi.StandardErrorTarget = descriptor.StandardError;
+            }
 
             return psi;
         }

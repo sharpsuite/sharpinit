@@ -39,7 +39,8 @@ namespace SharpInit.Ipc
             foreach (var waiting in _waiting_for_response)
                 waiting.Value.Set();
 
-            Socket.Close();
+            if (Socket.Connected)            
+                Socket.Close();
         }
 
         private void HandleLinkMessage(JsonSocketTunnel link, string msg)
