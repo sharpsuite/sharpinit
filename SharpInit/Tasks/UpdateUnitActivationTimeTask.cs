@@ -22,7 +22,7 @@ namespace SharpInit.Tasks
             Unit = unit;
         }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             Unit.ActivationTime = DateTime.UtcNow;
             return new TaskResult(this, ResultType.Success);

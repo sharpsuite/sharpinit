@@ -39,33 +39,6 @@ namespace SharpInit.Units
 
                 var properties = file.Properties.ToDictionary(p => p.Key, p => p.Value);
 
-                if (file is OnDiskUnitFile)
-                {
-                    // detect .wants, .requires
-                    var directory_maps = new Dictionary<string, string>()
-                    {
-                        {".wants", "Unit/Wants" },
-                        {".requires", "Unit/Requires" },
-                    };
-
-                    foreach (var pair in directory_maps)
-                    {
-                        var sub_dir = (file as OnDiskUnitFile).Path + pair.Key;
-                        if (Directory.Exists(sub_dir))
-                        {
-                            var prop_name = pair.Value;
-
-                            if (!properties.ContainsKey(prop_name))
-                                properties[prop_name] = new List<string>();
-
-                            // add the units we found in the relevant dir
-                            properties[prop_name].AddRange(Directory.GetFiles(sub_dir).Where(filename => 
-                                UnitRegistry.UnitTypes.Any(type => filename.EndsWith(type.Key)))
-                                .Select(Path.GetFileName));
-                        }
-                    }
-                }
-
                 foreach (var property in properties)
                 {
                     var path = property.Key;
@@ -73,29 +46,24 @@ namespace SharpInit.Units
 
                     var name = string.Join("/", path.Split('/').Skip(1));
 
-                    if (name.StartsWith("Condition") || name.StartsWith("Assert"))
+                    var reaggregate_names = new Dictionary<string, Dictionary<string, List<string>>>()
                     {
-                        // handle conditions and assertions separately
-                        if (name.StartsWith("Condition"))
+                        {"Condition", descriptor.Conditions},
+                        {"Assert", descriptor.Assertions},
+                        {"Listen", descriptor.ListenStatements},
+                    };
+
+                    foreach (var reaggregation_pair in reaggregate_names)
+                    {
+                        if (name.StartsWith(reaggregation_pair.Key))
                         {
-                            var condition_name = name.Substring("Condition".Length);
+                            var trimmed_name = name.Substring(reaggregation_pair.Key.Length);
 
-                            if (descriptor.Conditions.ContainsKey(condition_name))
-                                descriptor.Conditions[condition_name] = descriptor.Conditions[condition_name].Concat(values).ToList();
+                            if (reaggregation_pair.Value.ContainsKey(trimmed_name))
+                                reaggregation_pair.Value[trimmed_name] = reaggregation_pair.Value[trimmed_name].Concat(values).ToList();
                             else
-                                descriptor.Conditions[condition_name] = values.ToList();
+                                reaggregation_pair.Value[trimmed_name] = values.ToList();
                         }
-                        else if (name.StartsWith("Assert"))
-                        {
-                            var assertion_name = name.Substring("Assert".Length);
-
-                            if (descriptor.Assertions.ContainsKey(assertion_name))
-                                descriptor.Assertions[assertion_name] = descriptor.Assertions[assertion_name].Concat(values).ToList();
-                            else
-                                descriptor.Assertions[assertion_name] = values.ToList();
-                        }
-
-                        continue;
                     }
 
                     var prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(descriptor_type, path);
@@ -131,6 +99,13 @@ namespace SharpInit.Units
                                 break; // for now
                             prop.SetValue(descriptor, prop_val_int);
                             break;
+                        case UnitPropertyType.IntOctal:
+                            try 
+                            {
+                                prop.SetValue(descriptor, Convert.ToInt32(last_value, 8));
+                            }
+                            catch {}
+                            break;
                         case UnitPropertyType.Bool:
                             if (TrueAliases.Contains(last_value.ToLower()))
                                 prop.SetValue(descriptor, true);
@@ -138,10 +113,25 @@ namespace SharpInit.Units
                                 prop.SetValue(descriptor, false);
                             break;
                         case UnitPropertyType.StringList:
-                            prop.SetValue(descriptor, values);
+                            if (prop.GetValue(descriptor) != null)
+                            {
+                                (prop.GetValue(descriptor) as List<string>).AddRange(values);
+                            }
+                            else 
+                            {
+                                prop.SetValue(descriptor, values);
+                            }
                             break;
                         case UnitPropertyType.StringListSpaceSeparated:
-                            prop.SetValue(descriptor, values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList());
+                            values = values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList();
+                            if (prop.GetValue(descriptor) != null)
+                            {
+                                (prop.GetValue(descriptor) as List<string>).AddRange(values);
+                            }
+                            else 
+                            {
+                                prop.SetValue(descriptor, values);
+                            }
                             break;
                         case UnitPropertyType.Time:
                             prop.SetValue(descriptor, ParseTimeSpan(last_value));
@@ -170,6 +160,8 @@ namespace SharpInit.Units
                 {
                     if (prop.PropertyType == typeof(List<string>) && attribute.DefaultValue == null)
                         prop.SetValue(descriptor, new List<string>());
+                    else if (prop.PropertyType == typeof(TimeSpan) && attribute.DefaultValue is string)
+                        prop.SetValue(descriptor, ParseTimeSpan((string)attribute.DefaultValue));
                     else
                         prop.SetValue(descriptor, attribute.DefaultValue);
                 }
@@ -182,6 +174,9 @@ namespace SharpInit.Units
         {
             if (double.TryParse(str, out double seconds)) // if the entire string is one number, treat it as the number of seconds
                 return TimeSpan.FromSeconds(seconds);
+            
+            if (string.IsNullOrWhiteSpace(str))
+                return TimeSpan.Zero;
 
             var span = TimeSpan.Zero;
 
@@ -336,7 +331,7 @@ namespace SharpInit.Units
                         current_value = "";
                     }
 
-                    current_property = line_parts_by_equals[0];
+                    current_property = line_parts_by_equals[0].Trim();
                     consumed[0] = true;
                 }
 

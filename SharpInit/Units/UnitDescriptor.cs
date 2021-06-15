@@ -19,6 +19,9 @@ namespace SharpInit.Units
 
         [UnitProperty("Unit/Documentation", UnitPropertyType.StringListSpaceSeparated)]
         public List<string> Documentation { get; set; }
+
+        [UnitProperty("Unit/@", UnitPropertyType.Bool, false)]
+        public bool Disabled { get; set; }
         #endregion
 
         #region Dependency properties
@@ -147,6 +150,7 @@ namespace SharpInit.Units
         // Conditions["PathExists"] = { "!/usr/bin" } (shortened for brevity)
         public Dictionary<string, List<string>> Conditions = new Dictionary<string, List<string>>();
         public Dictionary<string, List<string>> Assertions = new Dictionary<string, List<string>>();
+        public Dictionary<string, List<string>> ListenStatements = new Dictionary<string, List<string>>();
         #endregion
         
         public DateTime Created { get; set; }

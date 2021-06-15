@@ -47,6 +47,14 @@ namespace SharpInit.Units
         public List<string> ExecReload { get; set; }
         #endregion
 
+        #region Timeouts
+        [UnitProperty("Service/@", UnitPropertyType.Time, "5")]
+        public TimeSpan TimeoutStartSec { get; set; }
+
+        [UnitProperty("Service/@", UnitPropertyType.Time, "5")]
+        public TimeSpan TimeoutStopSec { get; set; }
+        #endregion
+
         public ServiceUnitDescriptor() : base() { }
     }
 

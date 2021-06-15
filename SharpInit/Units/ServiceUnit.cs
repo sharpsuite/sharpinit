@@ -35,6 +35,8 @@ namespace SharpInit.Units
 
         private void HandleProcessExit(Unit unit, ProcessInfo info, int code)
         {
+            SocketManager.UnignoreSocketsByUnit(this);
+            
             switch(CurrentState)
             {
                 case UnitState.Deactivating:
@@ -87,9 +89,6 @@ namespace SharpInit.Units
             var transaction = new Transaction($"Activation transaction for unit {UnitName}");
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
-            var working_dir = Descriptor.WorkingDirectory;
-            var user = (Descriptor.Group == null && Descriptor.User == null ? null : PlatformUtilities.GetImplementation<IUserIdentifier>(Descriptor.Group, Descriptor.User));
-
             switch (Descriptor.ServiceType)
             {
                 case ServiceType.Simple:
@@ -110,15 +109,16 @@ namespace SharpInit.Units
                     if (Descriptor.ExecStartPre.Any())
                     {
                         foreach (var line in Descriptor.ExecStartPre)
-                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, working_dir, user), 5000));
+                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
                     }
 
-                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), working_dir, user), this));
+                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec), this));
 
                     if (Descriptor.ExecStartPost.Any())
                     {
                         foreach (var line in Descriptor.ExecStartPost)
-                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, working_dir, user), 5000));
+                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
+                            ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
                     }
                     break;
                 default:
@@ -141,7 +141,6 @@ namespace SharpInit.Units
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new StopUnitProcessesTask(this));
-            //transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
             transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
 
@@ -163,7 +162,8 @@ namespace SharpInit.Units
             
             foreach(var reload_cmd in Descriptor.ExecReload)
             {
-                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(reload_cmd, working_dir, user), 5000));
+                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
+                    ProcessStartInfo.FromCommandLine(reload_cmd, this), 5000));
             }
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Reloading));

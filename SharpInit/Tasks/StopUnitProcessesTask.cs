@@ -25,7 +25,7 @@ namespace SharpInit.Tasks
             GracePeriod = grace_period;
         }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             var service_manager = Unit.ServiceManager;
 
@@ -38,7 +38,7 @@ namespace SharpInit.Tasks
             foreach (var process in processes)
             {
                 var stop_process_task = new StopProcessTask(process, GracePeriod);
-                var result = stop_process_task.Execute();
+                var result = stop_process_task.Execute(context);
 
                 if (result.Type != ResultType.Success)
                     failed = true; // let's keep killing all processes we can anyway 

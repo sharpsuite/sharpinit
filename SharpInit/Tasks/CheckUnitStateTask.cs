@@ -28,7 +28,7 @@ namespace SharpInit.Tasks
             StopExecution = stop;
         }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             var failure_type = StopExecution ? ResultType.StopExecution : ResultType.Failure;
             var unit = UnitRegistry.GetUnit(TargetUnit);

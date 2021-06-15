@@ -2,6 +2,7 @@
 using SharpInit.Units;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace SharpInit.Tasks
@@ -26,13 +27,28 @@ namespace SharpInit.Tasks
             Unit = unit;
         }
 
-        public override TaskResult Execute()
+        public override TaskResult Execute(TaskContext context)
         {
             if (ProcessStartInfo == null || Unit == null)
                 return new TaskResult(this, ResultType.Failure, "No ProcessStartInfo or Unit supplied.");
 
             try
             {
+                var fds = context.Get<List<FileDescriptor>>("socket.fds");
+
+                if (fds?.Count > 0)
+                {
+                    if (ProcessStartInfo.Environment == null)
+                    {
+                        ProcessStartInfo.Environment = new Dictionary<string, string>();
+                    }
+
+                    ProcessStartInfo.Environment["LISTEN_FDS"] = fds.Count.ToString();
+                    ProcessStartInfo.Environment["LISTEN_PID"] = "fill";
+                    ProcessStartInfo.Environment["LISTEN_FDNAMES"] = string.Join(':', fds.Select(fd => fd.Name));
+                    ProcessStartInfo.Environment["LISTEN_FDNUMS"] = string.Join(':', fds.Select(fd => fd.Number));
+                }
+
                 Unit.ServiceManager.StartProcess(Unit, ProcessStartInfo);
                 return new TaskResult(this, ResultType.Success);
             }
