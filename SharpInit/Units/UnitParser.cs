@@ -331,7 +331,7 @@ namespace SharpInit.Units
                         current_value = "";
                     }
 
-                    current_property = line_parts_by_equals[0];
+                    current_property = line_parts_by_equals[0].Trim();
                     consumed[0] = true;
                 }
 

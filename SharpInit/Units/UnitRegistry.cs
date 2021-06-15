@@ -148,8 +148,17 @@ namespace SharpInit.Units
 
                     Log.Warn($"Symlink detected from {file} to {target}");
 
+                    var fileinfo = new FileInfo(file);
+
+                    // If symlinked to an empty file, disable the unit.
+                    if (fileinfo.Length == 0)
+                    {
+                        IndexUnitFile(new GeneratedUnitFile(GetUnitName(file)).WithProperty("Disabled", "yes"));
+                        continue;
+                    }
+
                     // Check if this unit file has already been indexed or not.
-                    if (!UnitFiles.Any(unit_files => unit_files.Value.OfType<OnDiskUnitFile>().Any(unit_file => unit_file.Path == file)))
+                    if (!UnitFiles.Any(unit_files => unit_files.Value.OfType<OnDiskUnitFile>().Any(unit_file => unit_file.Path == target)))
                     {
                         // If the file hasn't been indexed yet, do so. This check prevent symlinked files from being parsed more than once.
                         IndexUnitByPath(target);

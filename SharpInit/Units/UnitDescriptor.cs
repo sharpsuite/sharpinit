@@ -19,6 +19,9 @@ namespace SharpInit.Units
 
         [UnitProperty("Unit/Documentation", UnitPropertyType.StringListSpaceSeparated)]
         public List<string> Documentation { get; set; }
+
+        [UnitProperty("Unit/@", UnitPropertyType.Bool, false)]
+        public bool Disabled { get; set; }
         #endregion
 
         #region Dependency properties

@@ -90,18 +90,12 @@ namespace SharpInit.Units
             // first, clean up after ourselves
             if(OrderingDependencyGraph != null)
             {
-                var dependencies_from_us = OrderingDependencyGraph.Dependencies.Where(dep => dep.SourceUnit == UnitName);
-
-                foreach (var dep in dependencies_from_us)
-                    OrderingDependencyGraph.Dependencies.Remove(dep);
+                OrderingDependencyGraph.Dependencies.RemoveAll(dep => dep.SourceUnit == UnitName);
             }
 
             if (RequirementDependencyGraph != null)
             {
-                var dependencies_from_us = RequirementDependencyGraph.Dependencies.Where(dep => dep.SourceUnit == UnitName);
-
-                foreach (var dep in dependencies_from_us)
-                    RequirementDependencyGraph.Dependencies.Remove(dep);
+                RequirementDependencyGraph.Dependencies.RemoveAll(dep => dep.SourceUnit == UnitName);
             }
 
             // set new graphs
