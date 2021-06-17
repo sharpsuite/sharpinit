@@ -124,8 +124,14 @@ namespace SharpInit
             info.ActivationTime = unit.ActivationTime;
             info.LoadTime = unit.Descriptor.Created;
             info.StateChangeReason = unit.StateChangeReason;
+            info.LogLines = UnitRegistry.ServiceManager.Journal.Tail(unit_name, 10).Select(entry => entry.Message).ToList();
 
             return info;
+        }
+
+        public List<string> GetJournal(string journal, int lines)
+        {
+            return UnitRegistry.ServiceManager.Journal.Tail(journal, lines).Select(entry => $"[{entry.Source}] {entry.Message}").ToList();
         }
     }
 }

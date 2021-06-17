@@ -23,7 +23,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetActivationTransaction()
         {
-            var transaction = new Transaction($"Activation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for unit {UnitName}");
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
@@ -34,7 +34,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetDeactivationTransaction()
         {
-            var transaction = new Transaction($"Deactivation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for unit {UnitName}");
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));

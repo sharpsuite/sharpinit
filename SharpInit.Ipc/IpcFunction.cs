@@ -59,7 +59,18 @@ namespace SharpInit.Ipc
 
         public override object Execute(params object[] arguments)
         {
-            return _func.DynamicInvoke(arguments);
+            var typeshifted_args = new object[arguments.Length];
+            var parameters = _func.Method.GetParameters();
+
+            if (parameters.Length != arguments.Length)
+                throw new Exception("Parameter mismatch");
+
+            for (int i = 0; i < arguments.Length; i++)
+            {
+                typeshifted_args[i] = Convert.ChangeType(arguments[i], parameters[i].ParameterType);
+            }
+
+            return _func.DynamicInvoke(typeshifted_args);
         }
 
         public static DynamicIpcFunction FromAttribute(IpcFunctionAttribute attrib, Delegate func)

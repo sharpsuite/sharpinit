@@ -524,15 +524,10 @@ namespace SharpInit.Units
             {
                 var deactivation_transaction = CreateDeactivationTransaction(sub_unit);
 
-                var wrapper = new Transaction();
+                deactivation_transaction.Prepend(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName, true));
+                deactivation_transaction.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
 
-                wrapper.Add(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName, true));
-                wrapper.Add(deactivation_transaction);
-
-                wrapper.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
-                wrapper.Name = $"Check and deactivate {sub_unit.UnitName}";
-
-                transaction.Add(wrapper);
+                transaction.Add(deactivation_transaction);
             }
 
             foreach(var sub_unit in unit_list)
@@ -540,14 +535,14 @@ namespace SharpInit.Units
                 var activation_transaction = sub_unit.GetActivationTransaction();
 
                 if (fail_if_unstarted.ContainsKey(sub_unit.UnitName) && fail_if_unstarted[sub_unit.UnitName])
-                    activation_transaction = new Transaction(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName));
+                    activation_transaction.Prepend(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName));
 
                 if (ignore_failure.ContainsKey(sub_unit.UnitName) && !ignore_failure[sub_unit.UnitName])
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
                 else
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
 
-                transaction.Tasks.Add(activation_transaction);
+                transaction.Add(activation_transaction);
             }
 
             return transaction;

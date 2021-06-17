@@ -30,6 +30,12 @@ namespace SharpInit
 
             UnitRegistry.UnitStateChange += StateChangeHandler;
 
+            var journal_target = new JournalTarget(UnitRegistry.ServiceManager.Journal) { Layout = "${date} [${uppercase:${level}}] [${ndlc}] ${message}" };
+            var config = LogManager.Configuration;
+            config.AddTarget("journal", journal_target);
+            config.AddRuleForAllLevels("journal");
+            LogManager.Configuration = config;
+
             Log.Info("Starting socket manager...");
             UnitRegistry.SocketManager.StartSelectLoop();
 

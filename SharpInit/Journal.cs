@@ -4,164 +4,114 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using NLog;
+using NLog.Targets;
+using NLog.Config;
 
 namespace SharpInit
 {
-    public delegate void OnJournalData(JournalClient client, string message);
-
-    public class JournalClient
-    {
-        public FileDescriptor ReadFd { get; set; }
-        public FileDescriptor WriteFd { get; set; }
-
-        public string Name { get; set; }
-        public DateTime Opened { get; set; }
-
-        public bool IsOpen { get; set; }
-
-        public JournalClient(string name)
-        {
-            Name = name;
-        }
-
-        public void AllocateDescriptors()
-        {
-            if (ReadFd != null || WriteFd != null)
-            {
-                throw new Exception("File descriptors already allocated");
-            }
-
-            Syscall.pipe(out int read, out int write);
-
-            ReadFd = new FileDescriptor(read, $"journal-{Name}-read", -1);
-            WriteFd = new FileDescriptor(write, $"journal-{Name}-write", -1);
-
-            IsOpen = true;
-            Opened = DateTime.UtcNow;
-        }
-
-        public void Deallocate()
-        {
-            IsOpen = false;
-
-            if (ReadFd != null) 
-                Syscall.close(ReadFd.Number);
-            
-            if (WriteFd != null)
-                Syscall.close(WriteFd.Number);
-        }
-    }
-
     public class Journal
     {
         public event OnJournalData JournalDataReceived;
 
-        private List<JournalClient> Clients = new List<JournalClient>();
-
         private Logger Log = LogManager.GetCurrentClassLogger();
+
+        private Dictionary<string, JournalBuffer> Buffers = new Dictionary<string, JournalBuffer>();
 
         public Journal()
         {
-            this.JournalDataReceived += (j, d) => 
+            this.JournalDataReceived += (s, e) => 
             {
-                Log.Debug($"journal-{j.Name}: {d}");
+                GetBuffer(e.Source).Add(e.Entry);
+                GetBuffer("main").Add(e.Entry);
             };
-
-            EpollFd = new FileDescriptor(Syscall.epoll_create(int.MaxValue), "journal-epoll", -1);
-            new System.Threading.Thread(new System.Threading.ThreadStart(delegate 
-            {
-                this.JournalLoop();
-            })).Start();
         }
 
-        public JournalClient CreateClient(string name)
+        internal JournalBuffer GetBuffer(string name) => Buffers.ContainsKey(name) ? Buffers[name] : (Buffers[name] = new JournalBuffer(name));
+
+        public IEnumerable<JournalEntry> Tail(string name, int lines = int.MaxValue) =>
+            Buffers.ContainsKey(name) ? GetBuffer(name).Tail(lines) : new JournalEntry[0];
+        internal void RaiseJournalData(string from, string message) =>
+            RaiseJournalData(from, Encoding.UTF8.GetBytes(message));
+
+        internal void RaiseJournalData(string from, byte[] data)
         {
-            var client = new JournalClient(name);
-            client.AllocateDescriptors();
-            Clients.Add(client);
+            JournalDataReceived?.Invoke(this, new JournalDataEventArgs(new JournalEntry() { Source = from, RawMessage = data, Message = Encoding.UTF8.GetString(data) }));
+        }
+    }
 
-            int epoll_add_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_ADD, client.ReadFd.Number, EpollEvents.EPOLLIN);
+    public class JournalBuffer
+    {
+        private List<JournalEntry> Entries = new List<JournalEntry>();
 
-            if (epoll_add_resp != 0)
-            {
-                throw new Exception($"epoll_ctl failed with errno: {Syscall.GetLastError()}");
-            }
+        public string Name { get; set; }
+        public int Capacity { get; set; }
 
-            return client;
+        public JournalBuffer(string name, int capacity = int.MaxValue)
+        {
+            Name = name;
+            Capacity = capacity;
         }
 
-        private FileDescriptor EpollFd;
-
-        public void JournalLoop()
+        public void Add(JournalEntry entry)
         {
-            int event_size = 128;
-            int read_buffer_size = 256;
+            Entries.Add(entry);
 
-            EpollEvent[] event_arr = new EpollEvent[event_size];
-            var buf = System.Runtime.InteropServices.Marshal.AllocHGlobal(read_buffer_size);
-            while (true)
+            if (Entries.Count > Capacity)
+                Entries.RemoveAt(0);
+        }
+
+        public IEnumerable<JournalEntry> Tail(int number)
+        {
+            if (number <= 0)
+                return Entries.ToList();
+            
+            return Entries.Skip(Entries.Count - number).ToList();
+        }
+    }
+
+    public class JournalEntry
+    {
+        public string Source { get; set; }
+        public DateTime Created { get; set; }
+        public string Message { get; set; }
+        public byte[] RawMessage { get; set; }
+
+        public JournalEntry()
+        { }
+    }
+
+    [Target("SharpInitJournal")]
+    public sealed class JournalTarget : TargetWithLayout
+    {
+
+        public JournalTarget()
+        {
+        }
+
+        public JournalTarget(Journal journal)
+        {
+            Journal = journal;
+        }
+
+        public Journal Journal { get; set; }
+ 
+        protected override void Write(LogEventInfo log_event) 
+        {
+            var sources = NLog.NestedDiagnosticsLogicalContext.GetAllObjects();
+            if (sources.Length == 0)
             {
-                var wait_ret = Syscall.epoll_wait(EpollFd.Number, event_arr, event_arr.Length, 1);
-
-                for (int i = 0; i < wait_ret; i++) 
-                {
-                    var client = Clients.FirstOrDefault(client => client.ReadFd.Number == event_arr[i].fd);
-                    long read = 0;
-                    var contents = new List<byte>();
-
-                    if (client == default)
-                    {
-                        Log.Warn($"Read from unrecognized journal fd {event_arr[i].fd}");
-                        continue;
-                    }
-
-                    if ((event_arr[i].events & (EpollEvents.EPOLLERR | EpollEvents.EPOLLHUP)) > 0)
-                    {
-                        if (client.IsOpen)
-                        {
-                            Log.Debug($"journal-{client.Name} closed");
-                            client.Deallocate();
-                        }
-                        
-                        Clients.Remove(client);
-                        continue;
-                    }
-
-                    if (!event_arr[i].events.HasFlag(EpollEvents.EPOLLIN))
-                    {
-                        Log.Warn($"received unknown epoll event {event_arr[i].events}");
-                        continue;
-                    }
-
-                    while (true) 
-                    {
-                        read = Syscall.read(event_arr[i].fd, buf, (ulong)read_buffer_size);
-
-                        if (read <= 0) 
-                        {
-                            break;
-                        }
-                        
-                        var sub_buf = new byte[read];
-                        System.Runtime.InteropServices.Marshal.Copy(buf, sub_buf, 0, (int)read);
-                        contents.AddRange(sub_buf);
-
-                        if (read < read_buffer_size)
-                        {
-                            break;
-                        }
-                    }
-                    
-                    if (read > 0)
-                    {
-                        JournalDataReceived?.Invoke(client, Encoding.UTF8.GetString(contents.ToArray()));
-                    }
-                    else
-                    {
-                        Log.Warn($"{read} bytes read from journal fd for journal-{client?.Name}");
-                    }
-                }
+                return;
             }
+
+            NLog.NestedDiagnosticsLogicalContext.Clear();
+
+            var unit_source = sources.First() as string;
+
+            var rendered = this.Layout.Render(log_event);
+            Journal.RaiseJournalData(unit_source, rendered);
+
+            for (int i = sources.Length - 1; i >= 0; i--)
+                NLog.NestedDiagnosticsLogicalContext.PushObject(sources[i]);
         }
     }
 }

@@ -71,6 +71,8 @@ namespace SharpInit.Ipc
         public int RescanUnits() => MakeCall<int>();
         public UnitInfo GetUnitInfo(string unit) => MakeCall<UnitInfo>(Wrap(unit));
 
+        public List<string> GetJournal(string journal, int lines) => MakeCall<List<string>>(Wrap(journal, lines));
+
         public Dictionary<string, List<string>> GetActivationPlan(string unit)
         {
             var result = InvokeIpcFunction("get-activation-plan", unit);

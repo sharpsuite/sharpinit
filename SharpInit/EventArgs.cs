@@ -1,9 +1,25 @@
 using System;
+using System.Text;
 
 using SharpInit.Units;
 
 namespace SharpInit
 {
+    public delegate void OnJournalData(object sender, JournalDataEventArgs e);
+
+    public class JournalDataEventArgs : EventArgs
+    {
+        public string Source => Entry.Source;
+        public string Data => Entry.Message;
+
+        public JournalEntry Entry { get; set; }
+
+        public JournalDataEventArgs(JournalEntry entry)
+        {
+            Entry = entry;
+        }
+    }
+
     public delegate void OnUnitStateChange(object sender, UnitStateChangeEventArgs e);
 
     public class UnitStateChangeEventArgs : EventArgs

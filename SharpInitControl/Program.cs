@@ -23,7 +23,8 @@ namespace SharpInitControl
             {"daemon-reload", RescanUnits },
             {"status", GetUnitStatus },
             {"describe-deps", DescribeDependencies },
-            {"load", LoadUnit }
+            {"load", LoadUnit },
+            {"journal", GetJournal}
         };
 
         static IpcConnection Connection { get; set; }
@@ -47,6 +48,17 @@ namespace SharpInitControl
             Commands[verb](verb, args.Skip(1).ToArray());
             
             Environment.Exit(0);
+        }
+
+        static void GetJournal(string verb, string[] args)
+        {
+            var count = int.Parse(args.FirstOrDefault(a => int.TryParse(a, out int _)) ?? "50");
+            var journal = args.FirstOrDefault(a => a != count.ToString());
+
+            var lines = Context.GetJournal(journal, count);
+
+            foreach (var line in lines)
+                Console.WriteLine(line);
         }
 
         static void DescribeDependencies(string verb, string[] args)
@@ -131,6 +143,13 @@ namespace SharpInitControl
             if (!string.IsNullOrWhiteSpace(status.StateChangeReason))
             {
                 Console.WriteLine($"State change reason: {status.StateChangeReason}");
+            }
+
+            Console.WriteLine();
+
+            foreach (var line in status.LogLines)
+            {
+                Console.WriteLine(line);
             }
 
             Console.WriteLine();

@@ -43,5 +43,8 @@ namespace SharpInit.Ipc
 
         [IpcFunction("get-deactivation-plan")]
         Dictionary<string, List<string>> GetDeactivationPlan(string unit);
+
+        [IpcFunction("get-journal")]
+        List<string> GetJournal(string journal, int lines);
     }
 }

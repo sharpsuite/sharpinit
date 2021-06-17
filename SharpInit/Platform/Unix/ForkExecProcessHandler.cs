@@ -17,7 +17,21 @@ namespace SharpInit.Platform.Unix
     public class ForkExecProcessHandler : IProcessHandler
     {
         public event OnProcessExit ProcessExit;
-        public ServiceManager ServiceManager { get; set; }
+
+        private ServiceManager _service_manager;
+        public ServiceManager ServiceManager
+        {
+            get => _service_manager;
+            set
+            {
+                if (_service_manager == value)
+                    return;
+
+                _service_manager = value;
+                JournalManager = new UnixJournalManager(_service_manager.Journal);
+            }
+        }
+        public UnixJournalManager JournalManager { get; set; }
 
         private List<int> Processes = new List<int>();
 
@@ -37,7 +51,7 @@ namespace SharpInit.Platform.Unix
                     write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
                     break;
                 case "journal":
-                    var journal_client = ServiceManager.Journal.CreateClient(psi.Unit?.UnitName ?? Path.GetFileName(psi.Path));
+                    var journal_client = JournalManager.CreateClient(psi.Unit?.UnitName ?? Path.GetFileName(psi.Path));
                     read = journal_client.ReadFd.Number;
                     write = journal_client.WriteFd.Number;
                     break;

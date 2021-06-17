@@ -126,7 +126,8 @@ namespace SharpInit.Tasks
                         if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore)
                             return result;
                     }
-                    else if (result.Type == ResultType.StopExecution)
+                    
+                    if (result.Type.HasFlag(ResultType.StopExecution))
                     {
                         break;
                     }
@@ -135,6 +136,10 @@ namespace SharpInit.Tasks
 
             return new TaskResult(this, ResultType.Success);
         }
+
+        public void Append(Task task) => Tasks.Add(task);
+
+        public void Prepend(Task task) => Tasks.Insert(0, task);
 
         /// <summary>
         /// Generates a textual tree that describes the child tasks of this transaction, with an optionally highlighted task. 

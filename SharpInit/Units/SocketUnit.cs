@@ -36,7 +36,7 @@ namespace SharpInit.Units
 
             if (target_unit == null)
             {
-                Log.Warn($"Could not find activation target \"{target_unit}\" for socket \"{this.UnitName}\"");
+                Log.Warn($"Could not find activation target \"{activation_target}\" for socket \"{this.UnitName}\"");
                 return;
             }
 
@@ -53,7 +53,7 @@ namespace SharpInit.Units
                 }
             }
 
-            var transaction = new Transaction($"Socket activation for {this.UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, $"Socket activation for {target_unit.UnitName}");
             var file_descriptors = new List<FileDescriptor>();
 
             if (!Descriptor.Accept)
@@ -82,7 +82,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetActivationTransaction()
         {
-            var transaction = new Transaction($"Activation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for unit {UnitName}");
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
@@ -110,7 +110,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetDeactivationTransaction()
         {
-            var transaction = new Transaction($"Deactivation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for unit {UnitName}");
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
 

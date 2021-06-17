@@ -34,9 +34,15 @@ namespace SharpInit.Units
 
         }
 
+        public UnitStateChangeTransaction(Unit source_unit, string name) :
+            this(source_unit)
+        {
+            Name = name;
+        }
+
         public override TaskResult Execute(TaskContext context = null)
         {
-            using (NLog.NestedDiagnosticsLogicalContext.Push($"Unit {SourceUnit.UnitName}")) 
+            using (NLog.NestedDiagnosticsLogicalContext.Push(SourceUnit.UnitName)) 
             {
                 return base.Execute(context);
             }
