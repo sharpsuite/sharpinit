@@ -69,9 +69,9 @@ namespace SharpInit.Units
             Units[unit.UnitName] = unit;
         }
 
-        private static void PropagateStateChange(Unit source, UnitState next_state)
+        private static void PropagateStateChange(object sender, UnitStateChangeEventArgs e)
         {
-            UnitStateChange?.Invoke(source, next_state);
+            UnitStateChange?.Invoke(sender, e);
         }
 
         public static string GetUnitName(string path)

@@ -1,4 +1,5 @@
 ﻿using SharpInit.Units;
+using SharpInit.Platform;
 using Mono.Unix;
 using System;
 using System.Collections.Generic;
@@ -50,8 +51,31 @@ namespace SharpInit
                     break;
             }
 
+            if (int.TryParse(address, out int port)) 
+            {
+                address_family = AddressFamily.InterNetwork;
+                socket_ep = new IPEndPoint(IPAddress.Any, port);
+            }
+
+            if (address.Contains(':')) 
+            {
+                var parts = address.Split(':');
+
+                if (IPAddress.TryParse(parts[0], out IPAddress ip_addr) &&
+                    int.TryParse(parts[1], out port)) 
+                {
+                    socket_ep = new IPEndPoint(ip_addr, port);
+                    address_family = socket_ep.AddressFamily;
+                }
+            }
+
             if (address.StartsWith('/')) 
             {
+                if (!PlatformUtilities.CurrentlyOn("unix"))
+                {
+                    throw new Exception($"Socket address \"{address}\" is invalid on non-Unix platforms");
+                }
+
                 address_family = AddressFamily.Unix; 
                 protocol_type = ProtocolType.Unspecified;
                 socket_ep = new UnixEndPoint(address);
@@ -82,28 +106,15 @@ namespace SharpInit
 
             if (address.StartsWith('@')) 
             {
+                if (!PlatformUtilities.CurrentlyOn("unix"))
+                {
+                    throw new Exception($"Socket address \"{address}\" is invalid on non-Unix platforms");
+                }
+                
                 address_family = AddressFamily.Unix;
                 protocol_type = ProtocolType.Unspecified;
                 address = (char)0 + address.Substring(1);
                 socket_ep = new UnixEndPoint(address);
-            }
-
-            if (int.TryParse(address, out int port)) 
-            {
-                address_family = AddressFamily.InterNetwork;
-                socket_ep = new IPEndPoint(IPAddress.Any, port);
-            }
-
-            if (address.Contains(':')) 
-            {
-                var parts = address.Split(':');
-
-                if (IPAddress.TryParse(parts[0], out IPAddress ip_addr) &&
-                    int.TryParse(parts[1], out port)) 
-                {
-                    socket_ep = new IPEndPoint(ip_addr, port);
-                    address_family = socket_ep.AddressFamily;
-                }
             }
 
             if (socket_ep == default)
@@ -119,7 +130,7 @@ namespace SharpInit
             } 
             catch (Exception ex)
             {
-                Log.Error($"Could not bind to socket \"{address}\" of type {property_name}: {ex.Message}");
+                throw new Exception($"Could not bind to socket \"{address}\" of type {property_name}", ex);
                 return null;
             }
 

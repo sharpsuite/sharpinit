@@ -118,10 +118,12 @@ namespace SharpInit
                 string.Join(", ", unit_files.Select(file => file.Path)) :
                 "(not available)";
             info.Description = unit.Descriptor.Description;
-            info.State = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());
+            info.CurrentState = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());
+            info.PreviousState = Enum.Parse<Ipc.UnitState>(unit.PreviousState.ToString());
             info.LastStateChangeTime = unit.LastStateChangeTime;
             info.ActivationTime = unit.ActivationTime;
             info.LoadTime = unit.Descriptor.Created;
+            info.StateChangeReason = unit.StateChangeReason;
 
             return info;
         }

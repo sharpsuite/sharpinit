@@ -6,15 +6,17 @@ using System.Text;
 
 namespace SharpInit.Units
 {
-    public delegate void OnUnitStateChange(Unit source, UnitState next_state);
-
     /// <summary>
     /// Base unit class with shared functionality that all unit types must inherit from.
     /// </summary>
     public abstract class Unit
     {
         public string UnitName { get; set; }
+
+        public UnitState PreviousState { get; internal set; }
         public UnitState CurrentState { get; internal set; }
+
+        public string StateChangeReason { get; internal set; }
 
         public UnitDescriptor Descriptor { get => GetUnitDescriptor(); set => SetUnitDescriptor(value); }
 
@@ -42,6 +44,8 @@ namespace SharpInit.Units
 
         protected Unit()
         {
+            PreviousState = UnitState.Inactive;
+            CurrentState = UnitState.Inactive;
         }
 
         public abstract UnitDescriptor GetUnitDescriptor();
@@ -49,13 +53,18 @@ namespace SharpInit.Units
         //public abstract void LoadUnitFile(string path);
         //public abstract void LoadUnitFile(UnitFile file);
 
-        internal void SetState(UnitState next_state)
+        internal void SetState(UnitState next_state, string reason = null)
         {
-            UnitStateChange?.Invoke(this, next_state); // block while state changes are handled
-                                                       // TODO: Investigate whether this could result in a deadlock
+            // block while state changes are handled
+            // TODO: Investigate whether this could result in a deadlock
+            UnitStateChange?.Invoke(this, new UnitStateChangeEventArgs(this, next_state, reason)); 
 
+            PreviousState = CurrentState;
             CurrentState = next_state;
             LastStateChangeTime = DateTime.UtcNow;
+
+            if (reason != null)
+                StateChangeReason = reason;
         }
 
         // Use the CreateActivationTransaction/CreateDeactivationTransaction in UnitRegistry, not these.
@@ -136,12 +145,12 @@ namespace SharpInit.Units
 
     public enum UnitState
     {
-        Inactive,
-        Active,
-        Activating,
-        Deactivating,
-        Failed,
-        Reloading,
-        Any // used as a special mask
+        Inactive = 0x1,
+        Active = 0x2,
+        Activating = 0x4,
+        Deactivating = 0x8,
+        Failed = 0x10,
+        Reloading = 0x20,
+        Any = 0x7FFFFFFF
     }
 }

@@ -109,40 +109,30 @@ namespace SharpInitControl
                 return;
             }
 
+            var current_state_color = UnitStateToConsoleColor(status.CurrentState);
+            var previous_state_color = UnitStateToConsoleColor(status.PreviousState);
+            var foreground_color = Console.ForegroundColor;
+
             Console.OutputEncoding = Encoding.UTF8;
-            var default_color = Console.ForegroundColor;
-            var status_color = ConsoleColor.Gray;
-
-            switch (status.State)
-            {
-                case UnitState.Activating:
-                case UnitState.Active:
-                case UnitState.Reloading:
-                    status_color = ConsoleColor.Green;
-                    break;
-                case UnitState.Deactivating:
-                case UnitState.Inactive:
-                    status_color = default_color;
-                    break;
-                case UnitState.Failed:
-                    status_color = ConsoleColor.Red;
-                    break;
-            }
-
-            Console.ForegroundColor = status_color;
-            Console.Write("•");
-            Console.ForegroundColor = default_color;
-
+            
+            PrintWithColor("•", current_state_color);
             Console.WriteLine($" {status.Name}{(!string.IsNullOrWhiteSpace(status.Description) ? " - " + status.Description : "")}");
             Console.WriteLine($"Loaded from: {status.Path} at {status.LoadTime.ToLocalTime()}");
             Console.Write("Status: ");
 
-            Console.ForegroundColor = status_color;
-            Console.Write(status.State.ToString().ToLower());
-            Console.ForegroundColor = default_color;
-
-            Console.Write($" (last activated {(status.ActivationTime == DateTime.MinValue ? "never" : status.ActivationTime.ToLocalTime().ToString())})");
+            PrintWithColor(status.CurrentState.ToString().ToLower(), current_state_color);
+            Console.Write($", last activated {PrintPastOccurrence(status.ActivationTime)}");
             Console.WriteLine();
+
+            Console.Write($"Previous state: ");
+            PrintWithColor(status.PreviousState.ToString().ToLower(), previous_state_color);
+            Console.WriteLine($", changed {PrintPastOccurrence(status.LastStateChangeTime)}");
+
+            if (!string.IsNullOrWhiteSpace(status.StateChangeReason))
+            {
+                Console.WriteLine($"State change reason: {status.StateChangeReason}");
+            }
+
             Console.WriteLine();
         }
 
@@ -251,6 +241,74 @@ namespace SharpInitControl
                     Console.WriteLine($"Failed to index unit at \"{path}\".");
                 }
             }
+        }
+        
+        static string PrintPastOccurrence(DateTime time)
+        {
+            if (time == DateTime.MinValue)
+                return "never";
+            
+            return $"{TimeSpanToPrettyString(DateTime.UtcNow - time)} ago; {time.ToLocalTime()}";
+        }
+
+        public static string Pluralize(int number, string noun)
+        {
+            if (Math.Abs(number) == 1)
+                return $"{number} {noun}";
+
+            if (noun.EndsWith("y") && !noun.EndsWith("ay"))
+                noun = noun.Substring(0, noun.Length - 1) + "ie";
+            
+            return $"{number} {noun}s";
+        }
+
+        public static string Pluralize(double number, string noun) => Pluralize((int)number, noun);
+        public static string TimeSpanToPrettyString(TimeSpan span)
+        {
+            Dictionary<string, int> lengths = new Dictionary<string, int>()
+            {
+                {Pluralize(span.TotalDays / 7, "week"), (int)(span.TotalDays / 7) },
+                {Pluralize(span.TotalDays % 7, "day"), (int)(span.TotalDays % 7) },
+                {Pluralize(span.TotalHours % 24, "hour"), (int)(span.TotalHours % 24) },
+                {Pluralize(span.TotalMinutes % 60, "minute"), (int)(span.TotalMinutes % 60) },
+                {Pluralize(span.TotalSeconds % 60, "second"), (int)(span.TotalSeconds % 60) },
+            };
+
+            var final = lengths.Where(p => p.Value > 0).Select(p => p.Key).Take(2);
+
+            return string.Join(" ", final);
+        }
+
+        static void PrintWithColor(string text, ConsoleColor color)
+        {
+            var foreground = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+            Console.Write(text);
+            Console.ForegroundColor = foreground;
+        }
+
+        static ConsoleColor UnitStateToConsoleColor(UnitState state)
+        {
+            var default_color = Console.ForegroundColor;
+            var status_color = ConsoleColor.Gray;
+
+            switch (state)
+            {
+                case UnitState.Activating:
+                case UnitState.Active:
+                case UnitState.Reloading:
+                    status_color = ConsoleColor.Green;
+                    break;
+                case UnitState.Deactivating:
+                case UnitState.Inactive:
+                    status_color = default_color;
+                    break;
+                case UnitState.Failed:
+                    status_color = ConsoleColor.Red;
+                    break;
+            }
+
+            return status_color;
         }
     }
 }

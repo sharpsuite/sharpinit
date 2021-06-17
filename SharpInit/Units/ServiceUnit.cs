@@ -40,17 +40,17 @@ namespace SharpInit.Units
             switch(CurrentState)
             {
                 case UnitState.Deactivating:
-                    SetState(UnitState.Inactive);
+                    SetState(UnitState.Inactive, "Main process exited");
                     break;
                 default:
                     // TODO: treat process exit differently based on service type
                     if (code != 0)
                     {
-                        SetState(UnitState.Failed);
+                        SetState(UnitState.Failed, $"Main process exited with code {code}");
                     }
                     else
                     {
-                        SetState(UnitState.Inactive);
+                        SetState(UnitState.Inactive, "Main process exited");
                     }
 
                     var should_restart = false;
@@ -95,14 +95,14 @@ namespace SharpInit.Units
                     if (Descriptor.ExecStart == null)
                     {
                         Log.Error($"Unit {UnitName} has no ExecStart directives.");
-                        SetState(UnitState.Failed);
+                        SetState(UnitState.Failed, "Unit has no ExecStart directives");
                         return null;
                     }
 
                     if (Descriptor.ExecStart.Count != 1)
                     {
                         Log.Error($"Service type \"simple\" only supports one ExecStart value, {UnitName} has {Descriptor.ExecStart.Count}");
-                        SetState(UnitState.Failed);
+                        SetState(UnitState.Failed, "\"simple\" service has more than one ExecStart");
                         return null;
                     }
 
@@ -123,7 +123,7 @@ namespace SharpInit.Units
                     break;
                 default:
                     Log.Error($"Only the \"simple\" service type is supported for now, {UnitName} has type {Descriptor.ServiceType}");
-                    SetState(UnitState.Failed);
+                    SetState(UnitState.Failed, $"Unsupported service type \"{Descriptor.ServiceType}\"");
                     break;
             }
 

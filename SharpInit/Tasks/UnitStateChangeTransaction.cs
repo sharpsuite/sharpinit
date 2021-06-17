@@ -33,5 +33,13 @@ namespace SharpInit.Units
         {
 
         }
+
+        public override TaskResult Execute(TaskContext context = null)
+        {
+            using (NLog.NestedDiagnosticsLogicalContext.Push($"Unit {SourceUnit.UnitName}")) 
+            {
+                return base.Execute(context);
+            }
+        }
     }
 }

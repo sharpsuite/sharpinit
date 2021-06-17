@@ -70,9 +70,12 @@ namespace SharpInit
             }
         }
 
-        private static void StateChangeHandler(Unit source, Units.UnitState next_state)
+        private static void StateChangeHandler(object sender, UnitStateChangeEventArgs e)
         {
-            Log.Info($"Unit {source.UnitName} is transitioning from {source.CurrentState} to {next_state}");
+            if (e.Reason != null)
+                Log.Info($"Unit {e.Unit.UnitName} is transitioning from {e.Unit.CurrentState} to {e.NextState}: \"{e.Reason}\"");
+            else
+                Log.Info($"Unit {e.Unit.UnitName} is transitioning from {e.Unit.CurrentState} to {e.NextState} (no reason specified)");
         }
     }
 }

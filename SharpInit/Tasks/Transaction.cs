@@ -118,6 +118,8 @@ namespace SharpInit.Tasks
                     if (result.Type != ResultType.Success &&
                         !result.Type.HasFlag(ResultType.Ignorable))
                     {
+                        Context["failure"] = result;
+
                         if (OnFailure != null)
                             OnFailure.Execute(Context);
                         

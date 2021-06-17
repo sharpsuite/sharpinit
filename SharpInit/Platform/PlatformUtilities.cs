@@ -98,5 +98,8 @@ namespace SharpInit.Platform
 
         public static T GetImplementation<T>(PlatformIdentifier id, params object[] constructor_params) =>
             GetImplementations<T>(id, constructor_params).FirstOrDefault();
+        
+        public static bool CurrentlyOn(params string[] platform_codes) =>
+            platform_codes.All(PlatformIdentifier.GetPlatformIdentifier().PlatformCodes.Contains);
     }
 }
