@@ -22,7 +22,9 @@ namespace SharpInit
             this.JournalDataReceived += (s, e) => 
             {
                 GetBuffer(e.Source).Add(e.Entry);
-                GetBuffer("main").Add(e.Entry);
+
+                if (e.Source != "main")
+                    GetBuffer("main").Add(e.Entry);
             };
         }
 
