@@ -27,11 +27,10 @@ namespace SharpInit
 
         public ServiceManager(IProcessHandler process_handler)
         {
+            Journal = new Journal();
             ProcessHandler = process_handler;
             ProcessHandler.ProcessExit += HandleProcessExit;
             ProcessHandler.ServiceManager = this;
-
-            Journal = new Journal();
         }
         
         private void HandleProcessExit(int pid, int exit_code)

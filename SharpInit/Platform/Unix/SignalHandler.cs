@@ -27,6 +27,8 @@ namespace SharpInit.Platform.Unix
             AddSignalHandler(new UnixSignal(Signum.SIGUSR2), delegate { });
             AddSignalHandler(new UnixSignal(Signum.SIGCHLD), ReapChildren);
             AddSignalHandler(new UnixSignal(Signum.SIGALRM), ReapChildren);
+            AddSignalHandler(new UnixSignal(Signum.SIGTERM), Program.Shutdown);
+            AddSignalHandler(new UnixSignal(Signum.SIGHUP), Program.Shutdown);
             new Thread((ThreadStart)HandlerLoop).Start();
         }
 

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace SharpInitControl
 {
@@ -57,8 +58,24 @@ namespace SharpInitControl
 
             var lines = Context.GetJournal(journal, count);
 
-            foreach (var line in lines)
-                Console.WriteLine(line);
+            var use_less = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+
+            if (use_less)
+            {
+                var temp = Path.GetTempFileName();
+                File.WriteAllLines(temp, lines);
+
+                var psi = new System.Diagnostics.ProcessStartInfo();
+                psi.FileName = "/usr/bin/env";
+                psi.Arguments = $"less -cS {temp}";
+                System.Diagnostics.Process.Start(psi).WaitForExit();
+                File.Delete(temp);
+            }
+            else
+            {
+                foreach (var line in lines)
+                    Console.WriteLine(line);
+            }
         }
 
         static void DescribeDependencies(string verb, string[] args)

@@ -131,7 +131,10 @@ namespace SharpInit
 
         public List<string> GetJournal(string journal, int lines)
         {
-            return UnitRegistry.ServiceManager.Journal.Tail(journal, lines).Select(entry => $"[{entry.Source}] {entry.Message}").ToList();
+            var entries = UnitRegistry.ServiceManager.Journal.Tail(journal, lines);
+            var longest_source_length = entries.Max(e => e.Source.Length);
+
+            return entries.Select(entry => $"[ {entry.Source.PadLeft(longest_source_length)} ] {entry.Message}").ToList();
         }
     }
 }

@@ -150,7 +150,10 @@ namespace SharpInit.Platform.Unix
                     
                     if (read > 0)
                     {
-                        Journal.RaiseJournalData(client.Name, contents.ToArray());
+                        NLog.NestedDiagnosticsLogicalContext.Push(client.Name);
+                        //Journal.RaiseJournalData(client.Name, contents.ToArray());
+                        Log.Info(Encoding.UTF8.GetString(contents.ToArray()));
+                        NLog.NestedDiagnosticsLogicalContext.Pop();
                     }
                     else
                     {
