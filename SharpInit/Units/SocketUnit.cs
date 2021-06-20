@@ -54,6 +54,8 @@ namespace SharpInit.Units
             }
 
             var transaction = new UnitStateChangeTransaction(this, $"Socket activation for {target_unit.UnitName}");
+            transaction.Add(new AlterTransactionContextTask("state_change_reason", $"Socket activation from {UnitName}"));
+
             var file_descriptors = new List<FileDescriptor>();
 
             if (!Descriptor.Accept)
@@ -103,7 +105,9 @@ namespace SharpInit.Units
 
             transaction.Add(new UpdateUnitActivationTimeTask(this));
 
-            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
+            transaction.OnFailure = new Transaction(
+                new SetUnitStateTask(this, UnitState.Failed),
+                new StopUnitSocketsTask(this));
 
             return transaction;
         }
