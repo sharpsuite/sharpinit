@@ -26,27 +26,34 @@ namespace SharpInit.Tasks
 
         public override TaskResult Execute(TaskContext context)
         {
-            var sockets = Unit.SocketManager.GetSocketsByUnit(Unit).ToList();
-
-            foreach (var socket in sockets) 
+            try 
             {
-                //socket.Socket.Disconnect(false);
-                Unit.SocketManager.RemoveSocket(socket);
-                socket.Socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
-                socket.Socket.Close();
+                var sockets = Unit.SocketManager.GetSocketsByUnit(Unit).ToList();
 
-                if (socket.Socket.LocalEndPoint is UnixEndPoint && (Unit.Descriptor as SocketUnitDescriptor).RemoveOnExit)
+                foreach (var socket in sockets) 
                 {
-                    try
-                    {
-                        var path = (socket.Socket.LocalEndPoint as UnixEndPoint).Filename;
-                        UnixFileSystemInfo.GetFileSystemEntry(path).Delete();
-                    }
-                    catch {}
-                }
-            }
+                    //socket.Socket.Disconnect(false);
+                    Unit.SocketManager.RemoveSocket(socket);
+                    socket.Socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
+                    socket.Socket.Close();
 
-            return new TaskResult(this, ResultType.Success);
+                    if (socket.Socket.LocalEndPoint is UnixEndPoint && (Unit.Descriptor as SocketUnitDescriptor).RemoveOnExit)
+                    {
+                        try
+                        {
+                            var path = (socket.Socket.LocalEndPoint as UnixEndPoint).Filename;
+                            UnixFileSystemInfo.GetFileSystemEntry(path).Delete();
+                        }
+                        catch {}
+                    }
+                }
+
+                return new TaskResult(this, ResultType.Success);
+            }
+            catch (Exception ex)
+            {
+                return new TaskResult(this, ResultType.Failure, ex.Message);
+            }
         }
     }
 }

@@ -62,7 +62,12 @@ namespace SharpInit
 
                     ActivateUnitIfExists("sockets.target");
                     ActivateUnitIfExists("default.target");
-                    await Task.Delay(Timeout.Infinite, shutdownCts.Token);
+                    
+                    try 
+                    {
+                        await Task.Delay(Timeout.Infinite, shutdownCts.Token);
+                    }
+                    catch (Exception ex) { Log.Error(ex); }
                     
                     Log.Info($"Shutting down...");
                     Shutdown();
@@ -76,8 +81,6 @@ namespace SharpInit
 
         public static void Shutdown()
         {
-            IpcListener.StopListening();
-
             DeactivateUnitIfExists("sockets.target");
             DeactivateUnitIfExists("default.target");
 
@@ -90,7 +93,9 @@ namespace SharpInit
                 }
             }
 
-            Environment.Exit(0);
+            IpcListener.Stop();
+            Log.Info("Goodbye!");
+            Environment.FailFast(null);
         }
 
         private static void ActivateUnitIfExists(string name)

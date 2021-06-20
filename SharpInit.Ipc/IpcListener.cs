@@ -54,16 +54,20 @@ namespace SharpInit.Ipc
             ListenerThread.Start();
         }
 
-        public void StopListening()
+        public void Stop()
         {
             Running = false;
+            Socket.Close(1);
 
-            Socket.Close();
+            foreach (var conn in IncomingConnections)
+            {
+                conn.Close();
+            }
         }
         
         private void ListenerLoop()
         {
-            while (Socket.IsBound && Running)
+            while (Running && Socket.IsBound)
             {
                 try
                 {
@@ -81,7 +85,11 @@ namespace SharpInit.Ipc
                     // we're probably unbound
                     Log.Warn("SocketException in ListenerLoop, stopped listening");
                     Log.Warn(ex);
-                    StopListening();
+                    if (Running) 
+                    {
+                        Stop();
+                    }
+                    break;
                 }
                 catch
                 {
