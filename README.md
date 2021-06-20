@@ -32,4 +32,4 @@ sharpinit is not ready for production use!
 - [ ] udev/device management
   - [ ] device units
   - [ ] automount units
-  - [ ] mount units
+  - [x] mount units
