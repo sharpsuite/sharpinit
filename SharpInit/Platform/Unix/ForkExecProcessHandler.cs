@@ -250,32 +250,35 @@ namespace SharpInit.Platform.Unix
                     Syscall.exit(1);
                 }
 
-                if (psi.Environment.ContainsKey("LISTEN_PID") && psi.Environment["LISTEN_PID"] == "fill")
+                if (psi.Environment != null)
                 {
-                    psi.Environment["LISTEN_PID"] = Syscall.getpid().ToString();
-
-                    if (psi.Environment.ContainsKey("LISTEN_FDNUMS"))
+                    if (psi.Environment.ContainsKey("LISTEN_PID") && psi.Environment["LISTEN_PID"] == "fill")
                     {
-                        var fd_nums = psi.Environment["LISTEN_FDNUMS"].Split(':');
-                        
-                        for (int i = 0, fd = 3; i < fd_nums.Length; i++, fd++)
-                        {
-                            var num_str = fd_nums[i];
+                        psi.Environment["LISTEN_PID"] = Syscall.getpid().ToString();
 
-                            if (int.TryParse(num_str, out int num))
+                        if (psi.Environment.ContainsKey("LISTEN_FDNUMS"))
+                        {
+                            var fd_nums = psi.Environment["LISTEN_FDNUMS"].Split(':');
+                            
+                            for (int i = 0, fd = 3; i < fd_nums.Length; i++, fd++)
                             {
-                                Syscall.dup2(num, fd);
+                                var num_str = fd_nums[i];
+
+                                if (int.TryParse(num_str, out int num))
+                                {
+                                    Syscall.dup2(num, fd);
+                                }
                             }
                         }
                     }
+
+                    foreach (var env_var in psi.Environment) 
+                    {
+                        Environment.SetEnvironmentVariable(env_var.Key, env_var.Value);
+                    }
                 }
 
-                foreach (var env_var in psi.Environment) 
-                {
-                    Environment.SetEnvironmentVariable(env_var.Key, env_var.Value);
-                }
-
-                if(psi.WorkingDirectory != "")
+                if (!string.IsNullOrWhiteSpace(psi.WorkingDirectory))
                     Syscall.chdir(psi.WorkingDirectory);
 
                 if ((error = Syscall.execv(psi.Path, arguments)) != 0)
@@ -291,6 +294,11 @@ namespace SharpInit.Platform.Unix
             {
                 throw new InvalidOperationException($"fork() returned {fork_ret}, errno: {Syscall.GetLastError()}");
             }
+
+            //var process = System.Diagnostics.Process.GetProcessById(fork_ret);
+            System.Diagnostics.Process process = null;
+
+            try { process = System.Diagnostics.Process.GetProcessById(fork_ret); } catch (Exception ex) { Console.WriteLine(ex); }
 
             close_if_open(stdin_read);
             close_if_open(stdout_write);
@@ -318,7 +326,7 @@ namespace SharpInit.Platform.Unix
                 throw new Exception($"Expected starting message from control pipe, received {starting_line}");
             
             Processes.Add(fork_ret);
-            return new ProcessInfo(System.Diagnostics.Process.GetProcessById(fork_ret));
+            return new ProcessInfo(process);
         }
 
         private void HandleProcessExit(int pid, int exit_code)

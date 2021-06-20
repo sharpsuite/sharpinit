@@ -15,16 +15,20 @@ namespace SharpInit.Tasks
         public override string Type => "run-registered-process";
         public ProcessStartInfo ProcessStartInfo { get; set; }
         public Unit Unit { get; set; }
+        public bool WaitForExit { get; set; }
+        public int WaitExitMilliseconds { get; set; }
 
         /// <summary>
         /// Starts a process with the parameters outlined in <paramref name="psi"/> and associates it with the service manager of <paramref name="unit"/>.
         /// </summary>
         /// <param name="psi">The ProcessStartInfo that defines the parameters of the process to be executed.</param>
         /// <param name="unit">The Unit to associate the newly created process with.</param>
-        public RunRegisteredProcessTask(ProcessStartInfo psi, Unit unit)
+        public RunRegisteredProcessTask(ProcessStartInfo psi, Unit unit, bool wait_for_exit = false, int exit_timeout = -1)
         {
             ProcessStartInfo = psi;
             Unit = unit;
+            WaitForExit = wait_for_exit;
+            WaitExitMilliseconds = exit_timeout;
         }
 
         public override TaskResult Execute(TaskContext context)
@@ -49,7 +53,19 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.Environment["LISTEN_FDNUMS"] = string.Join(':', fds.Select(fd => fd.Number));
                 }
 
-                Unit.ServiceManager.StartProcess(Unit, ProcessStartInfo);
+                var process = Unit.ServiceManager.StartProcess(Unit, ProcessStartInfo);
+
+                if (WaitForExit)
+                {
+                    if (process.WaitForExit(WaitExitMilliseconds <= -1 ? TimeSpan.MaxValue : TimeSpan.FromMilliseconds(WaitExitMilliseconds)))
+                        return new TaskResult(this, ResultType.Success, $"exit code {process.ExitCode}");
+                    else
+                    {
+                        process.Process.Kill();
+                        return new TaskResult(this, ResultType.Timeout, "Process did not exit in the given timeframe.");
+                    }
+                }
+
                 return new TaskResult(this, ResultType.Success);
             }
             catch (Exception ex)

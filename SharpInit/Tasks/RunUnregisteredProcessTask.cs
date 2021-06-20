@@ -55,7 +55,7 @@ namespace SharpInit.Tasks
                         return new TaskResult(this, ResultType.Timeout, "The process did not exit in the given amount of time.");
                     }
                     else
-                        return new TaskResult(this, ResultType.Success);
+                        return new TaskResult(this, ResultType.Success, $"exit code {process.Process.ExitCode}");
                 }
             }
             catch (Exception ex)

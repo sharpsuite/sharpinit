@@ -47,7 +47,7 @@ namespace SharpInit
                 ProcessesByUnit[unit].Remove(proc_info);
         }
 
-        public void StartProcess(Unit unit, ProcessStartInfo psi)
+        public ProcessInfo StartProcess(Unit unit, ProcessStartInfo psi)
         {
             var process = ProcessHandler.Start(psi);
 
@@ -55,12 +55,15 @@ namespace SharpInit
                 unit.RaiseProcessStart(process);
 
             RegisterProcess(unit, process);
+            return process;
         }
 
         public void RegisterProcess(Unit unit, ProcessInfo proc)
         {
             if (ProcessesById.ContainsKey(proc.Id))
                 throw new InvalidOperationException("This pid has already been registered");
+            
+            proc.ServiceManager = this;
 
             ManagedProcesses.Add(proc);
             ProcessesById[proc.Id] = proc;
