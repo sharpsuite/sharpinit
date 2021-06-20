@@ -316,11 +316,13 @@ namespace SharpInit.Units
             UnitTypes[".service"] = typeof(ServiceUnit);
             UnitTypes[".target"] = typeof(TargetUnit);
             UnitTypes[".socket"] = typeof(SocketUnit);
+            UnitTypes[".mount"] = typeof(MountUnit);
 
             UnitDescriptorTypes[typeof(Unit)] = typeof(UnitDescriptor);
             UnitDescriptorTypes[typeof(ServiceUnit)] = typeof(ServiceUnitDescriptor);
             UnitDescriptorTypes[typeof(TargetUnit)] = typeof(UnitDescriptor);
             UnitDescriptorTypes[typeof(SocketUnit)] = typeof(SocketUnitDescriptor);
+            UnitDescriptorTypes[typeof(MountUnit)] = typeof(MountUnitDescriptor);
 
             SymlinkTools = PlatformUtilities.GetImplementation<ISymlinkTools>();
         }

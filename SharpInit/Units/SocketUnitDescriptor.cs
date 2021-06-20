@@ -85,9 +85,6 @@ namespace SharpInit.Units
         [UnitProperty("Socket/@")]
         public string Service { get; set; }
 
-        [UnitProperty("Socket/@", UnitPropertyType.Time, "5")]
-        public TimeSpan TimeoutSec { get; set; }
-
         [UnitProperty("Service/@", UnitPropertyType.StringList)]
         public List<string> ExecStartPre { get; set; }
 

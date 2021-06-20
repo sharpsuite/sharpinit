@@ -65,5 +65,9 @@ namespace SharpInit.Units
 
         [UnitProperty("@/StandardError", UnitPropertyType.String, "journal")]
         public string StandardError { get; set; }
+
+
+        [UnitProperty("@/@", UnitPropertyType.Time, "5")]
+        public TimeSpan TimeoutSec { get; set; }
     }
 }
