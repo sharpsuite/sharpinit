@@ -13,6 +13,7 @@ namespace SharpInit.Platform
     {
         public virtual void Initialize()
         {
+            StringEscaper.BuildAllowedCharacterCache();
             UnitRegistry.InitializeTypes();
             UnitRegistry.CreateBaseUnits();
         }
