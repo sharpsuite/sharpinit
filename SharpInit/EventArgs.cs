@@ -2,9 +2,31 @@ using System;
 using System.Text;
 
 using SharpInit.Units;
+using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
+    public delegate void OnMountChanged(object sender, MountChangedEventArgs e);
+
+    public class MountChangedEventArgs : EventArgs
+    {
+        public UnixMount Mount { get; set; }
+        public MountChange Change { get; set; }
+
+        public MountChangedEventArgs(UnixMount mount, MountChange change)
+        {
+            Mount = mount;
+            Change = change;
+        }
+    }
+
+    public enum MountChange
+    {
+        Added,
+        Changed,
+        Removed
+    }
+
     public delegate void OnJournalData(object sender, JournalDataEventArgs e);
 
     public class JournalDataEventArgs : EventArgs

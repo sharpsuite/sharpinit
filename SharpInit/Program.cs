@@ -62,6 +62,10 @@ namespace SharpInit
 
                     ActivateUnitIfExists("sockets.target");
                     ActivateUnitIfExists("default.target");
+
+                    Log.Info("Starting late platform initialization...");
+                    platform_init.LateInitialize();
+                    Log.Info("Late platform initialization complete");
                     
                     try 
                     {

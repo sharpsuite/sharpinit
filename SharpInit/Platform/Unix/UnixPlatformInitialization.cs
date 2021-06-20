@@ -15,5 +15,12 @@ namespace SharpInit.Platform.Unix
             base.Initialize();
             SignalHandler.Initialize();
         }
+
+        public override void LateInitialize()
+        {
+            base.LateInitialize();
+            UnixMountWatcher.MountChanged += UnixMountWatcher.SynchronizeMountUnit;
+            UnixMountWatcher.StartWatching();
+        }
     }
 }

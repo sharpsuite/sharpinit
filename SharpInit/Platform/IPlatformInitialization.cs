@@ -10,5 +10,6 @@ namespace SharpInit.Platform
     public interface IPlatformInitialization
     {
         void Initialize();
+        void LateInitialize();
     }
 }

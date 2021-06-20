@@ -17,5 +17,10 @@ namespace SharpInit.Platform
             UnitRegistry.InitializeTypes();
             UnitRegistry.CreateBaseUnits();
         }
+
+        public virtual void LateInitialize()
+        {
+
+        }
     }
 }
