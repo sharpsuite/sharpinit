@@ -24,8 +24,6 @@ namespace SharpInit.Platform.Unix
             var parts = line.Split(' ');
             var mount = new UnixMount();
 
-            Console.WriteLine($"Parsing line: \"{line}\"");
-
             if (int.TryParse(parts[0], out int mount_id))
                 mount.MountId = mount_id;
 
