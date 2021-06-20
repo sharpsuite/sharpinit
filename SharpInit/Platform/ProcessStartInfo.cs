@@ -52,6 +52,8 @@ namespace SharpInit.Platform
 
         public TimeSpan Timeout { get; set; }
 
+        public bool WaitUntilExec { get; set; }
+
         public ProcessStartInfo()
         {
             // these are the only ones supported so far

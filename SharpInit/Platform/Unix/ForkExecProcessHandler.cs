@@ -182,6 +182,7 @@ namespace SharpInit.Platform.Unix
                 (stderr_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardErrorTarget, "error");
 
             Syscall.pipe(out int control_read, out int control_write); // used to communicate errors during process creation back to parent
+            Syscall.fcntl(control_read, FcntlCommand.F_SETFD, 1);
 
             var stdout_w_ptr = new IntPtr(stdout_write);
             var stderr_w_ptr = new IntPtr(stderr_write);
@@ -200,6 +201,7 @@ namespace SharpInit.Platform.Unix
                 close_if_open(stderr_read);
                 close_if_open(control_read);
 
+                Syscall.fcntl(control_write, FcntlCommand.F_SETFD, 1);
                 var control_w_stream = new UnixStream(control_write);
                 var write_to_control = (Action<string>)(_ => control_w_stream.Write(Encoding.ASCII.GetBytes(_), 0, _.Length));
 
@@ -324,7 +326,42 @@ namespace SharpInit.Platform.Unix
             var starting_line = control_sr.ReadLine();
             if(starting_line != "starting")
                 throw new Exception($"Expected starting message from control pipe, received {starting_line}");
+
+            if (!psi.WaitUntilExec)
+            {
+                Processes.Add(fork_ret);
+                return new ProcessInfo(process);
+            }
+
+            var control_data = new StringBuilder();
             
+            while ((poll_fds[0].revents & PollEvents.POLLHUP) == 0)
+            {
+                var read = control_stream.ReadByte();
+                if (read == -1)
+                {
+                    poll_fds[0].revents = PollEvents.POLLHUP; // kinda hacky
+                    break;
+                }
+
+                control_data.Append((char)read);
+                poll_fds[0].revents = 0;
+            }
+
+            if (poll_fds[0].revents == PollEvents.POLLHUP) // exec() worked, or child died
+            {
+                if (control_data.Length == 0) // no further control info, so assume exec worked
+                {
+                    Processes.Add(fork_ret);
+                    return new ProcessInfo(process);
+                }
+                else 
+                {
+                    Syscall.kill(fork_ret, Signum.SIGKILL);
+                    throw new Exception($"Unexpected control data: {control_data.ToString()}");
+                }
+            }
+
             Processes.Add(fork_ret);
             return new ProcessInfo(process);
         }

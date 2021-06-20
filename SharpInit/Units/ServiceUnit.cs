@@ -36,21 +36,24 @@ namespace SharpInit.Units
         private void HandleProcessExit(Unit unit, ProcessInfo info, int code)
         {
             SocketManager.UnignoreSocketsByUnit(this);
-            
+
             switch(CurrentState)
             {
                 case UnitState.Deactivating:
                     SetState(UnitState.Inactive, "Main process exited");
                     break;
                 default:
-                    // TODO: treat process exit differently based on service type
-                    if (code != 0)
+                    if (!Descriptor.RemainAfterExit)
                     {
-                        SetState(UnitState.Failed, $"Main process exited with code {code}");
-                    }
-                    else
-                    {
-                        SetState(UnitState.Inactive, "Main process exited");
+                        // TODO: treat process exit differently based on service type
+                        if (code != 0)
+                        {
+                            SetState(UnitState.Failed, $"Main process exited with code {code}");
+                        }
+                        else
+                        {
+                            SetState(UnitState.Inactive, "Main process exited");
+                        }
                     }
 
                     var should_restart = false;
@@ -89,45 +92,57 @@ namespace SharpInit.Units
             var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for {this.UnitName}");
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
+            if (Descriptor.ServiceType != ServiceType.Oneshot && Descriptor.ExecStart?.Count != 1)
+            {    
+                Log.Error($"Service type \"{Descriptor.ServiceType}\" only supports one ExecStart value, {UnitName} has {Descriptor.ExecStart.Count}");
+                SetState(UnitState.Failed, $"\"{Descriptor.ServiceType}\" service has more than one ExecStart");
+                return null;       
+            }
+            
+            foreach (var line in Descriptor.ExecStartPre)
+                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
+
             switch (Descriptor.ServiceType)
             {
                 case ServiceType.Simple:
-                    if (Descriptor.ExecStart == null)
-                    {
-                        Log.Error($"Unit {UnitName} has no ExecStart directives.");
-                        SetState(UnitState.Failed, "Unit has no ExecStart directives");
-                        return null;
-                    }
+                    var simple_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
+                    simple_psi.WaitUntilExec = false;
 
-                    if (Descriptor.ExecStart.Count != 1)
-                    {
-                        Log.Error($"Service type \"simple\" only supports one ExecStart value, {UnitName} has {Descriptor.ExecStart.Count}");
-                        SetState(UnitState.Failed, "\"simple\" service has more than one ExecStart");
-                        return null;
-                    }
+                    transaction.Add(new RunRegisteredProcessTask(simple_psi, this));
+                    break;
+                case ServiceType.Exec:
+                    var exec_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
+                    exec_psi.WaitUntilExec = true;
 
-                    if (Descriptor.ExecStartPre.Any())
+                    transaction.Add(new RunRegisteredProcessTask(exec_psi, this));
+                    break;
+                case ServiceType.Oneshot:
+                    foreach (var line in Descriptor.ExecStart)
                     {
-                        foreach (var line in Descriptor.ExecStartPre)
-                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
-                    }
-
-                    transaction.Add(new RunRegisteredProcessTask(ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec), this));
-
-                    if (Descriptor.ExecStartPost.Any())
-                    {
-                        foreach (var line in Descriptor.ExecStartPost)
-                            transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
-                            ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
+                        var oneshot_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
+                        oneshot_psi.WaitUntilExec = true;
+                        transaction.Add(new RunRegisteredProcessTask(oneshot_psi, this, true, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
                     }
                     break;
+                case ServiceType.Forking:
+                    var forking_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
+                    forking_psi.WaitUntilExec = true;
+
+                    transaction.Add(new RunRegisteredProcessTask(forking_psi, this, true, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
+                    break;
                 default:
-                    Log.Error($"Only the \"simple\" service type is supported for now, {UnitName} has type {Descriptor.ServiceType}");
+                    Log.Error($"{UnitName} has unsupported service type {Descriptor.ServiceType}");
                     SetState(UnitState.Failed, $"Unsupported service type \"{Descriptor.ServiceType}\"");
                     break;
             }
 
-            transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
+            foreach (var line in Descriptor.ExecStartPost)
+                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
+                ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
+
+            if (Descriptor.ServiceType != ServiceType.Oneshot || Descriptor.RemainAfterExit)
+                transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
+            
             transaction.Add(new UpdateUnitActivationTimeTask(this));
 
             transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
