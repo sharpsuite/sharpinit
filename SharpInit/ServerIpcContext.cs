@@ -20,7 +20,7 @@ namespace SharpInit
 
         public bool ActivateUnit(string name)
         {
-            var transaction = UnitRegistry.CreateActivationTransaction(name);
+            var transaction = UnitRegistry.CreateActivationTransaction(name, "Remotely triggered via IPC");
             var result = transaction.Execute();
 
             if (result.Type != ResultType.Success)
@@ -39,7 +39,7 @@ namespace SharpInit
 
         public bool DeactivateUnit(string name)
         {
-            var transaction = UnitRegistry.CreateDeactivationTransaction(name);
+            var transaction = UnitRegistry.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
             var result = transaction.Execute();
 
             if (result.Type != ResultType.Success)

@@ -44,6 +44,10 @@ namespace SharpInit.Tasks
                 var fail_result = context.Get<TaskResult>("failure");
                 Unit.SetState(NextState, $"{fail_result.Task.Type} failed: {fail_result.Message}");
             }
+            else if (context.Has<string>("state_change_reason"))
+            {
+                Unit.SetState(NextState, context.Get<string>("state_change_reason"));
+            }
             else
             {
                 Unit.SetState(NextState, Reason);

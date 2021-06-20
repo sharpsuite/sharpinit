@@ -42,7 +42,7 @@ namespace SharpInit.Platform.Unix
             if (e.Change == MountChange.Added)
             {
                 if (unit.CurrentState != UnitState.Activating && unit.CurrentState != UnitState.Active)
-                    unit.GetExternalActivationTransaction().Execute();
+                    unit.GetExternalActivationTransaction("Externally managed mountpoint").Execute();
             }
             else if (e.Change == MountChange.Changed)
             {
@@ -51,7 +51,7 @@ namespace SharpInit.Platform.Unix
             else if (e.Change == MountChange.Removed)
             {
                 if (unit.CurrentState == UnitState.Activating || unit.CurrentState == UnitState.Active)
-                    unit.GetExternalDeactivationTransaction().Execute();
+                    unit.GetExternalDeactivationTransaction("Externally managed mountpoint").Execute();
             }
         }
 

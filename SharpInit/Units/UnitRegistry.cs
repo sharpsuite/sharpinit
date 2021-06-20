@@ -327,14 +327,16 @@ namespace SharpInit.Units
             SymlinkTools = PlatformUtilities.GetImplementation<ISymlinkTools>();
         }
 
-        public static UnitStateChangeTransaction CreateActivationTransaction(string name)
-        {
-            return CreateActivationTransaction(GetUnit(name));
-        }
+        public static UnitStateChangeTransaction CreateActivationTransaction(string name, string reason = null) => CreateActivationTransaction(GetUnit(name), reason);
+        
 
-        public static UnitStateChangeTransaction CreateActivationTransaction(Unit unit)
+        public static UnitStateChangeTransaction CreateActivationTransaction(Unit unit, string reason = null)
         {
             var transaction = new UnitStateChangeTransaction(unit) { Name = $"Activate {unit.UnitName}", Lock = GlobalTransactionLock };
+
+            if (reason != null)
+                transaction.Add(new AlterTransactionContextTask("state_change_reason", reason));
+
             var unit_list = new List<Unit>() { unit };
 
             var ignore_conflict_deactivation_failure = new Dictionary<string, bool>();
@@ -524,7 +526,7 @@ namespace SharpInit.Units
 
             foreach (var sub_unit in units_to_stop)
             {
-                var deactivation_transaction = CreateDeactivationTransaction(sub_unit);
+                var deactivation_transaction = CreateDeactivationTransaction(sub_unit, $"{unit.UnitName} is being activated");
 
                 deactivation_transaction.Prepend(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName, true));
                 deactivation_transaction.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
@@ -550,14 +552,14 @@ namespace SharpInit.Units
             return transaction;
         }
 
-        public static UnitStateChangeTransaction CreateDeactivationTransaction(string unit)
-        {
-            return CreateDeactivationTransaction(GetUnit(unit));
-        }
-
-        public static UnitStateChangeTransaction CreateDeactivationTransaction(Unit unit)
+        public static UnitStateChangeTransaction CreateDeactivationTransaction(string unit, string reason = null) => CreateDeactivationTransaction(GetUnit(unit), reason);
+        
+        public static UnitStateChangeTransaction CreateDeactivationTransaction(Unit unit, string reason = null)
         {
             var transaction = new UnitStateChangeTransaction(unit) { Name = $"Deactivate {unit.UnitName}", Lock = GlobalTransactionLock };
+
+            if (reason != null)
+                transaction.Add(new AlterTransactionContextTask("state_change_reason", reason));
 
             var units_to_deactivate = RequirementDependencies.TraverseDependencyGraph(unit.UnitName, 
                 t => t.RequirementType == RequirementDependencyType.BindsTo || 

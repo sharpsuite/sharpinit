@@ -69,8 +69,8 @@ namespace SharpInit.Units
                     {
                         var restart_transaction = new Transaction(
                             new DelayTask(Descriptor.RestartSec),
-                            UnitRegistry.CreateDeactivationTransaction(UnitName),
-                            UnitRegistry.CreateActivationTransaction(UnitName));
+                            UnitRegistry.CreateDeactivationTransaction(UnitName, "Unit is being restarted"),
+                            UnitRegistry.CreateActivationTransaction(UnitName, "Unit is being restarted"));
 
                         // TODO: un-hack this
                         new Thread((ThreadStart)delegate { restart_transaction.Execute(); }).Start();

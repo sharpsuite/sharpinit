@@ -107,7 +107,7 @@ namespace SharpInit
             if (UnitRegistry.GetUnit(name) != null)
             {
                 Log.Info($"Activating {name}...");
-                var result = UnitRegistry.CreateActivationTransaction(name).Execute();
+                var result = UnitRegistry.CreateActivationTransaction(name, "Main thread").Execute();
 
                 if (result.Type == Tasks.ResultType.Success)
                     Log.Info($"Successfully activated {name}.");
@@ -121,7 +121,7 @@ namespace SharpInit
             if (UnitRegistry.GetUnit(name) != null)
             {
                 Log.Info($"Deactivating {name}...");
-                var result = UnitRegistry.CreateDeactivationTransaction(name).Execute();
+                var result = UnitRegistry.CreateDeactivationTransaction(name, "Main thread").Execute();
 
                 if (result.Type == Tasks.ResultType.Success)
                     Log.Info($"Successfully deactivated {name}.");
