@@ -69,5 +69,8 @@ namespace SharpInit.Units
 
         [UnitProperty("@/@", UnitPropertyType.Time, "5")]
         public TimeSpan TimeoutSec { get; set; }
+
+        [UnitProperty("@/Environment", UnitPropertyType.StringListSpaceSeparated)]
+        public List<string> Environment { get; set; }
     }
 }

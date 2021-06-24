@@ -4,10 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using NLog;
+
 namespace SharpInit.Platform
 {
     public class ProcessStartInfo
     {
+        static Logger Log = LogManager.GetCurrentClassLogger();
+
         /// <summary>
         /// The path to the executable.
         /// </summary>
@@ -82,18 +86,99 @@ namespace SharpInit.Platform
         /// <returns></returns>
         public static ProcessStartInfo FromCommandLine(string cmdline, Unit unit = null, TimeSpan timeout = default)
         {
+            var orig_cmdline = cmdline;
             timeout = timeout == default ? TimeSpan.MaxValue : timeout;
+
+            // Handle (for now ignore) command line prefixes
+            var modifier_chars = new [] { '-', '@', '!', ':', '+' };
+            var modifier = "";
+
+            if (modifier_chars.Any(cmdline.StartsWith))
+            {
+                modifier += cmdline[0];
+                cmdline = cmdline.Substring(1);
+
+                // Handle !!
+                if (cmdline[0] == '!')
+                {
+                    modifier += '!';
+                    cmdline = cmdline.Substring(1);
+                }
+            }
 
             var parts = UnitParser.SplitSpaceSeparatedValues(cmdline);
 
             var filename = parts[0];
-            var args = parts.Skip(1).ToArray();
+            var args_pre = parts.Skip(1).ToArray();
+            var args = new List<string>();
 
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.Path = filename;
-            psi.Arguments = args;
             psi.Unit = unit;
             psi.Timeout = timeout;
+            psi.Environment = new Dictionary<string, string>();
+
+            var current_env = System.Environment.GetEnvironmentVariables();
+
+            // TODO: Selectively propagate environmental variables
+            foreach (var key in current_env.Keys)
+                psi.Environment[key.ToString()] = current_env[key].ToString();
+            
+            if ((unit?.Descriptor is ExecUnitDescriptor) && (unit.Descriptor as ExecUnitDescriptor).Environment?.Count > 0)
+            {
+                foreach (var env_set in (unit.Descriptor as ExecUnitDescriptor).Environment)
+                {
+                    if (!env_set.Contains('='))
+                        continue;
+
+                    var env_parts = env_set.Split('=');
+                    psi.Environment[env_parts[0]] = string.Join('=', env_parts.Skip(1));
+                }
+            }
+            
+            // Expand environment
+            foreach (var arg in args_pre)
+            {
+                // TODO: Handle ${var} in the middle of argument words
+                if (arg.StartsWith('$') && (arg.Length > 1 ? arg[1] != '$' : true))
+                {
+                    string var_name = "";
+                    bool split_words = false;
+
+                    if (arg[1] == '{' && arg[arg.Length - 1] == '}')
+                    {
+                        split_words = false;
+                        var_name = arg.Substring(2, arg.Length - 2);
+                    }
+                    else
+                    {
+                        split_words = true;
+                        var_name = arg.Substring(1);
+                    }
+
+                    if (psi.Environment?.ContainsKey(var_name) != true)
+                    {
+                        Log.Warn($"Encountered unknown environment variable {var_name} in cmdline \"{orig_cmdline}\"");
+                        args.Add("");
+                    }
+                    else
+                    {
+                        var env_val = psi.Environment[var_name];
+
+                        if (split_words)
+                        {
+                            // TODO: Handle quotes appropriately
+                            args.AddRange(env_val.Split(' '));
+                        }
+                        else
+                            args.Add(env_val);
+                    }
+                }
+                else
+                    args.Add(arg);
+            }
+
+            psi.Arguments = args.ToArray();
 
             if (unit != null && unit is ServiceUnit)  
             {
