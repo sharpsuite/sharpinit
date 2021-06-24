@@ -104,6 +104,7 @@ namespace SharpInit.Units
 
             switch (Descriptor.ServiceType)
             {
+                case ServiceType.Idle:
                 case ServiceType.Simple:
                     var simple_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
                     simple_psi.WaitUntilExec = false;
