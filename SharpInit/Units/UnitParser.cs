@@ -335,16 +335,9 @@ namespace SharpInit.Units
                     consumed[0] = true;
                 }
 
-                for (int i = 0; i < consumed.Length; i++)
+                for (int i = 1; i < line_parts_by_equals.Length; i++)
                 {
-                    if (consumed[i])
-                    {
-                        last_part_consumed = false;
-                        continue;
-                    }
-
-                    current_value += ((last_part_consumed) ? "=" : "") + line_parts_by_equals[i];
-                    consumed[i] = true;
+                    current_value += ((i > 1) ? "=" : "") + line_parts_by_equals[i];
                 }
                 
                 bool quoting = false;
