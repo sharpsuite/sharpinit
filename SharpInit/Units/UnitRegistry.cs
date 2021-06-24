@@ -454,6 +454,12 @@ namespace SharpInit.Units
 
                     if (index_1 < index_2)
                     {
+                        if (UnitRegistry.GetUnit(order_rule.LeftUnit) == null)
+                        {
+                            Log.Warn($"Ignoring ordering dependency against missing unit {order_rule.LeftUnit}");
+                            continue;
+                        }
+
                         satisfied = false;
                         break;
                     }
@@ -506,6 +512,9 @@ namespace SharpInit.Units
                 {
                     continue;
                 }
+
+                if (unit_to_stop == null)
+                    continue;
 
                 units_to_stop.Add(unit_to_stop);
 
