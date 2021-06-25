@@ -27,7 +27,17 @@ namespace SharpInit
 
                     PlatformUtilities.RegisterImplementations();
                     var platform_init = PlatformUtilities.GetImplementation<IPlatformInitialization>();
-                    platform_init.Initialize();
+
+                    try 
+                    {
+                        platform_init.Initialize();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"Platform initialization failed.");
+                        Log.Error(ex);
+                        Log.Error($"Continuing with startup anyway.");
+                    }
 
                     Log.Info("Platform initialization complete");
 
