@@ -113,25 +113,17 @@ namespace SharpInit.Units
                                 prop.SetValue(descriptor, false);
                             break;
                         case UnitPropertyType.StringList:
-                            if (prop.GetValue(descriptor) != null)
-                            {
-                                (prop.GetValue(descriptor) as List<string>).AddRange(values);
-                            }
-                            else 
-                            {
-                                prop.SetValue(descriptor, values);
-                            }
+                            if (prop.GetValue(descriptor) == null)
+                                prop.SetValue(descriptor, new List<string>());
+
+                            (prop.GetValue(descriptor) as List<string>).AddRange(values);
                             break;
                         case UnitPropertyType.StringListSpaceSeparated:
+                            if (prop.GetValue(descriptor) == null)
+                                prop.SetValue(descriptor, new List<string>());
+                            
                             values = values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList();
-                            if (prop.GetValue(descriptor) != null)
-                            {
-                                (prop.GetValue(descriptor) as List<string>).AddRange(values);
-                            }
-                            else 
-                            {
-                                prop.SetValue(descriptor, values);
-                            }
+                            (prop.GetValue(descriptor) as List<string>).AddRange(values);
                             break;
                         case UnitPropertyType.Time:
                             prop.SetValue(descriptor, ParseTimeSpan(last_value));

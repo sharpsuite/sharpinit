@@ -38,7 +38,7 @@ namespace SharpInit.Units
         public OnDiskUnitFile(string path)
         {
             Path = path;
-            UnitName = UnitRegistry.GetUnitName(path);
+            UnitName = UnitRegistry.GetUnitName(path, with_parameter: true);
             Extension = System.IO.Path.GetExtension(UnitName);
         }
 

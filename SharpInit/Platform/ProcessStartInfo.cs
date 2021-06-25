@@ -167,8 +167,8 @@ namespace SharpInit.Platform
 
                         if (split_words)
                         {
-                            // TODO: Handle quotes appropriately
-                            args.AddRange(env_val.Split(' '));
+                            // TODO: Handle quotes appropriately (test whether SplitSpaceSeparatedValues is appropriate here)
+                            args.AddRange(UnitParser.SplitSpaceSeparatedValues(env_val));
                         }
                         else
                             args.Add(env_val);

@@ -74,14 +74,14 @@ namespace SharpInit.Units
             UnitStateChange?.Invoke(sender, e);
         }
 
-        public static string GetUnitName(string path)
+        public static string GetUnitName(string path, bool with_parameter = false)
         {
             path = path.Replace('\\', '/');
 
             var filename = Path.GetFileName(path);
             var filename_without_ext = Path.GetFileNameWithoutExtension(path);
 
-            if (filename_without_ext.Contains("@"))
+            if (filename_without_ext.Contains("@") && !with_parameter)
                 return filename_without_ext.Split('@').First() + "@" + Path.GetExtension(filename);
 
             return filename;
@@ -160,7 +160,12 @@ namespace SharpInit.Units
                     // Check if this unit file has already been indexed or not.
                     if (!UnitFiles.Any(unit_files => unit_files.Value.OfType<OnDiskUnitFile>().Any(unit_file => unit_file.Path == target)))
                     {
-                        // If the file hasn't been indexed yet, do so. This check prevent symlinked files from being parsed more than once.
+                        // If the file hasn't been indexed yet, do so. This check prevents symlinked files from being parsed more than once.
+                        IndexUnitByPath(target);
+                    }
+                    else if (!Units.Any(u => u.Key != GetUnitName(file, with_parameter: true)))
+                    {
+                        // This branch handles symlinked and instantiated units. TODO: Check whether this is correct behavior.
                         IndexUnitByPath(target);
                     }
 
@@ -182,7 +187,7 @@ namespace SharpInit.Units
                             // Wants=sshd.service.
                             var unit_name = Path.GetFileName(directory_name);
                             unit_name = unit_name.Substring(0, unit_name.Length - directory_mapping.Key.Length);
-                            var temp_unit_file = new GeneratedUnitFile(unit_name).WithProperty(directory_mapping.Value, GetUnitName(file));
+                            var temp_unit_file = new GeneratedUnitFile(unit_name).WithProperty(directory_mapping.Value, GetUnitName(file, with_parameter: true));
                             IndexUnitFile(temp_unit_file);
                         }
                     }
@@ -431,8 +436,11 @@ namespace SharpInit.Units
                         else
                             throw new Exception($"Couldn't find required unit {dep}");
                     }
+
+                    var dependent_unit = GetUnit(dep);
                     
-                    new_order.Add(GetUnit(dep));
+                    if (unit_list.Contains(dependent_unit))
+                        new_order.Add(GetUnit(dep));
 
                     var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
                     other_edges.ForEach(edge => order_graph.Remove(edge));

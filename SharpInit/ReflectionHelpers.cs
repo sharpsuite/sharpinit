@@ -23,7 +23,7 @@ namespace SharpInit
                             attribute_path = attribute_path.Substring(0, attribute_path.Length - 1) + p.Name;
                         }
 
-                        if (attribute_path == path)
+                        if (string.Equals(attribute_path, path, StringComparison.InvariantCultureIgnoreCase))
                         {
                             return true;
                         }
