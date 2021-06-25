@@ -1,4 +1,4 @@
-﻿using NLog;
+using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -97,6 +97,11 @@ namespace SharpInit.Units
                 Log.Error($"Service type \"{Descriptor.ServiceType}\" only supports one ExecStart value, {UnitName} has {Descriptor.ExecStart.Count}");
                 SetState(UnitState.Failed, $"\"{Descriptor.ServiceType}\" service has more than one ExecStart");
                 return null;       
+            }
+
+            if (!string.IsNullOrWhiteSpace(Descriptor.TtyPath))
+            {
+                transaction.Add(new ManipulateTtyTask(Descriptor));
             }
             
             foreach (var line in Descriptor.ExecStartPre)

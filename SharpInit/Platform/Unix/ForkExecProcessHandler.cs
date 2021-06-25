@@ -8,6 +8,8 @@ using Mono.Unix.Native;
 using System.IO;
 using System.Threading;
 
+using SharpInit.Units;
+
 namespace SharpInit.Platform.Unix
 {
     /// <summary>
@@ -72,6 +74,11 @@ namespace SharpInit.Platform.Unix
                             }
                         }
                     }
+                    break;
+                case "tty":
+                    var tty = TtyUtilities.OpenTty((psi.Unit.Descriptor as ExecUnitDescriptor).TtyPath);
+                    read = tty.FileDescriptor.Number;
+                    write = tty.FileDescriptor.Number;
                     break;
             }
 
@@ -206,6 +213,12 @@ namespace SharpInit.Platform.Unix
                 var write_to_control = (Action<string>)(_ => control_w_stream.Write(Encoding.ASCII.GetBytes(_), 0, _.Length));
 
                 write_to_control("starting\n");
+
+                if (Syscall.setsid() < 0)
+                {
+                    write_to_control($"setsid:{(int)Syscall.GetLastError()}\n");
+                    Syscall.exit(1);
+                }
 
                 while (Syscall.dup2(stdin_read, 0) == -1)
                 {

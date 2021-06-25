@@ -72,5 +72,14 @@ namespace SharpInit.Units
 
         [UnitProperty("@/Environment", UnitPropertyType.StringListSpaceSeparated)]
         public List<string> Environment { get; set; }
-    }
+
+        [UnitProperty("@/@")]
+        public string TtyPath { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.Bool)]
+        public bool TtyReset { get; set; }
+        [UnitProperty("@/@", UnitPropertyType.Bool)]
+        public bool TtyVHangup { get; set; }
+        [UnitProperty("@/@", UnitPropertyType.Bool)]
+        public bool TtyVtDisallocate { get; set; }}
 }
