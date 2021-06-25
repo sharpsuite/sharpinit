@@ -58,7 +58,8 @@ namespace SharpInitControl
 
             var lines = Context.GetJournal(journal, count);
 
-            var use_less = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+            var use_less = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? 
+                ((Environment.GetEnvironmentVariable("USE_PAGER") ?? "true") == "true") : false;
 
             if (use_less)
             {
@@ -67,7 +68,11 @@ namespace SharpInitControl
 
                 var psi = new System.Diagnostics.ProcessStartInfo();
                 psi.FileName = "/usr/bin/env";
-                psi.Arguments = $"less -cS {temp}";
+
+                var pager_opts = Environment.GetEnvironmentVariable("PAGER_OPTS") ?? "-cS";
+                var pager = Environment.GetEnvironmentVariable("PAGER") ?? "less";
+
+                psi.Arguments = $"{pager} {pager_opts} {temp}";
                 System.Diagnostics.Process.Start(psi).WaitForExit();
                 File.Delete(temp);
             }
