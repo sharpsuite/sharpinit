@@ -86,6 +86,16 @@ namespace SharpInit.Platform.Unix
             return client;
         }
 
+        private void RemoveClient(UnixJournalClient client)
+        {
+            var ctl_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_DEL, client.ReadFd?.Number ?? -1, EpollEvents.EPOLLIN);
+            client.Deallocate();
+            Clients.Remove(client);
+
+            if (ctl_resp != 0)
+                throw new Exception($"epoll_ctl remove failed with errno: {Syscall.GetLastError()}");
+        }
+
         private FileDescriptor EpollFd;
 
         public void JournalLoop()
@@ -108,18 +118,19 @@ namespace SharpInit.Platform.Unix
                     if (client == default)
                     {
                         Log.Warn($"Read from unrecognized journal fd {event_arr[i].fd}");
-                        continue;
                     }
 
                     if ((event_arr[i].events & (EpollEvents.EPOLLERR | EpollEvents.EPOLLHUP)) > 0)
                     {
-                        if (client.IsOpen)
+                        if (client?.IsOpen == true)
                         {
                             Log.Debug($"journal-{client.Name} closed");
-                            client.Deallocate();
+                            RemoveClient(client);
                         }
-                        
-                        Clients.Remove(client);
+                        else
+                        {
+                            Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_DEL, event_arr[i].fd, EpollEvents.EPOLLIN);
+                        }
                         continue;
                     }
 
@@ -150,7 +161,7 @@ namespace SharpInit.Platform.Unix
                     
                     if (read > 0)
                     {
-                        NLog.NestedDiagnosticsLogicalContext.Push(client.Name);
+                        NLog.NestedDiagnosticsLogicalContext.Push(client.Name ?? $"unknown-{event_arr[i].fd}");
                         //Journal.RaiseJournalData(client.Name, contents.ToArray());
                         Log.Info(Encoding.UTF8.GetString(contents.ToArray()));
                         NLog.NestedDiagnosticsLogicalContext.Pop();
