@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -22,12 +22,23 @@ namespace SharpInit.Units
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
+            UnitStateChange += (s, e) => 
+            {
+                if (e.NextState == UnitState.Failed)
+                    HandleProcessExit(this, null, int.MaxValue);
+            };
         }
 
         public ServiceUnit() : base()
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
+
+            UnitStateChange += (s, e) => 
+            {
+                if (e.NextState == UnitState.Failed)
+                    HandleProcessExit(this, null, int.MaxValue);
+            };
         }
 
         public override UnitDescriptor GetUnitDescriptor() => Descriptor;
@@ -40,10 +51,11 @@ namespace SharpInit.Units
             switch(CurrentState)
             {
                 case UnitState.Deactivating:
-                    SetState(UnitState.Inactive, "Main process exited");
+                    if (info != null)
+                        SetState(UnitState.Inactive, "Main process exited");
                     break;
                 default:
-                    if (!Descriptor.RemainAfterExit)
+                    if (!Descriptor.RemainAfterExit && info != null)
                     {
                         // TODO: treat process exit differently based on service type
                         if (code != 0)
@@ -160,8 +172,9 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for unit {UnitName}");
 
-            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new StopUnitProcessesTask(this));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
             transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
 
