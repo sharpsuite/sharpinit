@@ -67,6 +67,10 @@ namespace SharpInit.Units
                             SetState(UnitState.Inactive, "Main process exited");
                         }
                     }
+                    else if (Descriptor.RemainAfterExit && info != null)
+                    {
+                        SetState(CurrentState, $"Main process exited with code {code}");
+                    }
 
                     var should_restart = false;
 
@@ -159,7 +163,7 @@ namespace SharpInit.Units
                 ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
 
             if (Descriptor.ServiceType != ServiceType.Oneshot || Descriptor.RemainAfterExit)
-                transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
+                transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
             
             transaction.Add(new UpdateUnitActivationTimeTask(this));
 
