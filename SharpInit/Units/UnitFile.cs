@@ -10,16 +10,45 @@ namespace SharpInit.Units
 
         public string UnitName { get; set; }
         public string Extension { get; set; }
+        public string FileName { get; set; }
+
+        // Used in unit file ordering.
+        public string Path { get; set; }
     }
 
     public class GeneratedUnitFile : UnitFile
     {
-        public GeneratedUnitFile(string name)
+        public enum GeneratedUnitFilePriority
+        {
+            Early, Normal, Late
+        }
+
+        public GeneratedUnitFilePriority Priority { get; private set; }
+        public string Source { get; set; }
+
+        public GeneratedUnitFile(string name, GeneratedUnitFilePriority priority = GeneratedUnitFilePriority.Normal, string source = null)
         {
             Properties = new Dictionary<string, List<string>>();
+            Priority = priority;
             UnitName = name;
-            Extension = Path.GetExtension(name);
-        }
+            Extension = System.IO.Path.GetExtension(name);
+            Source = source;
+
+            FileName = name;
+            Path = $"/run/sharpinit/generator";
+
+            switch (priority)
+            {
+                case GeneratedUnitFilePriority.Early:
+                    Path += ".early";
+                    break;
+                case GeneratedUnitFilePriority.Late:
+                    Path += ".late";
+                    break;
+            }
+
+            Path += $"/{UnitName}";
+        } 
 
         public GeneratedUnitFile WithProperty(string name, string value)
         {
@@ -29,12 +58,18 @@ namespace SharpInit.Units
             Properties[name].Add(value);
             return this;
         }
+
+        public override string ToString()
+        {
+            if (!string.IsNullOrWhiteSpace(Source))
+                return $"Unit file generated from \"{Source}\"";
+            else
+                return $"Generated unit file";
+        }
     }
 
     public class OnDiskUnitFile : UnitFile
     {
-        public string Path { get; set; }
-
         public OnDiskUnitFile(string path)
         {
             Path = path;

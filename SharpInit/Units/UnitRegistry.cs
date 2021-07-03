@@ -306,13 +306,58 @@ namespace SharpInit.Units
 
         public static UnitDescriptor GetUnitDescriptor(string name)
         {
-            var pure_unit_name = GetUnitName(name);
-            var ext = Path.GetExtension(pure_unit_name);
+            var unit_name = GetUnitName(name, with_parameter: true);
+
+            if (!UnitFiles.ContainsKey(unit_name))
+                unit_name = GetUnitName(name, with_parameter: false);
+
+            var ext = Path.GetExtension(unit_name);
 
             var type = UnitTypes[ext];
+            var files = UnitFiles[unit_name];
 
-            var files = UnitFiles[pure_unit_name];
+            files.Sort(CompareUnitFiles);
+
             return UnitParser.FromFiles(UnitDescriptorTypes[type], files.ToArray());
+        }
+
+        public static int CompareUnitFiles(UnitFile a, UnitFile b)
+        {
+            if (a == null || b == null)
+            {
+                if (a == null && b != null)
+                    return 1;
+                else if (a != null && b == null)
+                    return -1;
+                else
+                    return 0;
+            }
+
+            if (a.FileName != b.FileName)
+                return string.Compare(a.FileName, b.FileName);
+
+            var path_list = new List<string>()
+            {
+                "(unknown)",
+                "/run/sharpinit/generator.late/",
+                "/usr/lib/sharpinit/system/", 
+                "/usr/local/lib/sharpinit/system/", 
+                "/run/sharpinit/generator/", 
+                "/run/sharpinit/system/", 
+                "/etc/sharpinit/system/", 
+                "/run/sharpinit/generator.early/", 
+                "/run/sharpinit/transient/", 
+                "/run/sharpinit/system.control/", 
+                "/etc/sharpinit/system.control/"
+            };
+
+            Func<string, int> get_path_index = (Func<string, int>)(p => 
+                path_list.IndexOf(path_list.FirstOrDefault(p.StartsWith) ?? path_list.Last()));
+            
+            var a_index = get_path_index(a.Path);
+            var b_index = get_path_index(b.Path);
+
+            return a_index.CompareTo(b_index);
         }
 
         public static void InitializeTypes()

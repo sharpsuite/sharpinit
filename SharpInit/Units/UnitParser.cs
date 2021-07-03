@@ -20,10 +20,6 @@ namespace SharpInit.Units
             var descriptor = (UnitDescriptor)Activator.CreateInstance(descriptor_type);
             descriptor.Files = files;
 
-            // TODO: reorder the unit files according to priority
-
-            //unit.UnitName = Path.GetFileName(file);
-            //unit.UnitPath = Path.GetFullPath(file);
             var properties_touched = new List<UnitPropertyAttribute>();
 
             foreach (var file in files)

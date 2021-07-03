@@ -111,11 +111,19 @@ namespace SharpInit
             var unit = UnitRegistry.GetUnit(unit_name);
             var info = new UnitInfo();
 
-            var unit_files = unit.Descriptor.Files.OfType<OnDiskUnitFile>();
+            var unit_files = unit.Descriptor.Files;
 
             info.Name = unit.UnitName;
             info.Path = unit_files.Any() ? 
-                string.Join(", ", unit_files.Select(file => file.Path)) :
+                string.Join(";", unit_files.Select(file => {
+                    switch (file)
+                    {
+                        case OnDiskUnitFile disk_file:
+                            return disk_file.Path;
+                        default:
+                            return file.ToString();
+                    }
+                })) :
                 "(not available)";
             info.Description = unit.Descriptor.Description;
             info.CurrentState = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());
