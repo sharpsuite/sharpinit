@@ -51,6 +51,7 @@ namespace SharpInit.Platform.Unix
         {
             base.LateInitialize();
             UnixMountWatcher.MountChanged += UnixMountWatcher.SynchronizeMountUnit;
+            UnixMountWatcher.ParseFstab();
             UnixMountWatcher.StartWatching();
         }
     }
