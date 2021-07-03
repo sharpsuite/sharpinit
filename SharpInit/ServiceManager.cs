@@ -35,6 +35,11 @@ namespace SharpInit
         
         private void HandleProcessExit(int pid, int exit_code)
         {
+            if (!ProcessesById.ContainsKey(pid)) 
+            {
+                return;
+            }
+
             var proc_info = ProcessesById[pid];
             var unit = proc_info.SourceUnit;
 

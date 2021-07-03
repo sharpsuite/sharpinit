@@ -32,6 +32,7 @@ namespace SharpInit
 
         public Unit SourceUnit { get; set; }
         public ServiceManager ServiceManager { get; set; }
+        public IProcessHandler ProcessHandler { get; set; }
         public int Id { get; set; }
         public int ExitCode { get; set; }
         public bool HasExited { get; set; }
@@ -63,21 +64,24 @@ namespace SharpInit
             OnProcessExit handler = null;
             handler = (OnProcessExit)((pid, code) => 
             {
+                if (pid != this.Id)
+                    return;
+
                 waiter.Set();
-                ServiceManager.ProcessHandler.ProcessExit -= handler;
+                ProcessHandler.ProcessExit -= handler;
             });
 
-            ServiceManager.ProcessHandler.ProcessExit += handler;
+            ProcessHandler.ProcessExit += handler;
             if (HasExited)
             {
-                handler(0, 0);
+                handler(this.Id, 0);
                 return true;
             }
 
             if (waiter.WaitOne(timeout))
                 return true;
             
-            handler(0, 0);
+            handler(this.Id, 0);
             return false;
         }
     }

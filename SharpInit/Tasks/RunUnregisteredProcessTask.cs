@@ -13,7 +13,7 @@ namespace SharpInit.Tasks
         public override string Type => "run-unregistered-process";
         public ProcessStartInfo ProcessStartInfo { get; set; }
         public IProcessHandler ProcessHandler { get; set; }
-        public int ExecutionTime = -1;
+        public TimeSpan ExecutionTime = TimeSpan.Zero;
 
         /// <summary>
         /// Starts a process, optionally waits for it to exit before continuing execution.
@@ -27,7 +27,7 @@ namespace SharpInit.Tasks
         {
             ProcessHandler = process_handler;
             ProcessStartInfo = psi;
-            ExecutionTime = time;
+            ExecutionTime = time == -1 ? TimeSpan.Zero : TimeSpan.FromMilliseconds(time);
         }
 
         public RunUnregisteredProcessTask(IProcessHandler process_handler, ProcessStartInfo psi, TimeSpan time = default) :
@@ -45,17 +45,17 @@ namespace SharpInit.Tasks
             {
                 var process = ProcessHandler.Start(ProcessStartInfo);
 
-                if (ExecutionTime == -1)
+                if (ExecutionTime == TimeSpan.Zero)
                     return new TaskResult(this, ResultType.Success);
                 else
                 {
-                    if (!process.Process.WaitForExit(ExecutionTime))
+                    if (!process.WaitForExit(ExecutionTime))
                     {
                         process.Process.Kill();
                         return new TaskResult(this, ResultType.Timeout, "The process did not exit in the given amount of time.");
                     }
                     else
-                        return new TaskResult(this, ResultType.Success, $"exit code {process.Process.ExitCode}");
+                        return new TaskResult(this, ResultType.Success, $"exit code {process.ExitCode}");
                 }
             }
             catch (Exception ex)
