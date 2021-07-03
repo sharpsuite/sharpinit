@@ -93,7 +93,7 @@ namespace SharpInit.Platform.Unix
             Clients.Remove(client);
 
             if (ctl_resp != 0)
-                throw new Exception($"epoll_ctl remove failed with errno: {Syscall.GetLastError()}");
+                Log.Error($"epoll_ctl remove failed with errno: {Syscall.GetLastError()}");
         }
 
         private FileDescriptor EpollFd;
