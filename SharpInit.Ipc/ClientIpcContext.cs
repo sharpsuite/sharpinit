@@ -73,6 +73,9 @@ namespace SharpInit.Ipc
 
         public List<string> GetJournal(string journal, int lines) => MakeCall<List<string>>(Wrap(journal, lines));
 
+        public bool InstallUnit(string unit) => MakeCall<bool>(Wrap(unit));
+        public bool UninstallUnit(string unit) => MakeCall<bool>(Wrap(unit));
+
         public Dictionary<string, List<string>> GetActivationPlan(string unit)
         {
             var result = InvokeIpcFunction("get-activation-plan", unit);

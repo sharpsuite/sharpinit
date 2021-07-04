@@ -25,7 +25,9 @@ namespace SharpInitControl
             {"status", GetUnitStatus },
             {"describe-deps", DescribeDependencies },
             {"load", LoadUnit },
-            {"journal", GetJournal}
+            {"journal", GetJournal},
+            {"enable", InstallUnits},
+            {"disable", UninstallUnits}
         };
 
         static IpcConnection Connection { get; set; }
@@ -176,7 +178,35 @@ namespace SharpInitControl
 
             Console.WriteLine();
         }
+        static void InstallUnits(string verb, string[] args)
+        {
+            foreach(var unit in args)
+            {
+                Console.Write($"Installing {unit}...");
 
+                var result = Context.InstallUnit(unit);
+
+                if (result)
+                    Console.WriteLine("success");
+                else
+                    Console.WriteLine("error");
+            }
+        }
+        
+        static void UninstallUnits(string verb, string[] args)
+        {
+            foreach(var unit in args)
+            {
+                Console.Write($"Uninstalling {unit}...");
+
+                var result = Context.UninstallUnit(unit);
+
+                if (result)
+                    Console.WriteLine("success");
+                else
+                    Console.WriteLine("error");
+            }
+        }
         static void StartUnits(string verb, string[] args)
         {
             foreach(var unit in args)

@@ -46,5 +46,11 @@ namespace SharpInit.Ipc
 
         [IpcFunction("get-journal")]
         List<string> GetJournal(string journal, int lines);
+
+        [IpcFunction("install-unit")]
+        bool InstallUnit(string name);
+        [IpcFunction("install-unit")]
+        bool UninstallUnit(string name);
+        
     }
 }

@@ -1,10 +1,11 @@
-﻿using NLog;
+using NLog;
 using SharpInit.Ipc;
 using SharpInit.Tasks;
 using SharpInit.Units;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Text;
 
 namespace SharpInit
@@ -97,8 +98,7 @@ namespace SharpInit
 
         public bool ReloadUnitFile(string unit)
         {
-            UnitRegistry.GetUnit(unit).ReloadUnitDescriptor();
-            return true;
+            return false;
         }
 
         public int RescanUnits()
@@ -141,8 +141,47 @@ namespace SharpInit
         {
             var entries = UnitRegistry.ServiceManager.Journal.Tail(journal, lines);
             var longest_source_length = entries.Max(e => e.Source.Length);
+            var max_allowed_source_length = 30;
 
-            return entries.Select(entry => $"[ {entry.Source.PadLeft(longest_source_length)} ] {entry.Message}").ToList();
+            if (longest_source_length >= max_allowed_source_length)
+                longest_source_length = max_allowed_source_length;
+
+            return entries.Select(entry => $"[{entry.LocalTime,12:0.000000}] [ {StringEscaper.Truncate(entry.Source, longest_source_length).PadLeft(longest_source_length)} ] {entry.Message}").ToList();
+        }
+
+        public bool InstallUnit(string unit_name)
+        {
+            var symlinks = Platform.PlatformUtilities.GetImplementation<Platform.ISymlinkTools>();
+            var unit = UnitRegistry.GetUnit(unit_name);
+            var wanted_bys = unit.Descriptor.WantedBy;
+            
+            var unit_source_path = unit.Descriptor.Files.FirstOrDefault(f => Directory.Exists(Path.GetDirectoryName(f.Path))).Path ?? $"/etc/sharpinit/units/{unit_name}";
+            var chief_dir = Path.GetDirectoryName(unit_source_path);
+
+            foreach(var wanted_by in wanted_bys) 
+            {
+                var target_dir = $"{chief_dir}/{wanted_by}.wants";
+                var target_file = $"{target_dir}/{unit_name}";
+
+                if (!Directory.Exists(target_dir))
+                    Directory.CreateDirectory(target_dir);
+                
+                if (File.Exists(target_file))
+                {
+                    Log.Warn($"Skipping enablement symlink {unit_source_path} => {target_file} because target file already exists");
+                    continue;
+                }
+
+                if (!symlinks.CreateSymlink(unit_source_path, target_file, true)) 
+                    Log.Warn($"Failed to enable symlink {unit_source_path} => {target_file}");
+            }
+
+            return true;
+        }
+
+        public bool UninstallUnit(string unit_name)
+        {
+            return false;
         }
     }
 }
