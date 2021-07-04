@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using SharpInit.Units;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 using SharpInit.Ipc;
 using NLog;
 
@@ -13,9 +14,14 @@ namespace SharpInit
 {
     class Program
     {
+        static TimeSpan DaemonStartOffset = TimeSpan.Zero;
+        static System.Diagnostics.Stopwatch DaemonStart = System.Diagnostics.Stopwatch.StartNew();
+
+        public static TimeSpan ElapsedSinceStartup() => DaemonStart.Elapsed + DaemonStartOffset;
+
         static Logger Log = LogManager.GetCurrentClassLogger();
         static IpcListener IpcListener { get; set; }
-        public static async Task Main()
+        public static async Task Main(string[] args)
         {
             var done = new ManualResetEventSlim(false);
             using (var shutdownCts = new CancellationTokenSource())
@@ -41,7 +47,8 @@ namespace SharpInit
 
                     Log.Info("Platform initialization complete");
 
-                    var journal_target = new JournalTarget(UnitRegistry.ServiceManager.Journal) { Layout = "${date} [${uppercase:${level}}] ${message}" };
+
+                    var journal_target = new JournalTarget(UnitRegistry.ServiceManager.Journal) { Layout = "[${uppercase:${level}}] ${message}" };
                     var config = LogManager.Configuration;
                     config.AddTarget("journal", journal_target);
                     config.AddRuleForAllLevels("journal");
@@ -70,8 +77,10 @@ namespace SharpInit
 
                     Log.Info($"Listening on {IpcListener.SocketEndPoint}");
 
-                    ActivateUnitIfExists("sockets.target");
-                    ActivateUnitIfExists("default.target");
+                    if (!args.Any(a => a == "--no-activate-default")) 
+                    {
+                        ActivateUnitIfExists("default.target");
+                    }
 
                     Log.Info("Starting late platform initialization...");
                     platform_init.LateInitialize();

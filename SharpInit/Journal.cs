@@ -35,9 +35,19 @@ namespace SharpInit
         internal void RaiseJournalData(string from, string message) =>
             RaiseJournalData(from, Encoding.UTF8.GetBytes(message));
 
-        internal void RaiseJournalData(string from, byte[] data)
+        internal void RaiseJournalData(string from, byte[] data) =>
+            RaiseJournalData(new JournalEntry() 
+            { 
+                Source = from, 
+                RawMessage = data, 
+                Message = Encoding.UTF8.GetString(data), 
+                Created = DateTime.UtcNow, 
+                LocalTime = Program.ElapsedSinceStartup().TotalSeconds 
+            });
+
+        internal void RaiseJournalData(JournalEntry entry)
         {
-            JournalDataReceived?.Invoke(this, new JournalDataEventArgs(new JournalEntry() { Source = from, RawMessage = data, Message = Encoding.UTF8.GetString(data) }));
+            JournalDataReceived?.Invoke(this, new JournalDataEventArgs(entry));
         }
     }
 
@@ -75,6 +85,7 @@ namespace SharpInit
     {
         public string Source { get; set; }
         public DateTime Created { get; set; }
+        public double LocalTime { get; set; }
         public string Message { get; set; }
         public byte[] RawMessage { get; set; }
 
