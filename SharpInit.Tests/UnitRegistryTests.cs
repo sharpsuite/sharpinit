@@ -20,6 +20,7 @@ namespace SharpInit.Tests
         static string TestUnitContents =
                 "[Unit]\n" +
                 "Description=Notepad\n" +
+                "Wants=%i.path\n" +
                 "\n" +
                 "[Service]\n" +
                 "ExecStart=notepad.exe\n" +
@@ -133,8 +134,10 @@ namespace SharpInit.Tests
             var unit_specified = UnitRegistry.GetUnit<ServiceUnit>(TestUnitInstanceName);
 
             // Assert
-            Assert.IsTrue(unit_unspecified.Descriptor.WorkingDirectory == "/" + StringEscaper.Unescape(unit_unspecified.Descriptor.DefaultInstance));
-            Assert.IsTrue(unit_specified.Descriptor.WorkingDirectory == "/" + StringEscaper.Unescape(UnitRegistry.GetUnitParameter(TestUnitInstanceName)));
+            Assert.AreEqual(unit_unspecified.Descriptor.WorkingDirectory, StringEscaper.UnescapePath(unit_unspecified.Descriptor.DefaultInstance));
+            Assert.AreEqual(unit_specified.Descriptor.WorkingDirectory, StringEscaper.UnescapePath(UnitRegistry.GetUnitParameter(TestUnitInstanceName)));
+            Assert.IsTrue(unit_unspecified.Descriptor.Wants.Contains(unit_unspecified.Descriptor.DefaultInstance + ".path"));
+            Assert.IsTrue(unit_specified.Descriptor.Wants.Contains(UnitRegistry.GetUnitParameter(TestUnitInstanceName) + ".path"));
         }
     }
 }

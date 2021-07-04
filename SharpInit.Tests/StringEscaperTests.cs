@@ -38,7 +38,7 @@ namespace SharpInit.Tests
         public void PathUnescape_Test()
         {
             foreach (var pair in Paths)
-                Assert.AreEqual(pair.Key, StringEscaper.Unescape(pair.Key, path: true));
+                Assert.AreEqual(Path.GetFullPath(pair.Key), StringEscaper.UnescapePath(pair.Value));
         }
     }
 }
