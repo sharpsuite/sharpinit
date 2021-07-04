@@ -1,4 +1,4 @@
-﻿using SharpInit.Tasks;
+using SharpInit.Tasks;
 using SharpInit.Platform;
 using NLog;
 using System;
@@ -104,6 +104,10 @@ namespace SharpInit.Units
 
             OrderingDependencies.Dependencies.Clear();
             RequirementDependencies.Dependencies.Clear();
+            foreach (var unit_file_pair in UnitFiles)
+            {
+                unit_file_pair.Value.RemoveAll(file => { return (file is GeneratedUnitFile && (file as GeneratedUnitFile).DestroyOnReload); });
+            }
 
             var env_units_parts = (Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
 
@@ -111,18 +115,18 @@ namespace SharpInit.Units
             ScanDirectories.AddRange(DefaultScanDirectories);
             ScanDirectories.AddRange(env_units_parts.Where(Directory.Exists));
 
-            foreach (var unit in Units)
-            {
-                unit.Value.ReloadUnitDescriptor();
-                unit.Value.RegisterDependencies(OrderingDependencies, RequirementDependencies);
-            }
-
             foreach (var dir in ScanDirectories)
             {
                 if (!Directory.Exists(dir))
                     continue;
 
                 count += ScanDirectory(dir);
+            }
+
+            foreach (var unit in Units)
+            {
+                unit.Value.SetUnitDescriptor(GetUnitDescriptor(unit.Key));
+                unit.Value.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             }
 
             return count;
@@ -153,7 +157,7 @@ namespace SharpInit.Units
                     // If symlinked to an empty file, disable the unit.
                     if (fileinfo.Length == 0)
                     {
-                        IndexUnitFile(new GeneratedUnitFile(GetUnitName(file)).WithProperty("Disabled", "yes"));
+                        IndexUnitFile(new GeneratedUnitFile(GetUnitName(file), destroy_on_reload: true).WithProperty("Disabled", "yes"));
                         continue;
                     }
 
@@ -187,7 +191,7 @@ namespace SharpInit.Units
                             // Wants=sshd.service.
                             var unit_name = Path.GetFileName(directory_name);
                             unit_name = unit_name.Substring(0, unit_name.Length - directory_mapping.Key.Length);
-                            var temp_unit_file = new GeneratedUnitFile(unit_name).WithProperty(directory_mapping.Value, GetUnitName(file, with_parameter: true));
+                            var temp_unit_file = new GeneratedUnitFile(unit_name, destroy_on_reload: true).WithProperty(directory_mapping.Value, GetUnitName(file, with_parameter: true));
                             IndexUnitFile(temp_unit_file);
                         }
                     }
@@ -266,41 +270,25 @@ namespace SharpInit.Units
 
         public static Unit CreateUnit(string name)
         {
-            var pure_unit_name = GetUnitName(name);
+            var parametrized_unit_name = GetUnitName(name, with_parameter: true);
+            var unparametrized_unit_name = GetUnitName(name, with_parameter: false);
 
-            if (!UnitFiles.ContainsKey(pure_unit_name))
+            List<UnitFile> files = default;
+
+            if (UnitFiles.ContainsKey(parametrized_unit_name))
+                files = UnitFiles[parametrized_unit_name];
+            else if (UnitFiles.ContainsKey(unparametrized_unit_name))
+                files = UnitFiles[unparametrized_unit_name];
+            else
                 return null;
 
-            var files = UnitFiles[pure_unit_name];
             var ext = Path.GetExtension(name);
 
             if (!UnitTypes.ContainsKey(ext))
                 return null;
 
             var type = UnitTypes[ext];
-            var descriptor = GetUnitDescriptor(pure_unit_name);
-            var context = new UnitInstantiationContext();
-
-            context.Substitutions["p"] = pure_unit_name;
-            context.Substitutions["P"] = StringEscaper.Unescape(pure_unit_name);
-            context.Substitutions["f"] = "/" + StringEscaper.Unescape(pure_unit_name);
-            context.Substitutions["H"] = Environment.MachineName;
-
-            var unit_parameter = GetUnitParameter(name);
-
-            if (string.IsNullOrEmpty(unit_parameter))
-            {
-                unit_parameter = descriptor.DefaultInstance;
-            }
-
-            if (!string.IsNullOrEmpty(unit_parameter))
-            {
-                context.Substitutions["i"] = unit_parameter;
-                context.Substitutions["I"] = StringEscaper.Unescape(unit_parameter);
-                context.Substitutions["f"] = "/" + StringEscaper.Unescape(unit_parameter);
-            }
-
-            descriptor.InstantiateDescriptor(context);
+            var descriptor = GetUnitDescriptor(name);
             return (Unit)Activator.CreateInstance(type, name, descriptor);
         }
 
@@ -318,7 +306,32 @@ namespace SharpInit.Units
 
             files.Sort(CompareUnitFiles);
 
-            return UnitParser.FromFiles(UnitDescriptorTypes[type], files.ToArray());
+            var descriptor = UnitParser.FromFiles(UnitDescriptorTypes[type], files.ToArray());
+            var context = new UnitInstantiationContext();
+
+            var pure_unit_name = GetUnitName(name, with_parameter: false);
+
+            context.Substitutions["p"] = pure_unit_name;
+            context.Substitutions["P"] = StringEscaper.Unescape(pure_unit_name);
+            context.Substitutions["f"] = StringEscaper.UnescapePath(pure_unit_name);
+            context.Substitutions["H"] = Environment.MachineName;
+
+            var unit_parameter = GetUnitParameter(name);
+
+            if (string.IsNullOrEmpty(unit_parameter))
+            {
+                unit_parameter = descriptor.DefaultInstance;
+            }
+
+            if (!string.IsNullOrEmpty(unit_parameter))
+            {
+                context.Substitutions["i"] = unit_parameter;
+                context.Substitutions["I"] = StringEscaper.Unescape(unit_parameter);
+                context.Substitutions["f"] = StringEscaper.UnescapePath(unit_parameter);
+            }
+
+            descriptor.InstantiateDescriptor(context);
+            return descriptor;
         }
 
         public static int CompareUnitFiles(UnitFile a, UnitFile b)
@@ -484,8 +497,8 @@ namespace SharpInit.Units
 
                     var dependent_unit = GetUnit(dep);
                     
-                    if (unit_list.Contains(dependent_unit))
-                        new_order.Add(GetUnit(dep));
+                    if (unit_list.Contains(dependent_unit) && !new_order.Contains(dependent_unit))
+                        new_order.Add(dependent_unit);
 
                     var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
                     other_edges.ForEach(edge => order_graph.Remove(edge));

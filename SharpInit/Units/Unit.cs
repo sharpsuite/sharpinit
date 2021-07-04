@@ -1,4 +1,4 @@
-﻿using SharpInit.Tasks;
+using SharpInit.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,9 +50,7 @@ namespace SharpInit.Units
 
         public abstract UnitDescriptor GetUnitDescriptor();
         public abstract void SetUnitDescriptor(UnitDescriptor desc);
-        //public abstract void LoadUnitFile(string path);
-        //public abstract void LoadUnitFile(UnitFile file);
-
+        
         internal void SetState(UnitState next_state, string reason = null)
         {
             // block while state changes are handled
@@ -72,18 +70,6 @@ namespace SharpInit.Units
         internal abstract Transaction GetDeactivationTransaction();
         public abstract Transaction GetReloadTransaction();
         
-        //public void ReloadUnitFile()
-        //{
-        //    LoadUnitFile(File.UnitPath);
-        //    UnitName = File.UnitName;
-        //}
-
-        public void ReloadUnitDescriptor()
-        {
-            var new_descriptor = UnitParser.FromFiles(Descriptor.GetType(), Descriptor.Files.Select(file => file is OnDiskUnitFile ? UnitParser.ParseFile((file as OnDiskUnitFile).Path) : file).ToArray());
-            Descriptor = new_descriptor;
-        }
-
         internal void RaiseProcessExit(ProcessInfo proc, int exit_code)
         {
             ProcessExit?.Invoke(this, proc, exit_code);
@@ -114,14 +100,20 @@ namespace SharpInit.Units
             AddDependencies();
         }
 
+        public virtual IEnumerable<Dependency> GetDefaultDependencies() => new Dependency[0];
+        public virtual IEnumerable<Dependency> GetImplicitDependencies() => new Dependency[0];
+
         private void AddDependencies()
         {
+            var base_deps = GetDefaultDependencies().Concat(GetImplicitDependencies());
+
             if(OrderingDependencyGraph != null)
             {
                 var after_deps = Descriptor.After.Select(after => new OrderingDependency(UnitName, after, UnitName, OrderingDependencyType.After));
                 var before_deps = Descriptor.Before.Select(before => new OrderingDependency(before, UnitName, UnitName, OrderingDependencyType.After));
 
                 OrderingDependencyGraph.AddDependencies(after_deps, before_deps);
+                OrderingDependencyGraph.AddDependencies(base_deps.OfType<OrderingDependency>());
             }
 
             if(RequirementDependencyGraph != null)
@@ -134,6 +126,7 @@ namespace SharpInit.Units
                 var conflicts_deps = Descriptor.Conflicts.Select(conflict => new RequirementDependency(UnitName, conflict, UnitName, RequirementDependencyType.Conflicts));
 
                 RequirementDependencyGraph.AddDependencies(requires_deps, requisite_deps, wants_deps, binds_to_deps, part_of_deps, conflicts_deps);
+                RequirementDependencyGraph.AddDependencies(base_deps.OfType<RequirementDependency>());
             }
         }
 

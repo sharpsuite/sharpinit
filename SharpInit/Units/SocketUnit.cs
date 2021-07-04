@@ -1,4 +1,4 @@
-﻿using NLog;
+using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -23,6 +23,23 @@ namespace SharpInit.Units
             : base(name, descriptor)
         {
             SocketActivated += HandleSocketActivated;
+        }
+
+        public override IEnumerable<Dependency> GetDefaultDependencies()
+        {
+            foreach (var base_dep in base.GetDefaultDependencies())
+                yield return base_dep;
+
+            if (Descriptor.DefaultDependencies)
+            {
+                yield return new RequirementDependency(left: UnitName, right: "sysinit.target", from: UnitName, type: RequirementDependencyType.Requires);
+                yield return new RequirementDependency(left: UnitName, right: "shutdown.target", from: UnitName, type: RequirementDependencyType.Conflicts);
+                yield return new OrderingDependency(left: "sockets.target", right: UnitName, from: UnitName, type: OrderingDependencyType.After);
+
+                foreach (var wanted in Descriptor.Wants.Concat(Descriptor.Requires))
+                    if (UnitRegistry.GetUnit(wanted)?.Descriptor?.DefaultDependencies ?? false != false)
+                        yield return new OrderingDependency(left: UnitName, right: wanted, from: UnitName, type: OrderingDependencyType.After);
+            }
         }
 
         internal void RaiseSocketActivated(SocketWrapper wrapper) => SocketActivated?.Invoke(wrapper);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -25,10 +25,12 @@ namespace SharpInit.Units
 
         public GeneratedUnitFilePriority Priority { get; private set; }
         public string Source { get; set; }
+        public bool DestroyOnReload { get; set; }
 
-        public GeneratedUnitFile(string name, GeneratedUnitFilePriority priority = GeneratedUnitFilePriority.Normal, string source = null)
+        public GeneratedUnitFile(string name, GeneratedUnitFilePriority priority = GeneratedUnitFilePriority.Normal, string source = null, bool destroy_on_reload = false)
         {
             Properties = new Dictionary<string, List<string>>();
+            DestroyOnReload = destroy_on_reload;
             Priority = priority;
             UnitName = name;
             Extension = System.IO.Path.GetExtension(name);

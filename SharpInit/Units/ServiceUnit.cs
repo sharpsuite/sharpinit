@@ -1,4 +1,4 @@
-﻿using NLog;
+using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -43,6 +43,19 @@ namespace SharpInit.Units
 
         public override UnitDescriptor GetUnitDescriptor() => Descriptor;
         public override void SetUnitDescriptor(UnitDescriptor desc) => Descriptor = (ServiceUnitDescriptor)desc;
+
+        public override IEnumerable<Dependency> GetDefaultDependencies()
+        {
+            foreach (var base_dep in base.GetDefaultDependencies())
+                yield return base_dep;
+
+            if (Descriptor.DefaultDependencies) 
+            {
+                yield return new RequirementDependency(left: UnitName, right: "sysinit.target", from: UnitName, type: RequirementDependencyType.Requires);
+                yield return new RequirementDependency(left: UnitName, right: "basic.target", from: UnitName, type: RequirementDependencyType.Requires);
+                yield return new RequirementDependency(left: UnitName, right: "shutdown.target", from: UnitName, type: RequirementDependencyType.Conflicts);
+            }
+        }
 
         private void HandleProcessExit(Unit unit, ProcessInfo info, int code)
         {
