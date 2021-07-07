@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpInitControl", "SharpIn
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpInit.Tests", "SharpInit.Tests\SharpInit.Tests.csproj", "{AFA56531-C38D-4209-9865-51BC4C4875C4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpInit.Coverage", "SharpInit.Coverage\SharpInit.Coverage.csproj", "{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{AFA56531-C38D-4209-9865-51BC4C4875C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AFA56531-C38D-4209-9865-51BC4C4875C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AFA56531-C38D-4209-9865-51BC4C4875C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
