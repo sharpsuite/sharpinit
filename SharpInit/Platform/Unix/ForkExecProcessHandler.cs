@@ -141,12 +141,12 @@ namespace SharpInit.Platform.Unix
         public ProcessInfo Start(ProcessStartInfo psi)
         {
             HashSet<int> opened_fds = new HashSet<int>();
-            Action<int> register_fd = (Action<int>)(fd => opened_fds.Add(fd));
+            Action<int> register_fd = (Action<int>)(fd => { Log.Info($"asked to register fd {fd}"); if (fd > 0) { opened_fds.Add(fd); } });
             Action<int, int> register_fd_pair = (Action<int, int>)((a, b) => { register_fd(a); register_fd(b); });
             Action<IEnumerable<int>> register_fds = (Action<IEnumerable<int>>)(fds => { foreach (var fd in fds) { register_fd(fd); } });
-            Func<int, bool> close_inner = (Func<int, bool>)(fd => { if (fd >= 0) { return Syscall.close(fd) == 0; } else { return false; } });
+            Func<int, bool> close_inner = (Func<int, bool>)(fd => { Log.Info($"asked to close fd {fd}"); if (fd >= 0) { var close_ret = Syscall.close(fd); if(close_ret == 0) { return true; } Log.Warn($"close returned {close_ret} for {fd}, errno: {Syscall.GetLastError()}"); return true; } else { return false; } });
             Action<int> close_if_open = (Action<int>)(fd => { if (close_inner(fd)) { opened_fds.Remove(fd); } });
-            Action clear_fds = (Action)(delegate { foreach (var fd in opened_fds) { close_if_open(fd); } });
+            Action clear_fds = (Action)(delegate { Log.Info($"closing {opened_fds.Count} fds: {string.Join(',', opened_fds)}"); foreach (var fd in opened_fds) { close_if_open(fd); } });
 
             try {
                 if (!(psi.User is UnixUserIdentifier) && psi.User != null)
@@ -213,9 +213,8 @@ namespace SharpInit.Platform.Unix
                 register_fd_pair(control_read, control_write);
                 Syscall.pipe(out int semaphore_read, out int semaphore_write); // used to synchronize process startup
                 register_fd_pair(semaphore_read, semaphore_write);
-                Syscall.fcntl(control_read, FcntlCommand.F_SETFD, 1);
 
-                Console.WriteLine($"launch fds: {control_read} {control_write} {semaphore_read} {semaphore_write}");
+                Log.Trace($"launch fds: {control_read} {control_write} {semaphore_read} {semaphore_write}");
 
                 var stdout_w_ptr = new IntPtr(stdout_write);
                 var stderr_w_ptr = new IntPtr(stderr_write);
@@ -227,13 +226,19 @@ namespace SharpInit.Platform.Unix
 
                 if (fork_ret == 0) // child process
                 {
+                    try {
                     int error = 0;
+
+                    close_if_open = (fd)=> { if (fd >= 0) { Syscall.close(fd);}};
 
                     close_if_open(stdin_write);
                     close_if_open(stdout_read);
                     close_if_open(stderr_read);
                     close_if_open(control_read);
                     close_if_open(semaphore_write);
+                    close_if_open(0);
+                    close_if_open(1);
+                    close_if_open(2);
 
                     Syscall.fcntl(control_write, FcntlCommand.F_SETFD, 1);
 
@@ -337,6 +342,11 @@ namespace SharpInit.Platform.Unix
                     }
 
                     Syscall.exit(1);
+                    }
+                    catch (Exception ex)
+                    {
+                        Syscall.exit(66);
+                    }
                 }
 
                 if(fork_ret < 0)
@@ -344,7 +354,7 @@ namespace SharpInit.Platform.Unix
                     throw new InvalidOperationException($"fork() returned {fork_ret}, errno: {Syscall.GetLastError()}");
                 }
 
-                Log.Info($"Process started with pid {fork_ret}, path: {psi.Path}");
+                Log.Info($"Process started with pid {fork_ret}, path: {psi.Path}, args: [{string.Join(',', psi.Arguments.Select(arg => $"\"{arg}\""))}]");
 
                 close_if_open(stdin_read);
                 close_if_open(stdout_write);
@@ -364,7 +374,7 @@ namespace SharpInit.Platform.Unix
 
                 var timeout = (int)Math.Min(int.MaxValue, psi.Timeout.TotalMilliseconds);
 
-                if (timeout == int.MaxValue)
+                if (timeout == int.MaxValue || timeout == 0)
                     timeout = -1;
 
                 var poll_fds = new [] {new Pollfd() { fd = control_read, events = PollEvents.POLLIN }};
@@ -378,14 +388,14 @@ namespace SharpInit.Platform.Unix
                 if (Syscall.poll(poll_fds, 1, timeout) <= 0)
                 {
                     Syscall.kill(fork_ret, Signum.SIGKILL);
-                    throw new Exception("Process launch timed out");
+                    throw new Exception($"pid {fork_ret} launch timed out");
                 }
 
                 Log.Debug($"pid {fork_ret} startup synchronized");
 
                 var starting_line = control_sr.ReadLine();
                 if(starting_line != "starting")
-                    throw new Exception($"Expected starting message from control pipe, received {starting_line}");
+                    throw new Exception($"pid {fork_ret} expected \"starting\" message from control pipe, received \"{starting_line}\"");
 
                 Log.Debug($"read {starting_line} for pid {fork_ret} startup");
 

@@ -58,11 +58,11 @@ namespace SharpInit.Tasks
                 if (WaitForExit)
                 {
                     if (process.WaitForExit(WaitExitMilliseconds <= -1 ? TimeSpan.MaxValue : TimeSpan.FromMilliseconds(WaitExitMilliseconds)))
-                        return new TaskResult(this, ResultType.Success, $"exit code {process.ExitCode}");
+                        return new TaskResult(this, ResultType.Success, $"pid {process.Id} exit code {process.ExitCode}");
                     else
                     {
                         process.Process.Kill();
-                        return new TaskResult(this, ResultType.Timeout, "Process did not exit in the given timeframe.");
+                        return new TaskResult(this, ResultType.Timeout, $"Process {process.Id} did not exit in the given timeframe.");
                     }
                 }
 

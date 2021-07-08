@@ -52,10 +52,10 @@ namespace SharpInit.Tasks
                     if (!process.WaitForExit(ExecutionTime))
                     {
                         process.Process.Kill();
-                        return new TaskResult(this, ResultType.Timeout, "The process did not exit in the given amount of time.");
+                        return new TaskResult(this, ResultType.Timeout, $"The process {process.Id} did not exit in the given amount of time.");
                     }
                     else
-                        return new TaskResult(this, ResultType.Success, $"exit code {process.ExitCode}");
+                        return new TaskResult(this, ResultType.Success, $"pid {process.Id} exit code {process.ExitCode}");
                 }
             }
             catch (Exception ex)
