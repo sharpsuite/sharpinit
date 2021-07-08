@@ -29,12 +29,17 @@ namespace SharpInit.Tests
                 "[Install]\n" +
                 "DefaultInstance=home-kate";
 
+        public static ServiceManager ServiceManager { get; private set; }
+        public static UnitRegistry Registry => ServiceManager.Registry;
+        public static TransactionPlanner Planner => ServiceManager.Planner;
+
         [ClassInitialize]
         public static void ClassInitialize(TestContext value)
         {
             PlatformUtilities.RegisterImplementations();
             PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
             UnitRegistry.InitializeTypes();
+            ServiceManager = new ServiceManager();
 
             Random rnd = new Random();
             var random_buffer = new byte[8];
@@ -49,8 +54,8 @@ namespace SharpInit.Tests
         [TestCleanup]
         public void TestCleanup()
         {
-            UnitRegistry.Units.Clear();
-            UnitRegistry.UnitFiles.Clear();
+            Registry.Units.Clear();
+            Registry.UnitFiles.Clear();
         }
 
         [ClassCleanup]
@@ -65,28 +70,28 @@ namespace SharpInit.Tests
         public void AddUnitByPath_UnitFound_True()
         {
             // Arrange
-            UnitRegistry.UnitFiles.Clear();
-            UnitRegistry.Units.Clear();
+            Registry.UnitFiles.Clear();
+            Registry.Units.Clear();
 
             // Act
-            UnitRegistry.IndexUnitByPath(TestUnitPath);
+            Registry.IndexUnitByPath(TestUnitPath);
 
             // Assert
-            Assert.IsNotNull(UnitRegistry.GetUnit(TestUnitFilename));
+            Assert.IsNotNull(Registry.GetUnit(TestUnitFilename));
         }
 
         [TestMethod]
         public void AddUnitByPath_UnitNotFound_True()
         {
             // Arrange
-            UnitRegistry.UnitFiles.Clear();
-            UnitRegistry.Units.Clear();
+            Registry.UnitFiles.Clear();
+            Registry.Units.Clear();
 
             // Act
-            UnitRegistry.IndexUnitByPath($"{DirectoryName}/nonexistent-unit.service");
+            Registry.IndexUnitByPath($"{DirectoryName}/nonexistent-unit.service");
 
             // Assert
-            Assert.IsNull(UnitRegistry.GetUnit(TestUnitFilename));
+            Assert.IsNull(Registry.GetUnit(TestUnitFilename));
         }
 
         [TestMethod]
@@ -97,10 +102,10 @@ namespace SharpInit.Tests
             UnitRegistry.DefaultScanDirectories.Clear();
 
             // Act
-            UnitRegistry.ScanDefaultDirectories();
+            Registry.ScanDefaultDirectories();
 
             // Assert
-            Assert.IsTrue(UnitRegistry.UnitFiles.ContainsKey(TestUnitFilename));
+            Assert.IsTrue(Registry.UnitFiles.ContainsKey(TestUnitFilename));
         }
 
         [TestMethod]
@@ -117,7 +122,7 @@ namespace SharpInit.Tests
             };
 
             foreach (var pair in dictionary)
-                Assert.AreEqual(UnitRegistry.GetUnitName(pair.Key), pair.Value);
+                Assert.AreEqual(UnitParser.GetUnitName(pair.Key), pair.Value);
         }
 
         [TestMethod]
@@ -129,15 +134,15 @@ namespace SharpInit.Tests
             UnitRegistry.DefaultScanDirectories.Clear();
 
             // Act
-            UnitRegistry.ScanDefaultDirectories();
-            var unit_unspecified = UnitRegistry.GetUnit<ServiceUnit>(TestUnitFilename);
-            var unit_specified = UnitRegistry.GetUnit<ServiceUnit>(TestUnitInstanceName);
+            Registry.ScanDefaultDirectories();
+            var unit_unspecified = Registry.GetUnit<ServiceUnit>(TestUnitFilename);
+            var unit_specified = Registry.GetUnit<ServiceUnit>(TestUnitInstanceName);
 
             // Assert
             Assert.AreEqual(unit_unspecified.Descriptor.WorkingDirectory, StringEscaper.UnescapePath(unit_unspecified.Descriptor.DefaultInstance));
-            Assert.AreEqual(unit_specified.Descriptor.WorkingDirectory, StringEscaper.UnescapePath(UnitRegistry.GetUnitParameter(TestUnitInstanceName)));
+            Assert.AreEqual(unit_specified.Descriptor.WorkingDirectory, StringEscaper.UnescapePath(UnitParser.GetUnitParameter(TestUnitInstanceName)));
             Assert.IsTrue(unit_unspecified.Descriptor.Wants.Contains(unit_unspecified.Descriptor.DefaultInstance + ".path"));
-            Assert.IsTrue(unit_specified.Descriptor.Wants.Contains(UnitRegistry.GetUnitParameter(TestUnitInstanceName) + ".path"));
+            Assert.IsTrue(unit_specified.Descriptor.Wants.Contains(UnitParser.GetUnitParameter(TestUnitInstanceName) + ".path"));
         }
     }
 }

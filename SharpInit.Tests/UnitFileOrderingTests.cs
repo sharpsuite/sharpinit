@@ -12,12 +12,17 @@ namespace SharpInit.Tests
     [TestClass]
     public class UnitFileOrderingTests
     {
+        public static ServiceManager ServiceManager { get; private set; }
+        public static UnitRegistry Registry => ServiceManager.Registry;
+        public static TransactionPlanner Planner => ServiceManager.Planner;
+
         [ClassInitialize]
         public static void ClassInitialize(TestContext value)
         {
             PlatformUtilities.RegisterImplementations();
             PlatformUtilities.GetImplementation<IPlatformInitialization>().Initialize();
             UnitRegistry.InitializeTypes();
+            ServiceManager = new ServiceManager();
         }
 
         [TestMethod]
@@ -40,7 +45,7 @@ namespace SharpInit.Tests
 
             var reversed_paths = test_paths.Reverse<string>();
             var as_unit_files = reversed_paths.Select(path => new OnDiskUnitFile(path)).ToList();
-            as_unit_files.Sort(UnitRegistry.CompareUnitFiles); 
+            as_unit_files.Sort(Registry.CompareUnitFiles); 
 
             for (int i = 0; i < test_paths.Count; i++)
                 Assert.AreEqual(test_paths[i], as_unit_files[i].Path);
