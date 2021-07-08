@@ -37,7 +37,7 @@ namespace SharpInit.Tasks
         public override TaskResult Execute(TaskContext context)
         {
             if (AllowedInputStates != UnitState.Any && !AllowedInputStates.HasFlag(Unit.CurrentState))
-                return new TaskResult(this, ResultType.Failure, $"Invalid input Unit state {PrintUnitState(Unit.CurrentState)}, was expecting {PrintUnitState(AllowedInputStates)}");
+                return new TaskResult(this, ResultType.Failure, $"{Unit.UnitName} has invalid input state {PrintUnitState(Unit.CurrentState)}, was expecting {PrintUnitState(AllowedInputStates)}");
             
             if (context.Has<TaskResult>("failure"))
             {

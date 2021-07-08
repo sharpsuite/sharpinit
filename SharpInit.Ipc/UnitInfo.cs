@@ -10,6 +10,7 @@ namespace SharpInit.Ipc
         public string Name { get; set; }
         public string Description { get; set; }
         public string Path { get; set; }
+        public string[] Documentation { get; set; }
         public UnitState CurrentState { get; set; }
         public UnitState PreviousState { get; set; }
         public DateTime LastStateChangeTime { get; set; }

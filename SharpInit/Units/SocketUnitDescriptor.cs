@@ -85,16 +85,16 @@ namespace SharpInit.Units
         [UnitProperty("Socket/@")]
         public string Service { get; set; }
 
-        [UnitProperty("Service/@", UnitPropertyType.StringList)]
+        [UnitProperty("@/@", UnitPropertyType.StringList)]
         public List<string> ExecStartPre { get; set; }
 
-        [UnitProperty("Service/@", UnitPropertyType.StringList)]
+        [UnitProperty("@/@", UnitPropertyType.StringList)]
         public List<string> ExecStartPost { get; set; }
 
-        [UnitProperty("Service/@", UnitPropertyType.StringList)]
+        [UnitProperty("@/@", UnitPropertyType.StringList)]
         public List<string> ExecStopPre { get; set; }
 
-        [UnitProperty("Service/@", UnitPropertyType.StringList)]
+        [UnitProperty("@/@", UnitPropertyType.StringList)]
         public List<string> ExecStopPost { get; set; }
     }
 }

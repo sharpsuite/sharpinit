@@ -12,6 +12,30 @@ namespace SharpInit.Units
         private static List<string> TrueAliases = new List<string>() { "true", "yes", "1", "on" };
         private static List<string> FalseAliases = new List<string>() { "false", "no", "0", "off" };
 
+        public static string GetUnitName(string path, bool with_parameter = false)
+        {
+            path = path.Replace('\\', '/');
+
+            var filename = Path.GetFileName(path);
+            var filename_without_ext = Path.GetFileNameWithoutExtension(path);
+
+            if (filename_without_ext.Contains("@") && !with_parameter)
+                return filename_without_ext.Split('@').First() + "@" + Path.GetExtension(filename);
+
+            return filename;
+        }
+
+        public static string GetUnitParameter(string path)
+        {
+            var filename = Path.GetFileName(path);
+            var filename_without_ext = Path.GetFileNameWithoutExtension(path);
+
+            if (filename_without_ext.Contains("@"))
+                return string.Join('@', filename_without_ext.Split('@').Skip(1));
+
+            return "";
+        }
+        
         public static T FromFiles<T>(params UnitFile[] files)
             where T : UnitDescriptor => (T)FromFiles(typeof(T), files);
 

@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -17,15 +17,18 @@ namespace SharpInit.Units
 
         public int COMMAND_TIMEOUT = 5000;
 
+        public int MainPid { get; set; }
+
         public ServiceUnit(string name, ServiceUnitDescriptor desc) :
             base(name, desc)
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
+
             UnitStateChange += (s, e) => 
             {
-                if (e.NextState == UnitState.Failed)
-                    HandleProcessExit(this, null, int.MaxValue);
+                //if (e.NextState == UnitState.Failed)
+                    //HandleProcessExit(this, new );
             };
         }
 
@@ -36,8 +39,8 @@ namespace SharpInit.Units
 
             UnitStateChange += (s, e) => 
             {
-                if (e.NextState == UnitState.Failed)
-                    HandleProcessExit(this, null, int.MaxValue);
+                //if (e.NextState == UnitState.Failed)
+                    //HandleProcessExit(this, null, int.MaxValue);
             };
         }
 
@@ -57,37 +60,37 @@ namespace SharpInit.Units
             }
         }
 
-        private void HandleProcessExit(Unit unit, ProcessInfo info, int code)
+        private void HandleProcessExit(object sender, ServiceProcessExitEventArgs e)
         {
             SocketManager.UnignoreSocketsByUnit(this);
 
             switch(CurrentState)
             {
                 case UnitState.Deactivating:
-                    if (info != null)
+                    if (e.Process != null)
                         SetState(UnitState.Inactive, "Main process exited");
                     break;
                 default:
-                    if (!Descriptor.RemainAfterExit && info != null)
+                    if (!Descriptor.RemainAfterExit && e.Process != null)
                     {
                         // TODO: treat process exit differently based on service type
-                        if (code != 0)
+                        if (e.ExitCode != 0)
                         {
-                            SetState(UnitState.Failed, $"Main process exited with code {code}");
+                            SetState(UnitState.Failed, $"Main process exited with code {e.ExitCode}");
                         }
                         else
                         {
                             SetState(UnitState.Inactive, "Main process exited");
                         }
                     }
-                    else if (Descriptor.RemainAfterExit && info != null)
+                    else if (Descriptor.RemainAfterExit && e.Process != null)
                     {
-                        SetState(CurrentState, $"Main process exited with code {code}");
+                        SetState(CurrentState, $"Main process exited with code {e.ExitCode}");
                     }
 
                     var should_restart = false;
 
-                    if (code == 0)
+                    if (e.ExitCode == 0)
                         should_restart =
                             Descriptor.Restart == RestartBehavior.Always ||
                             Descriptor.Restart == RestartBehavior.OnSuccess;
@@ -101,17 +104,16 @@ namespace SharpInit.Units
                     {
                         var restart_transaction = new Transaction(
                             new DelayTask(Descriptor.RestartSec),
-                            UnitRegistry.CreateDeactivationTransaction(UnitName, "Unit is being restarted"),
-                            UnitRegistry.CreateActivationTransaction(UnitName, "Unit is being restarted"));
+                            ServiceManager.Planner.CreateDeactivationTransaction(UnitName, "Unit is being restarted"),
+                            ServiceManager.Planner.CreateActivationTransaction(UnitName, "Unit is being restarted"));
 
-                        // TODO: un-hack this
-                        new Thread((ThreadStart)delegate { restart_transaction.Execute(); }).Start();
+                        ServiceManager.Runner.Register(restart_transaction).Enqueue();
                     }
                     break;
             }
         }
 
-        private void HandleProcessStart(Unit unit, ProcessInfo info)
+        private void HandleProcessStart(object sender, ServiceProcessStartEventArgs e)
         {
             // do nothing for now
         }

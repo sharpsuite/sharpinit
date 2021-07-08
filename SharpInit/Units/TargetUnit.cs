@@ -28,7 +28,7 @@ namespace SharpInit.Units
                 yield return base_dep;
 
             foreach (var wanted in Descriptor.Wants.Concat(Descriptor.Requires))
-                if (UnitRegistry.GetUnit(wanted)?.Descriptor?.DefaultDependencies ?? false != false)
+                if (Registry.GetUnit(wanted)?.Descriptor?.DefaultDependencies ?? false != false)
                     yield return new OrderingDependency(left: UnitName, right: wanted, from: UnitName, type: OrderingDependencyType.After);
         }
 

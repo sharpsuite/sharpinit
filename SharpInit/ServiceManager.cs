@@ -1,5 +1,7 @@
 ﻿using SharpInit.Platform;
 using SharpInit.Units;
+using SharpInit.Tasks;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,14 +9,21 @@ using System.Text;
 
 namespace SharpInit
 {
-    public delegate void OnServiceProcessExit(Unit unit, ProcessInfo info, int code);
-    public delegate void OnServiceProcessStart(Unit unit, ProcessInfo info);
-
     public class ServiceManager
     {
+        public event OnUnitStateChanged UnitStateChanged;
+        public event OnServiceProcessExit ServiceProcessExit;
+        public event OnServiceProcessStart ServiceProcessStart;
+
         public List<ProcessInfo> ManagedProcesses = new List<ProcessInfo>();
         public Dictionary<int, ProcessInfo> ProcessesById = new Dictionary<int, ProcessInfo>();
         public Dictionary<Unit, List<ProcessInfo>> ProcessesByUnit = new Dictionary<Unit, List<ProcessInfo>>();
+
+        public UnitRegistry Registry { get; set; }
+        public SocketManager SocketManager { get; set; }
+        public ISymlinkTools SymlinkTools { get; set; }
+        public TaskRunner Runner { get; set; }
+        public TransactionPlanner Planner { get; set; }
 
         public Journal Journal;
 
@@ -27,11 +36,29 @@ namespace SharpInit
 
         public ServiceManager(IProcessHandler process_handler)
         {
-            Journal = new Journal();
             ProcessHandler = process_handler;
             ProcessHandler.ProcessExit += HandleProcessExit;
             ProcessHandler.ServiceManager = this;
+            
+            SymlinkTools = PlatformUtilities.GetImplementation<ISymlinkTools>(this);
+
+            Registry = new UnitRegistry(this);
+            Registry.UnitAdded += HandleUnitAdded;
+            Registry.CreateBaseUnits();
+
+            Journal = new Journal();
+
+            Planner = new TransactionPlanner(this);
+
+            Runner = new TaskRunner(this);
         }
+
+        private void HandleUnitAdded(object sender, UnitAddedEventArgs e)
+        {
+            e.Unit.UnitStateChange += PropagateStateChange;
+        }
+
+        private void PropagateStateChange(object sender, UnitStateChangedEventArgs e) => UnitStateChanged?.Invoke(sender, e);
         
         private void HandleProcessExit(int pid, int exit_code)
         {

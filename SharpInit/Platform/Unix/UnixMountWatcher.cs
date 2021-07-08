@@ -22,6 +22,8 @@ namespace SharpInit.Platform.Unix
 
         public static Dictionary<string, MountUnit> Units = new Dictionary<string, MountUnit>();
 
+        public static ServiceManager ServiceManager { get; set; }
+
         public static void SynchronizeMountUnit(object sender, MountChangedEventArgs e)
         {
             var mount = e.Mount;
@@ -35,10 +37,10 @@ namespace SharpInit.Platform.Unix
                     .WithProperty("Mount/Type", mount.MountType)
                     .WithProperty("Mount/Options", mount.MountOptions);
                 
-                UnitRegistry.IndexUnitFile(generated_file);
+                ServiceManager.Registry.IndexUnitFile(generated_file);
             }
 
-            var unit = UnitRegistry.GetUnit<MountUnit>(unit_name);
+            var unit = ServiceManager.Registry.GetUnit<MountUnit>(unit_name);
 
             if (!Units.ContainsKey(unit_name))
                 Units[unit_name] = unit;
@@ -48,12 +50,12 @@ namespace SharpInit.Platform.Unix
                 // TODO: These should go through UnitManager as should all other external events that should
                 // lead to unit state changes.
                 if (unit.CurrentState != UnitState.Activating && unit.CurrentState != UnitState.Active)
-                    unit.GetExternalActivationTransaction("Externally managed mountpoint").Execute();
+                    ServiceManager.Runner.Register(unit.GetExternalActivationTransaction("Externally managed mountpoint")).Enqueue();
             }
             else if (mount.Mounted == false)
             {
                 if (unit.CurrentState == UnitState.Activating || unit.CurrentState == UnitState.Active)
-                    unit.GetExternalDeactivationTransaction("Externally managed mountpoint").Execute();
+                    ServiceManager.Runner.Register(unit.GetExternalDeactivationTransaction("Externally managed mountpoint")).Enqueue();
             }
         }
 

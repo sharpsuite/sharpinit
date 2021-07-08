@@ -1,4 +1,4 @@
-using SharpInit.Tasks;
+﻿using SharpInit.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,11 +20,12 @@ namespace SharpInit.Units
 
         public UnitDescriptor Descriptor { get => GetUnitDescriptor(); set => SetUnitDescriptor(value); }
 
-        public SocketManager SocketManager { get; set; }
+        public UnitRegistry Registry => ServiceManager.Registry;
+        public SocketManager SocketManager => ServiceManager.SocketManager;
 
         public ServiceManager ServiceManager { get; set; }
 
-        public event OnUnitStateChange UnitStateChange;
+        public event OnUnitStateChanged UnitStateChange;
         public event OnServiceProcessStart ProcessStart;
         public event OnServiceProcessExit ProcessExit;
 
@@ -55,7 +56,7 @@ namespace SharpInit.Units
         {
             // block while state changes are handled
             // TODO: Investigate whether this could result in a deadlock
-            UnitStateChange?.Invoke(this, new UnitStateChangeEventArgs(this, next_state, reason)); 
+            UnitStateChange?.Invoke(this, new UnitStateChangedEventArgs(this, next_state, reason)); 
 
             PreviousState = CurrentState;
             CurrentState = next_state;
@@ -72,12 +73,12 @@ namespace SharpInit.Units
         
         internal void RaiseProcessExit(ProcessInfo proc, int exit_code)
         {
-            ProcessExit?.Invoke(this, proc, exit_code);
+            ProcessExit?.Invoke(this, new ServiceProcessExitEventArgs(this, proc, exit_code));
         }
 
         internal void RaiseProcessStart(ProcessInfo proc)
         {
-            ProcessStart?.Invoke(this, proc);
+            ProcessStart?.Invoke(this, new ServiceProcessStartEventArgs(this, proc));
         }
 
         public void RegisterDependencies(DependencyGraph<OrderingDependency> ordering_graph, DependencyGraph<RequirementDependency> requirement_graph)

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using NLog;
+
 namespace SharpInit.Tasks
 {
     /// <summary>
@@ -11,6 +13,8 @@ namespace SharpInit.Tasks
     /// </summary>
     public class Transaction : Task
     {
+        static Logger Log = LogManager.GetCurrentClassLogger();
+
         public override string Type => "transaction";
         public string Name { get; set; }
         public List<Task> Tasks = new List<Task>();
@@ -109,11 +113,14 @@ namespace SharpInit.Tasks
             Context = context ?? new TaskContext();
             var lock_obj = Lock ?? new object();
 
+            Log.Info($"{Execution} is {this}");
+
             lock (lock_obj)
             {
                 foreach (var task in Tasks)
                 {
-                    var result = task.Execute(Context);
+                    var execution = Runner.Register(task, Context);
+                    var result = ExecuteYielding(execution);
 
                     if (result.Type != ResultType.Success &&
                         !result.Type.HasFlag(ResultType.Ignorable))
@@ -121,7 +128,7 @@ namespace SharpInit.Tasks
                         Context["failure"] = result;
 
                         if (OnFailure != null)
-                            OnFailure.Execute(Context);
+                            ExecuteYielding(OnFailure, Context);
                         
                         if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore)
                             return result;

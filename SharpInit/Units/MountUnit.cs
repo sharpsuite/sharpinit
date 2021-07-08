@@ -55,7 +55,7 @@ namespace SharpInit.Units
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
             transaction.Add(new MountTask(this));
-            transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating)); // This should be set by /proc/self/mountinfo
             transaction.Add(new UpdateUnitActivationTimeTask(this));
 
             transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);

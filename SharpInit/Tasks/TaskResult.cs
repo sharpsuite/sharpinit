@@ -25,6 +25,11 @@ namespace SharpInit.Tasks
             Type = result;
             Message = msg;
         }
+
+        public override string ToString()
+        {
+            return $"[task result for {Task}, {Type}{(Message != null ? ", " + Message : "")}]";
+        }
     }
 
     public enum ResultType

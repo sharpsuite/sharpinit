@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -37,7 +37,7 @@ namespace SharpInit.Units
                 yield return new OrderingDependency(left: "sockets.target", right: UnitName, from: UnitName, type: OrderingDependencyType.After);
 
                 foreach (var wanted in Descriptor.Wants.Concat(Descriptor.Requires))
-                    if (UnitRegistry.GetUnit(wanted)?.Descriptor?.DefaultDependencies ?? false != false)
+                    if (Registry.GetUnit(wanted)?.Descriptor?.DefaultDependencies ?? false != false)
                         yield return new OrderingDependency(left: UnitName, right: wanted, from: UnitName, type: OrderingDependencyType.After);
             }
         }
@@ -49,7 +49,7 @@ namespace SharpInit.Units
             var socket = wrapper.Socket;
 
             var activation_target = Descriptor.Service ?? Path.GetFileNameWithoutExtension(this.UnitName) + ".service";
-            var target_unit = UnitRegistry.GetUnit(activation_target);
+            var target_unit = Registry.GetUnit(activation_target);
 
             if (target_unit == null)
             {
@@ -93,7 +93,7 @@ namespace SharpInit.Units
                 transaction.Add(new IgnoreSocketsTask(this, target_unit));
             }
 
-            transaction.Execute();
+            ServiceManager.Runner.Register(transaction).Enqueue();
         }
 
         public override UnitDescriptor GetUnitDescriptor() => Descriptor;

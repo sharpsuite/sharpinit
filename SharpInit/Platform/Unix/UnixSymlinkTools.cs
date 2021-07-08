@@ -12,6 +12,13 @@ namespace SharpInit.Platform
     [SupportedOn("unix")]
     public class UnixSymlinkTools : ISymlinkTools
     {
+        private ServiceManager ServiceManager { get; set; }
+
+        public UnixSymlinkTools(ServiceManager manager)
+        {
+            ServiceManager = manager;
+        }
+
         public string GetTarget(string path)
         {
             return new UnixSymbolicLinkInfo(path).ContentsPath;
@@ -25,7 +32,7 @@ namespace SharpInit.Platform
         public bool CreateSymlink(string target, string path, bool symbolic)
         {
             // TODO: Grab a processhandler from a better place
-            var proc_handler = UnitRegistry.ServiceManager.ProcessHandler;
+            var proc_handler = ServiceManager.ProcessHandler;
             var args = new string[0];
 
             if (symbolic)
@@ -35,7 +42,7 @@ namespace SharpInit.Platform
 
             var psi = new ProcessStartInfo("/bin/ln", args);
             var task = new RunUnregisteredProcessTask(proc_handler, psi, 500);
-            var exec = UnitRegistry.Runner.Register(task).Execute();
+            var exec = ServiceManager.Runner.Register(task).Enqueue();
             exec.Wait();
             return exec.Result.Type == ResultType.Success;
         }

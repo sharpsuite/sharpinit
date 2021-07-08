@@ -31,7 +31,7 @@ namespace SharpInit.Tasks
         public override TaskResult Execute(TaskContext context)
         {
             var failure_type = StopExecution ? ResultType.StopExecution : ResultType.Failure;
-            var unit = UnitRegistry.GetUnit(TargetUnit);
+            var unit = Execution.Registry.GetUnit(TargetUnit);
 
             if (unit == null)
                 return new TaskResult(this, failure_type, $"Unit {TargetUnit} is not loaded.");

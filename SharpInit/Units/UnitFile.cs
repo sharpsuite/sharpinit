@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -75,7 +75,7 @@ namespace SharpInit.Units
         public OnDiskUnitFile(string path)
         {
             Path = path;
-            UnitName = UnitRegistry.GetUnitName(path, with_parameter: true);
+            UnitName = UnitParser.GetUnitName(path, with_parameter: true);
             Extension = System.IO.Path.GetExtension(UnitName);
         }
 

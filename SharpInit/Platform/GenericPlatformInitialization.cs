@@ -15,7 +15,6 @@ namespace SharpInit.Platform
         {
             StringEscaper.BuildAllowedCharacterCache();
             UnitRegistry.InitializeTypes();
-            UnitRegistry.CreateBaseUnits();
         }
 
         public virtual void LateInitialize()

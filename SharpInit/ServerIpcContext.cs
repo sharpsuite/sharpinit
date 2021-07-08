@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using SharpInit.Ipc;
 using SharpInit.Tasks;
 using SharpInit.Units;
@@ -13,16 +13,18 @@ namespace SharpInit
     class ServerIpcContext : IBaseIpcContext
     {
         Logger Log = LogManager.GetCurrentClassLogger();
+        ServiceManager ServiceManager { get; set; }
 
-        public ServerIpcContext()
+        public ServerIpcContext(ServiceManager manager)
         {
-
+            ServiceManager = manager;
         }
 
         public bool ActivateUnit(string name)
         {
-            var transaction = UnitRegistry.CreateActivationTransaction(name, "Remotely triggered via IPC");
-            var result = transaction.Execute();
+            var transaction = ServiceManager.Planner.CreateActivationTransaction(name, "Remotely triggered via IPC");
+            var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
+            var result = exec.Result;
 
             if (result.Type != ResultType.Success)
             {
@@ -40,8 +42,9 @@ namespace SharpInit
 
         public bool DeactivateUnit(string name)
         {
-            var transaction = UnitRegistry.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
-            var result = transaction.Execute();
+            var transaction = ServiceManager.Planner.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
+            var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
+            var result = exec.Result;
 
             if (result.Type != ResultType.Success)
             {
@@ -59,38 +62,39 @@ namespace SharpInit
 
         public Dictionary<string, List<string>> GetActivationPlan(string unit)
         {
-            var transaction = UnitRegistry.CreateActivationTransaction(unit);
+            var transaction = ServiceManager.Planner.CreateActivationTransaction(unit);
             return transaction.Reasoning.ToDictionary(t => t.Key.UnitName, t => t.Value);
         }
 
         public Dictionary<string, List<string>> GetDeactivationPlan(string unit)
         {
-            var transaction = UnitRegistry.CreateDeactivationTransaction(unit);
+            var transaction = ServiceManager.Planner.CreateDeactivationTransaction(unit);
             return transaction.Reasoning.ToDictionary(t => t.Key.UnitName, t => t.Value);
         }
 
         public bool ReloadUnit(string name)
         {
-            var transaction = UnitRegistry.GetUnit(name).GetReloadTransaction();
-            var result = transaction.Execute();
+            var transaction = ServiceManager.Registry.GetUnit(name).GetReloadTransaction();
+            var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
+            var result = exec.Result;
             return result.Type == Tasks.ResultType.Success;
         }
 
         public List<string> ListUnits()
         {
-            return UnitRegistry.Units.Select(u => u.Key).ToList();
+            return ServiceManager.Registry.Units.Select(u => u.Key).ToList();
         }
 
         public List<string> ListUnitFiles()
         {
-            return UnitRegistry.UnitFiles.Select(p => string.Join(", ", p.Value.Select(t => t.ToString()))).ToList();
+            return ServiceManager.Registry.UnitFiles.Select(p => string.Join(", ", p.Value.Select(t => t.ToString()))).ToList();
         }
 
         public bool LoadUnitFromFile(string path)
         {
             try
             {
-                UnitRegistry.IndexUnitByPath(path);
+                ServiceManager.Registry.IndexUnitByPath(path);
                 return true;
             }
             catch { return false; }
@@ -103,12 +107,12 @@ namespace SharpInit
 
         public int RescanUnits()
         {
-            return UnitRegistry.ScanDefaultDirectories();
+            return ServiceManager.Registry.ScanDefaultDirectories();
         }
 
         public UnitInfo GetUnitInfo(string unit_name)
         {
-            var unit = UnitRegistry.GetUnit(unit_name);
+            var unit = ServiceManager.Registry.GetUnit(unit_name);
             var info = new UnitInfo();
 
             var unit_files = unit.Descriptor.Files;
@@ -125,6 +129,7 @@ namespace SharpInit
                     }
                 })) :
                 "(not available)";
+            info.Documentation = unit.Descriptor.Documentation.ToArray();
             info.Description = unit.Descriptor.Description;
             info.CurrentState = Enum.Parse<Ipc.UnitState>(unit.CurrentState.ToString());
             info.PreviousState = Enum.Parse<Ipc.UnitState>(unit.PreviousState.ToString());
@@ -132,14 +137,14 @@ namespace SharpInit
             info.ActivationTime = unit.ActivationTime;
             info.LoadTime = unit.Descriptor.Created;
             info.StateChangeReason = unit.StateChangeReason;
-            info.LogLines = UnitRegistry.ServiceManager.Journal.Tail(unit_name, 10).Select(entry => entry.Message).ToList();
+            info.LogLines = ServiceManager.Journal.Tail(unit_name, 10).Select(entry => entry.Message).ToList();
 
             return info;
         }
 
         public List<string> GetJournal(string journal, int lines)
         {
-            var entries = UnitRegistry.ServiceManager.Journal.Tail(journal, lines);
+            var entries = ServiceManager.Journal.Tail(journal, lines);
             var longest_source_length = entries.Max(e => e.Source.Length);
             var max_allowed_source_length = 30;
 
@@ -152,7 +157,7 @@ namespace SharpInit
         public bool InstallUnit(string unit_name)
         {
             var symlinks = Platform.PlatformUtilities.GetImplementation<Platform.ISymlinkTools>();
-            var unit = UnitRegistry.GetUnit(unit_name);
+            var unit = ServiceManager.Registry.GetUnit(unit_name);
             var wanted_bys = unit.Descriptor.WantedBy;
             
             var unit_source_path = unit.Descriptor.Files.FirstOrDefault(f => Directory.Exists(Path.GetDirectoryName(f.Path))).Path ?? $"/etc/sharpinit/units/{unit_name}";
