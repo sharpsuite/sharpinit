@@ -6,6 +6,8 @@ using System.Threading;
 using Mono.Unix;
 using Mono.Unix.Native;
 
+using NLog;
+
 namespace SharpInit.Platform.Unix
 {
     public delegate void OnUnixProcessExit(int pid, int exitcode);
@@ -15,6 +17,7 @@ namespace SharpInit.Platform.Unix
     /// </summary>
     public static class SignalHandler
     {
+        static Logger Log = LogManager.GetCurrentClassLogger();
         public static event OnUnixProcessExit ProcessExit; 
         static Dictionary<UnixSignal, List<Action>> SignalHandlers = new Dictionary<UnixSignal, List<Action>>();
 
@@ -37,7 +40,16 @@ namespace SharpInit.Platform.Unix
             int pid = 0;
             while ((pid = Syscall.wait(out int status)) > -1)
             {
-                ProcessExit?.Invoke(pid, status);
+                var signal_bits = status & 0x7f;
+                var exit_code = (status & 0xff00) >> 8;
+                var stopped = (status & 0xff) == 0x7f;
+                var exited = signal_bits == 0;
+
+                if (stopped)
+                    Log.Info($"pid {pid} stopped with signal {signal_bits}");
+
+                if (exited)
+                    ProcessExit?.Invoke(pid, exit_code);
             }
 
             Syscall.alarm(60); // thanks sinit, this is neat
@@ -51,7 +63,10 @@ namespace SharpInit.Platform.Unix
                 {
                     HandleSignals();
                 }
-                catch { } // this loop should never exit, swallow all exceptions
+                catch (Exception ex) 
+                { 
+                    Log.Error(ex, "Exception thrown in signal handler loop");
+                } // this loop should never exit, swallow all exceptions
             }
         }
 
@@ -66,7 +81,10 @@ namespace SharpInit.Platform.Unix
                 var signal = copy_of_signals[index];
 
                 if (!SignalHandlers.ContainsKey(signal))
+                {
+                    Log.Warn($"Ignoring signal without handler {signal.Signum}");
                     return;
+                }
 
                 var handlers = SignalHandlers[signal];
 
@@ -74,9 +92,13 @@ namespace SharpInit.Platform.Unix
                 {
                     try
                     {
+                        Log.Debug($"Handling signal {signal.Signum}...");
                         handler();
                     }
-                    catch { } // swallow all exceptions
+                    catch (Exception ex) 
+                    { 
+                        Log.Warn(ex, $"Exception thrown while handling {signal.Signum}");
+                    }
                 }
             }
             else
