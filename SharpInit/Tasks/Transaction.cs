@@ -19,6 +19,8 @@ namespace SharpInit.Tasks
         public string Name { get; set; }
         public List<Task> Tasks = new List<Task>();
         public Task OnFailure { get; set; }
+        public Task OnTimeout { get; set; }
+
         public TaskContext Context { get; set; }
 
         /// <summary>
@@ -127,7 +129,12 @@ namespace SharpInit.Tasks
                     {
                         Context["failure"] = result;
 
-                        if (OnFailure != null)
+                        if (result.Type.HasFlag(ResultType.Timeout))
+                        {
+                            if (OnTimeout != null)
+                                ExecuteYielding(OnTimeout, Context);
+                        }
+                        else if (OnFailure != null)
                             ExecuteYielding(OnFailure, Context);
                         
                         if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore)

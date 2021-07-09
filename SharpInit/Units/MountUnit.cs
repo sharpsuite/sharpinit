@@ -53,12 +53,13 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for unit {UnitName}");
 
+            transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
             transaction.Add(new MountTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating)); // This should be set by /proc/self/mountinfo
             transaction.Add(new UpdateUnitActivationTimeTask(this));
 
-            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
+            transaction.OnFailure = transaction.OnTimeout = new SetUnitStateTask(this, UnitState.Failed);
 
             return transaction;
         }

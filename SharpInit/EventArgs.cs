@@ -6,6 +6,17 @@ using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
+    public delegate void OnUnitConfigurationChanged(object sender, UnitConfigurationChangedEventArgs e);
+    public class UnitConfigurationChangedEventArgs : EventArgs
+    {
+        public Unit Unit { get; set; }
+
+        public UnitConfigurationChangedEventArgs(Unit unit)
+        {
+            Unit = unit;
+        }
+    }
+
     public delegate void OnServiceProcessStart(object sender, ServiceProcessStartEventArgs e);
     public class ServiceProcessStartEventArgs : EventArgs
     {

@@ -60,13 +60,19 @@ namespace SharpInit.Units
 
     public enum RestartBehavior
     {
-        No,
-        Always,
-        OnSuccess,
-        OnFailure,
-        OnAbnormal,
-        OnAbort,
-        OnWatchdog
+        CleanExit = 0x1,
+        UncleanExit = 0x2,
+        UncleanSignal = 0x4,
+        Timeout = 0x8,
+        Watchdog = 0xF,
+
+        No = 0,
+        Always = CleanExit | UncleanExit | UncleanSignal | Timeout | Watchdog,
+        OnSuccess = CleanExit,
+        OnFailure = UncleanExit | UncleanSignal | Timeout | Watchdog,
+        OnAbnormal = UncleanSignal | Timeout | Watchdog,
+        OnAbort = UncleanSignal,
+        OnWatchdog = Watchdog
     }
 
     public enum ServiceType

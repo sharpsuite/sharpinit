@@ -25,13 +25,17 @@ namespace SharpInit.Units
 
         public ServiceManager ServiceManager { get; set; }
 
-        public event OnUnitStateChanged UnitStateChange;
+        public event OnUnitConfigurationChanged ConfigurationChanged;
+        public event OnUnitStateChanged UnitStateChanged;
         public event OnServiceProcessStart ProcessStart;
         public event OnServiceProcessExit ProcessExit;
 
         public DateTime LastStateChangeTime { get; set; }
         public DateTime ActivationTime { get; set; }
         public DateTime LoadTime { get; set; }
+
+        public ActionThrottle StartupThrottle { get; set; }
+        public bool RestartSuppressed { get; set; }
 
         private DependencyGraph<RequirementDependency> RequirementDependencyGraph { get; set; }
         private DependencyGraph<OrderingDependency> OrderingDependencyGraph { get; set; }
@@ -47,16 +51,22 @@ namespace SharpInit.Units
         {
             PreviousState = UnitState.Inactive;
             CurrentState = UnitState.Inactive;
+
+            ConfigurationChanged += HandleConfigurationChange;
+            StartupThrottle = new ActionThrottle(TimeSpan.Zero, 0);
         }
 
         public abstract UnitDescriptor GetUnitDescriptor();
-        public abstract void SetUnitDescriptor(UnitDescriptor desc);
+        public virtual void SetUnitDescriptor(UnitDescriptor desc) 
+        {
+            ConfigurationChanged?.Invoke(this, new UnitConfigurationChangedEventArgs(this));
+        }
         
         internal void SetState(UnitState next_state, string reason = null)
         {
             // block while state changes are handled
             // TODO: Investigate whether this could result in a deadlock
-            UnitStateChange?.Invoke(this, new UnitStateChangedEventArgs(this, next_state, reason)); 
+            UnitStateChanged?.Invoke(this, new UnitStateChangedEventArgs(this, next_state, reason)); 
 
             PreviousState = CurrentState;
             CurrentState = next_state;
@@ -79,6 +89,21 @@ namespace SharpInit.Units
         internal void RaiseProcessStart(ProcessInfo proc)
         {
             ProcessStart?.Invoke(this, new ServiceProcessStartEventArgs(this, proc));
+        }
+
+        private void HandleConfigurationChange(object sender, UnitConfigurationChangedEventArgs e)
+        {
+            if (StartupThrottle.Interval != Descriptor.StartLimitIntervalSec)
+            {
+                StartupThrottle.Interval = Descriptor.StartLimitIntervalSec;
+                StartupThrottle.Clear();
+            }
+            
+            if (StartupThrottle.Burst != Descriptor.StartLimitBurst)
+            {
+                StartupThrottle.Burst = Descriptor.StartLimitBurst;
+                StartupThrottle.Clear();
+            }
         }
 
         public void RegisterDependencies(DependencyGraph<OrderingDependency> ordering_graph, DependencyGraph<RequirementDependency> requirement_graph)

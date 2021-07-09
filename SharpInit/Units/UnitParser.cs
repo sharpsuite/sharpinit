@@ -35,7 +35,7 @@ namespace SharpInit.Units
 
             return "";
         }
-        
+
         public static T FromFiles<T>(params UnitFile[] files)
             where T : UnitDescriptor => (T)FromFiles(typeof(T), files);
 
@@ -326,7 +326,6 @@ namespace SharpInit.Units
 
                 var line_parts_by_equals = line.Split('=');
                 var consumed = new bool[line_parts_by_equals.Length];
-                bool last_part_consumed = false;
 
                 if (!escaped_line_break) // we're starting to define a new property
                 {

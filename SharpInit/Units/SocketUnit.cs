@@ -103,6 +103,7 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for unit {UnitName}");
 
+            transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
             if (Descriptor.ExecStartPre.Any())
@@ -122,7 +123,7 @@ namespace SharpInit.Units
 
             transaction.Add(new UpdateUnitActivationTimeTask(this));
 
-            transaction.OnFailure = new Transaction(
+            transaction.OnFailure = transaction.OnTimeout = new Transaction(
                 new SetUnitStateTask(this, UnitState.Failed),
                 new StopUnitSocketsTask(this));
 

@@ -24,28 +24,16 @@ namespace SharpInit.Units
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
-
-            UnitStateChange += (s, e) => 
-            {
-                //if (e.NextState == UnitState.Failed)
-                    //HandleProcessExit(this, new );
-            };
         }
 
         public ServiceUnit() : base()
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
-
-            UnitStateChange += (s, e) => 
-            {
-                //if (e.NextState == UnitState.Failed)
-                    //HandleProcessExit(this, null, int.MaxValue);
-            };
         }
 
         public override UnitDescriptor GetUnitDescriptor() => Descriptor;
-        public override void SetUnitDescriptor(UnitDescriptor desc) => Descriptor = (ServiceUnitDescriptor)desc;
+        public override void SetUnitDescriptor(UnitDescriptor desc) { Descriptor = (ServiceUnitDescriptor)desc; base.SetUnitDescriptor(desc); }
 
         public override IEnumerable<Dependency> GetDefaultDependencies()
         {
@@ -58,6 +46,17 @@ namespace SharpInit.Units
                 yield return new RequirementDependency(left: UnitName, right: "basic.target", from: UnitName, type: RequirementDependencyType.Requires);
                 yield return new RequirementDependency(left: UnitName, right: "shutdown.target", from: UnitName, type: RequirementDependencyType.Conflicts);
             }
+        }
+
+        public bool CanRestartNow()
+        {
+            if (StartupThrottle.IsThrottled())
+            {
+                Log.Warn($"Service {UnitName} restarting too quickly: suppressing restarts from now on.");
+                RestartSuppressed = true;
+            }
+            
+            return !RestartSuppressed;
         }
 
         private void HandleProcessExit(object sender, ServiceProcessExitEventArgs e)
@@ -91,26 +90,26 @@ namespace SharpInit.Units
                     var should_restart = false;
 
                     if (e.ExitCode == 0)
-                        should_restart =
-                            Descriptor.Restart == RestartBehavior.Always ||
-                            Descriptor.Restart == RestartBehavior.OnSuccess;
+                        should_restart = Descriptor.Restart.HasFlag(RestartBehavior.CleanExit);
                     else
-                        should_restart =
-                            Descriptor.Restart == RestartBehavior.Always ||
-                            Descriptor.Restart == RestartBehavior.OnFailure ||
-                            Descriptor.Restart == RestartBehavior.OnAbnormal;
+                        should_restart = Descriptor.Restart.HasFlag(RestartBehavior.UncleanExit);
+                    
+                    should_restart = should_restart && CanRestartNow();
 
                     if(should_restart)
                     {
-                        var restart_transaction = new Transaction(
-                            new DelayTask(Descriptor.RestartSec),
-                            ServiceManager.Planner.CreateDeactivationTransaction(UnitName, "Unit is being restarted"),
-                            ServiceManager.Planner.CreateActivationTransaction(UnitName, "Unit is being restarted"));
-
-                        ServiceManager.Runner.Register(restart_transaction).Enqueue();
+                        ServiceManager.Runner.Register(GetRestartTransaction()).Enqueue();
                     }
                     break;
             }
+        }
+
+        protected Transaction GetRestartTransaction()
+        {
+            return new Transaction(
+                new DelayTask(Descriptor.RestartSec),
+                ServiceManager.Planner.CreateDeactivationTransaction(UnitName, "Unit is being restarted"),
+                ServiceManager.Planner.CreateActivationTransaction(UnitName, "Unit is being restarted"));
         }
 
         private void HandleProcessStart(object sender, ServiceProcessStartEventArgs e)
@@ -121,6 +120,8 @@ namespace SharpInit.Units
         internal override Transaction GetActivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for {this.UnitName}");
+
+            transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
             if (Descriptor.ServiceType != ServiceType.Oneshot && Descriptor.ExecStart?.Count != 1)
@@ -181,8 +182,7 @@ namespace SharpInit.Units
                 transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
             
             transaction.Add(new UpdateUnitActivationTimeTask(this));
-
-            transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
+            transaction.OnFailure = transaction.OnTimeout = new HandleFailureTask(this);
 
             return transaction;
         }
@@ -222,6 +222,54 @@ namespace SharpInit.Units
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Reloading));
 
             return transaction;
+        }
+
+        public class HandleFailureTask : Task
+        {
+            public override string Type => "handle-service-failure";
+            private ServiceUnit Unit { get; set; }
+
+            public HandleFailureTask(ServiceUnit unit)
+            {
+                Unit = unit;
+            }
+
+            public override TaskResult Execute(TaskContext context)
+            {
+                if (!context.Has<TaskResult>("failure"))
+                {   
+                    Unit.SetState(UnitState.Failed);
+                    return new TaskResult(this, ResultType.Success);
+                }
+
+                var result = context.Get<TaskResult>("failure");
+                bool should_restart = false;
+
+                if (result.Type.HasFlag(ResultType.Timeout))
+                    if (Unit.Descriptor.Restart.HasFlag(RestartBehavior.Timeout))        
+                        should_restart = true;
+                
+                if (result.Type.HasFlag(ResultType.Failure))
+                    if (Unit.Descriptor.Restart.HasFlag(RestartBehavior.UncleanExit))
+                        should_restart = true;
+
+                bool should_restart_actual = should_restart && Unit.CanRestartNow();
+
+                if (should_restart_actual)
+                {
+                    ServiceManager.Runner.Register(Unit.GetRestartTransaction()).Enqueue();
+                }
+                else
+                {
+                    if (should_restart)
+                        Unit.SetState(UnitState.Failed, $"{result.Message} (restart throttled)");
+                    else
+                        Unit.SetState(UnitState.Failed, result.Message);
+                    return new TaskResult(this, ResultType.Success);
+                }
+
+                return new TaskResult(this, ResultType.Success);
+            }
         }
     }
 }   

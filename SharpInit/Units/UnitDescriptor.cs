@@ -131,10 +131,10 @@ namespace SharpInit.Units
         #endregion
 
         #region Limiting properties
-        [UnitProperty("Unit/StartLimitIntervalSec", UnitPropertyType.Int, -1)]
-        public int StartLimitIntervalSec { get; set; }
+        [UnitProperty("Unit/StartLimitIntervalSec", UnitPropertyType.Time, "3s")]
+        public TimeSpan StartLimitIntervalSec { get; set; }
 
-        [UnitProperty("Unit/StartLimitBurst", UnitPropertyType.Int, -1)]
+        [UnitProperty("Unit/StartLimitBurst", UnitPropertyType.Int, 0)]
         public int StartLimitBurst { get; set; }
 
         [UnitProperty("Unit/StartLimitAction", UnitPropertyType.Enum, FailureOrSuccessAction.None, typeof(FailureOrSuccessAction))]
