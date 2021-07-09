@@ -62,7 +62,7 @@ namespace SharpInit.Platform.Unix
 
                 return mount;
             }
-            catch (Exception ex)
+            catch
             {
                 return null;
             }
@@ -90,7 +90,7 @@ namespace SharpInit.Platform.Unix
 
                 return mount;
             }
-            catch (Exception ex)
+            catch
             {
                 return null;
             }

@@ -119,12 +119,6 @@ namespace SharpInit.Tasks
                     execution.done.Set();
                 }
             }
-
-            while (TaskQueue.Any())
-            {
-                if (TaskQueue.TryDequeue(out TaskExecution exec))
-                    exec?.done?.Set();
-            }
         }
 
         public long GetNewIdentifier()

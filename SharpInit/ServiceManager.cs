@@ -51,11 +51,13 @@ namespace SharpInit
             Planner = new TransactionPlanner(this);
 
             Runner = new TaskRunner(this);
+
+            SocketManager = new SocketManager();
         }
 
         private void HandleUnitAdded(object sender, UnitAddedEventArgs e)
         {
-            e.Unit.UnitStateChange += PropagateStateChange;
+            e.Unit.UnitStateChanged += PropagateStateChange;
         }
 
         private void PropagateStateChange(object sender, UnitStateChangedEventArgs e) => UnitStateChanged?.Invoke(sender, e);

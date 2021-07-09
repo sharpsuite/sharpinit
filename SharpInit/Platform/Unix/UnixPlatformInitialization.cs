@@ -50,6 +50,7 @@ namespace SharpInit.Platform.Unix
         public override void LateInitialize()
         {
             base.LateInitialize();
+            UnixMountWatcher.ServiceManager = Program.ServiceManager;
             UnixMountWatcher.MountChanged += UnixMountWatcher.SynchronizeMountUnit;
             UnixMountWatcher.ParseFstab();
             UnixMountWatcher.StartWatching();

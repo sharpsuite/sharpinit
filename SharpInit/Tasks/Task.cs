@@ -12,9 +12,9 @@ namespace SharpInit.Tasks
     public abstract class Task
     {
         public TaskExecution Execution { get; internal set; }
-        public TaskRunner Runner => Execution.Runner;
-        public ServiceManager ServiceManager => Execution.ServiceManager;
-        public UnitRegistry Registry => Execution.Registry;
+        public TaskRunner Runner => Execution?.Runner;
+        public ServiceManager ServiceManager => Execution?.ServiceManager;
+        public UnitRegistry Registry => Execution?.Registry;
 
         public long Identifier { get; set; }
 

@@ -131,7 +131,6 @@ namespace SharpInit
             catch (Exception ex)
             {
                 throw new Exception($"Could not bind to socket \"{address}\" of type {property_name}", ex);
-                return null;
             }
 
             return socket;
@@ -210,7 +209,7 @@ namespace SharpInit
                     }
                     catch (Exception ex)
                     {
-                        throw;
+                        Log.Warn(ex);
                     }
                 }
             })).Start();
