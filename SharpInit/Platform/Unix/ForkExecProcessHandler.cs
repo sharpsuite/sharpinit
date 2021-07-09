@@ -7,6 +7,7 @@ using Mono.Unix;
 using Mono.Unix.Native;
 using System.IO;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 using SharpInit.Units;
 
@@ -14,12 +15,30 @@ using NLog;
 
 namespace SharpInit.Platform.Unix
 {
+    public unsafe struct forkhelper_t
+    {
+        public int stdin_fd;
+        public int stdout_fd;
+        public int stderr_fd;
+        public int control_fd;
+        public int semaphore_fd;
+        public int uid;
+        public int gid;
+        public string binary;
+        public string working_dir;
+        public byte** envp;
+        public byte** argv;
+    }
+
     /// <summary>
     /// An IProcessHandler that uses the fork() and exec() syscalls.
     /// </summary>
     [SupportedOn("unix")]
     public class ForkExecProcessHandler : IProcessHandler
     {
+        [DllImport("libforkhelper", EntryPoint = "augmented_fork", SetLastError = true)]
+        private static extern int augmented_fork(forkhelper_t args);
+
         static Logger Log = LogManager.GetCurrentClassLogger();
 
         public event OnProcessExit ProcessExit;
@@ -148,6 +167,10 @@ namespace SharpInit.Platform.Unix
             Action<int> close_if_open = (Action<int>)(fd => { if (close_inner(fd)) { opened_fds.Remove(fd); } });
             Action clear_fds = (Action)(delegate { Log.Info($"closing {opened_fds.Count} fds: {string.Join(',', opened_fds)}"); foreach (var fd in opened_fds) { close_if_open(fd); } });
 
+            var helper = new forkhelper_t();
+            var argv_c = -1;
+            var envp_c = -1;
+
             try {
                 if (!(psi.User is UnixUserIdentifier) && psi.User != null)
                     throw new InvalidOperationException();
@@ -220,135 +243,34 @@ namespace SharpInit.Platform.Unix
                 var stderr_w_ptr = new IntPtr(stderr_write);
                 var control_w_ptr = new IntPtr(control_write);
 
-    #pragma warning disable CS0618 // Type or member is obsolete
-                int fork_ret = Mono.Posix.Syscall.fork();
-    #pragma warning restore CS0618 // Type or member is obsolete
-
-                if (fork_ret == 0) // child process
+                helper = new forkhelper_t()
                 {
-                    try {
-                    int error = 0;
+                    binary = psi.Path,
+                    working_dir = psi.WorkingDirectory ?? Environment.CurrentDirectory,
+                    stdin_fd = stdin_read,
+                    stdout_fd = stdout_write,
+                    stderr_fd = stderr_write,
+                    control_fd = control_write,
+                    semaphore_fd = semaphore_read,
+                    gid = (int)user_identifier.GroupId,
+                    uid = (int)user_identifier.UserId
+                };
 
-                    close_if_open = (fd)=> { if (fd >= 0) { Syscall.close(fd);}};
+                var argv = new string[psi.Arguments.Length + 1];
+                Array.Copy(psi.Arguments, 0, argv, 1, psi.Arguments.Length);
+                argv[0] = psi.Path;
 
-                    close_if_open(stdin_write);
-                    close_if_open(stdout_read);
-                    close_if_open(stderr_read);
-                    close_if_open(control_read);
-                    close_if_open(semaphore_write);
-                    close_if_open(0);
-                    close_if_open(1);
-                    close_if_open(2);
+                var envp = psi.Environment.Select(p => $"{p.Key}={p.Value}").ToArray();
 
-                    Syscall.fcntl(control_write, FcntlCommand.F_SETFD, 1);
-
-                    var semaphore_wait_fds = new [] {new Pollfd() { fd = semaphore_read, events = PollEvents.POLLIN }};
-                    Syscall.poll(semaphore_wait_fds, 1, 500);
-
-                    if (!(semaphore_wait_fds[0].revents.HasFlag(PollEvents.POLLIN)))
-                        Syscall.exit(254);
-
-                    var control_w_stream = new UnixStream(control_write, false);
-                    var write_to_control = (Action<string>)(_ => control_w_stream.Write(Encoding.ASCII.GetBytes(_), 0, _.Length));
-
-                    write_to_control("starting\n");
-
-                    if (Syscall.setsid() < 0)
-                    {
-                        write_to_control($"setsid:{(int)Syscall.GetLastError()}\n");
-                        Syscall.exit(1);
-                    }
-
-                    while (Syscall.dup2(stdin_read, 0) == -1)
-                    {
-                        if (Syscall.GetLastError() == Errno.EINTR)
-                            continue;
-                        else
-                        {
-                            write_to_control($"dup2-stdin:{(int)Syscall.GetLastError()}\n");
-                            Syscall.exit(1);
-                        }
-                    }
-
-                    while (Syscall.dup2(stdout_write, 1) == -1)
-                    {
-                        if (Syscall.GetLastError() == Errno.EINTR)
-                            continue;
-                        else
-                        {
-                            write_to_control($"dup2-stdout:{(int)Syscall.GetLastError()}\n");
-                            Syscall.exit(1);
-                        }
-                    }
-
-                    while (Syscall.dup2(stderr_write, 2) == -1)
-                    {
-                        if (Syscall.GetLastError() == Errno.EINTR)
-                            continue;
-                        else
-                        {
-                            write_to_control($"dup2-stderr:{(int)Syscall.GetLastError()}\n");
-                            Syscall.exit(1);
-                        }
-                    }
-
-                    if ((error = Syscall.setgid(user_identifier.GroupId)) != 0)
-                    {
-                        write_to_control($"setgid:{(int)Syscall.GetLastError()}\n");
-                        Syscall.exit(1);
-                    }
-
-                    if ((error = Syscall.setuid(user_identifier.UserId)) != 0)
-                    {
-                        write_to_control($"setuid:{(int)Syscall.GetLastError()}\n");
-                        Syscall.exit(1);
-                    }
-
-                    if (psi.Environment != null)
-                    {
-                        if (psi.Environment.ContainsKey("LISTEN_PID") && psi.Environment["LISTEN_PID"] == "fill")
-                        {
-                            psi.Environment["LISTEN_PID"] = Syscall.getpid().ToString();
-
-                            if (psi.Environment.ContainsKey("LISTEN_FDNUMS"))
-                            {
-                                var fd_nums = psi.Environment["LISTEN_FDNUMS"].Split(':');
-                                
-                                for (int i = 0, fd = 3; i < fd_nums.Length; i++, fd++)
-                                {
-                                    var num_str = fd_nums[i];
-
-                                    if (int.TryParse(num_str, out int num))
-                                    {
-                                        Syscall.dup2(num, fd);
-                                    }
-                                }
-                            }
-                        }
-
-                        foreach (var env_var in psi.Environment) 
-                        {
-                            Environment.SetEnvironmentVariable(env_var.Key, env_var.Value);
-                        }
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(psi.WorkingDirectory))
-                        Syscall.chdir(psi.WorkingDirectory);
-
-                    if ((error = Syscall.execv(psi.Path, arguments)) != 0)
-                    {
-                        write_to_control($"execv:{(int)Syscall.GetLastError()}\n");
-                        Syscall.exit(1);
-                    }
-
-                    Syscall.exit(1);
-                    }
-                    catch (Exception ex)
-                    {
-                        Syscall.exit(66);
-                    }
+                unsafe
+                {
+                    AllocNullTerminatedArray(envp, ref helper.envp);
+                    envp_c = envp.Length;
+                    AllocNullTerminatedArray(argv, ref helper.argv);
+                    argv_c = argv.Length;
                 }
 
+                var fork_ret = augmented_fork(helper);
                 if(fork_ret < 0)
                 {
                     throw new InvalidOperationException($"fork() returned {fork_ret}, errno: {Syscall.GetLastError()}");
@@ -362,7 +284,6 @@ namespace SharpInit.Platform.Unix
                 close_if_open(control_write);
                 close_if_open(semaphore_read);
 
-                //var process = System.Diagnostics.Process.GetProcessById(fork_ret);
                 System.Diagnostics.Process process = null;
 
                 try { process = System.Diagnostics.Process.GetProcessById(fork_ret); } catch (Exception ex) { Log.Error(ex); }
@@ -377,13 +298,17 @@ namespace SharpInit.Platform.Unix
                 if (timeout == int.MaxValue || timeout == 0)
                     timeout = -1;
 
-                var poll_fds = new [] {new Pollfd() { fd = control_read, events = PollEvents.POLLIN }};
+                var poll_fds = new [] {new Pollfd() { fd = control_read, events = PollEvents.POLLIN | PollEvents.POLLHUP | PollEvents.POLLERR }};
 
-                var semaphore_write_stream = new Mono.Unix.UnixStream(semaphore_write, false); 
-                { semaphore_write_stream.WriteByte(0); }
+                int semaphore_start_chars = 1;
+                var buf = System.Runtime.InteropServices.Marshal.AllocHGlobal(semaphore_start_chars);
+
+                for (int i = 0; i < semaphore_start_chars; i++)
+                    System.Runtime.InteropServices.Marshal.WriteByte(buf + i, 0);
+                
+                Log.Debug($"wrote {Syscall.write(semaphore_write, buf, (ulong)semaphore_start_chars)} bytes");
 
                 Log.Debug($"sent sync signal for pid {fork_ret} startup");
-                //Syscall.write(new IntPtr(semaphore_write), )
 
                 if (Syscall.poll(poll_fds, 1, timeout) <= 0)
                 {
@@ -391,13 +316,16 @@ namespace SharpInit.Platform.Unix
                     throw new Exception($"pid {fork_ret} launch timed out");
                 }
 
-                Log.Debug($"pid {fork_ret} startup synchronized");
+                Log.Debug($"pid {fork_ret} startup synchronized, poll result: {poll_fds[0].revents}");
 
                 var starting_line = control_sr.ReadLine();
                 if(starting_line != "starting")
                     throw new Exception($"pid {fork_ret} expected \"starting\" message from control pipe, received \"{starting_line}\"");
 
                 Log.Debug($"read {starting_line} for pid {fork_ret} startup");
+
+                while (!control_sr.EndOfStream)
+                    Log.Debug($"next line: {control_sr.ReadLine()}");
 
                 if (!psi.WaitUntilExec)
                 {
@@ -448,14 +376,25 @@ namespace SharpInit.Platform.Unix
             finally
             {
                 clear_fds();
+
+                unsafe
+                {
+                    if (envp_c != -1)
+                        FreeArray(helper.envp, envp_c);
+                    
+                    if (argv_c != -1)
+                        FreeArray(helper.argv, argv_c);
+                }
             }
         }
 
         private void HandleProcessExit(int pid, int exit_code)
         {
-            
             if (!Processes.Contains(pid))
+            {
+                Log.Info($"Received process exit for untracked pid {pid} (code {exit_code})");
                 return;
+            }
 
             ProcessInfos[pid].HasExited = true;
             ProcessInfos[pid].ExitCode = exit_code;
@@ -463,6 +402,78 @@ namespace SharpInit.Platform.Unix
             Processes.Remove(pid);
             ProcessInfos.Remove(pid);
             ProcessExit?.Invoke(pid, exit_code);
+        }
+
+        // The following functions are copied from dotnet/runtime/src/libraries/Common/src/Interop/Unix/System.Native/Interop.ForkAndExecProcess.cs
+
+        /*  
+        
+            The MIT License (MIT)
+
+            Copyright (c) .NET Foundation and Contributors
+
+            All rights reserved.
+
+            Permission is hereby granted, free of charge, to any person obtaining a copy
+            of this software and associated documentation files (the "Software"), to deal
+            in the Software without restriction, including without limitation the rights
+            to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+            copies of the Software, and to permit persons to whom the Software is
+            furnished to do so, subject to the following conditions:
+
+            The above copyright notice and this permission notice shall be included in all
+            copies or substantial portions of the Software. 
+        
+        */
+        
+        private static unsafe void AllocNullTerminatedArray(string[] arr, ref byte** arrPtr)
+        {
+            int arrLength = arr.Length + 1; // +1 is for null termination
+
+            // Allocate the unmanaged array to hold each string pointer.
+            // It needs to have an extra element to null terminate the array.
+            arrPtr = (byte**)Marshal.AllocHGlobal(sizeof(IntPtr) * arrLength);
+            System.Diagnostics.Debug.Assert(arrPtr != null);
+
+            // Zero the memory so that if any of the individual string allocations fails,
+            // we can loop through the array to free any that succeeded.
+            // The last element will remain null.
+            for (int i = 0; i < arrLength; i++)
+            {
+                arrPtr[i] = null;
+            }
+
+            // Now copy each string to unmanaged memory referenced from the array.
+            // We need the data to be an unmanaged, null-terminated array of UTF8-encoded bytes.
+            for (int i = 0; i < arr.Length; i++)
+            {
+                byte[] byteArr = Encoding.UTF8.GetBytes(arr[i]);
+
+                arrPtr[i] = (byte*)Marshal.AllocHGlobal(byteArr.Length + 1); //+1 for null termination
+                System.Diagnostics.Debug.Assert(arrPtr[i] != null);
+
+                Marshal.Copy(byteArr, 0, (IntPtr)arrPtr[i], byteArr.Length); // copy over the data from the managed byte array
+                arrPtr[i][byteArr.Length] = (byte)'\0'; // null terminate
+            }
+        }
+        
+        private static unsafe void FreeArray(byte** arr, int length)
+        {
+            if (arr != null)
+            {
+                // Free each element of the array
+                for (int i = 0; i < length; i++)
+                {
+                    if (arr[i] != null)
+                    {
+                        Marshal.FreeHGlobal((IntPtr)arr[i]);
+                        arr[i] = null;
+                    }
+                }
+
+                // And then the array itself
+                Marshal.FreeHGlobal((IntPtr)arr);
+            }
         }
     }
 }
