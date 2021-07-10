@@ -14,8 +14,6 @@ namespace SharpInit.Units
 
         public static string GetUnitName(string path, bool with_parameter = false)
         {
-            path = path.Replace('\\', '/');
-
             var filename = Path.GetFileName(path);
             var filename_without_ext = Path.GetFileNameWithoutExtension(path);
 

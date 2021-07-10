@@ -9,6 +9,8 @@ namespace SharpInit.Platform.Unix
 {
     public class CGroupManager
     {
+        public static bool? Supported { get; set; }
+
         public Logger Log = LogManager.GetCurrentClassLogger();
 
         public string CGroupFSPath = "/sys/fs/cgroup";
@@ -30,7 +32,28 @@ namespace SharpInit.Platform.Unix
         public void UpdateRoot(CGroup cgroup = null)
         {
             if (cgroup == null)
-                RootCGroup = GetCGroup(File.ReadAllText("/proc/self/cgroup").TrimStart('0', ':').Trim());
+            {
+                if (!File.Exists("/proc/self/cgroup"))
+                {
+                    Log.Warn($"/proc/self/cgroup does not exist, disabling cgroup support.");
+                    RootCGroup = null;
+                    Supported = false;
+                    return;
+                }
+
+                var cgroup_path = File.ReadAllText("/proc/self/cgroup");
+
+                if (!cgroup_path.StartsWith("0::"))
+                {
+                    Log.Warn($"/proc/self/cgroup returned unrecognized cgroup name (are cgroups v2? v1 is unsupported): \"{StringEscaper.Truncate(cgroup_path.Replace("\n", "\\n"), 30)}\"");
+                    RootCGroup = null;
+                    Supported = false;
+                    return;
+                }
+
+                Supported = true;
+                RootCGroup = GetCGroup(cgroup_path.TrimStart('0', ':').Trim());
+            }
             else
                 RootCGroup = cgroup;
             
@@ -44,6 +67,9 @@ namespace SharpInit.Platform.Unix
 
         private CGroup CreateCGroup(string relative_path, bool path_is_relative = true)
         {
+            if (Supported == false)
+                throw new NotSupportedException();
+
             if (RootCGroup?.Exists != true)
                 throw new Exception("Root cgroup does not exist");
 
@@ -60,6 +86,9 @@ namespace SharpInit.Platform.Unix
 
         private void InitializeCGroup(CGroup cgroup)
         {
+            if (Supported == false)
+                throw new NotSupportedException();
+            
             var parent_path = Path.GetDirectoryName(cgroup.Path);
             CGroup parent = null;
 
@@ -78,12 +107,6 @@ namespace SharpInit.Platform.Unix
                 if (!cgroup.Exists)
                     Directory.CreateDirectory(cgroup.FileSystemPath);
                 
-                //if (cgroup.Type != "domain threaded" && cgroup.Type != "threaded")
-                    //cgroup.Write("cgroup.type", "threaded");
-                
-                //foreach (var controller in RootCGroup.AvailableControllers)
-                    //cgroup.Write("cgroup.subtree_control", $"+{controller}");
-                
                 cgroup.Update();
             } 
             catch (Exception ex) 
@@ -97,6 +120,9 @@ namespace SharpInit.Platform.Unix
 
         private CGroup GetExistingCGroup(string relative_path, bool path_is_relative = true)
         {
+            if (Supported == false)
+                throw new NotSupportedException();
+            
             var absolute_path = path_is_relative ? RootCGroup.Path + relative_path : relative_path;
             var cgroup = new CGroup(this, absolute_path);
 
@@ -108,7 +134,11 @@ namespace SharpInit.Platform.Unix
 
         public CGroup GetCGroup(string absolute_path, bool create_if_missing = true)
         {
-            Log.Info($"Asked for cgroup {absolute_path}");
+            if (Supported == false)
+                throw new NotSupportedException();
+            
+            if (absolute_path == "/")
+                absolute_path = "";
 
             if (CGroups.ContainsKey(absolute_path))
                 return CGroups[absolute_path];
@@ -124,6 +154,9 @@ namespace SharpInit.Platform.Unix
 
         public bool JoinProcess(CGroup cgroup, int pid)
         {
+            if (Supported == false)
+                return false;
+
             if (!cgroup.ManagedByUs)
                 return false;
 
@@ -145,40 +178,6 @@ namespace SharpInit.Platform.Unix
         {
             Log.Debug($"{text} > {path}");
             try { File.WriteAllText(path, text); return text.Length; } catch (Exception ex) { Log.Warn(ex); return -1; }
-
-            var fd = Mono.Unix.Native.Syscall.open(path, Mono.Unix.Native.OpenFlags.O_WRONLY | Mono.Unix.Native.OpenFlags.O_TRUNC | Mono.Unix.Native.OpenFlags.O_CREAT, (Mono.Unix.Native.FilePermissions)438);
-
-            if (fd < 0)
-                return (int)Mono.Unix.Native.Syscall.GetLastError();
-
-            try 
-            {
-                text += "\n";
-
-                var bytes = System.Text.Encoding.ASCII.GetBytes(path);
-                var buf = System.Runtime.InteropServices.Marshal.AllocHGlobal(bytes.Length);
-                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, buf, bytes.Length);
-
-                var written = (int)Mono.Unix.Native.Syscall.write(fd, buf, (ulong)bytes.Length);
-
-                if (written != bytes.Length)
-                {
-                    Log.Warn($"errno: {Mono.Unix.Native.Syscall.GetLastError()}");
-                }
-                
-                Log.Debug($"Wrote \"{text}\" to {path}: {written} bytes");
-                return written;
-            }
-            catch (Exception ex)
-            {
-                Log.Warn(ex, $"Failed to write to path {path}");
-                return -1;
-            }
-            finally
-            {
-                if (fd >= 0)
-                    Mono.Unix.Native.Syscall.close(fd);
-            }
         }
     }
 
@@ -189,7 +188,7 @@ namespace SharpInit.Platform.Unix
         public CGroupManager Manager { get; private set; }
 
         public string Path { get; private set; }
-        public string RelativePath => Manager?.RootCGroup == null ? Path : ("/" + System.IO.Path.GetRelativePath(Manager.RootCGroup.Path, Path));
+        public string RelativePath => Manager?.RootCGroup == null ? Path : this == Manager.RootCGroup ? "/" : ("/" + System.IO.Path.GetRelativePath(Manager.RootCGroup.Path, Path));
         public string FileSystemPath => Manager.CGroupFSPath + Path;
         public bool Exists => Directory.Exists(FileSystemPath);
 
@@ -210,9 +209,6 @@ namespace SharpInit.Platform.Unix
 
         public CGroup(CGroupManager manager, string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
-                throw new Exception($"Invalid cgroup path {path}");
-            
             Manager = manager;
 
             Path = path;
@@ -229,6 +225,64 @@ namespace SharpInit.Platform.Unix
 
         public bool Join(int pid) => Manager.JoinProcess(this, pid);
 
+        public static int GetPPid(int pid)
+        {
+            try 
+            {
+                if (!Directory.Exists($"/proc/{pid}"))
+                    return -1;
+                
+                var stat_contents = File.ReadAllText($"/proc/{pid}/stat");
+
+                int braces_level = 0;
+                bool started_comm = false;
+
+                for (int i = 0; i < stat_contents.Length; i++)
+                {
+                    if (stat_contents[i] == '(')
+                    {
+                        braces_level++;
+                        started_comm = true;
+                    }
+                    else if (stat_contents[i] == ')')
+                        braces_level--;
+                    
+                    if (started_comm && braces_level == 0)
+                    {
+                        var ppid_str = "";
+
+                        int k = i;
+                        while (!char.IsDigit(stat_contents[++k]))
+                            continue;
+                        
+                        while (char.IsDigit(stat_contents[k]))
+                            ppid_str += stat_contents[k++];
+                        
+                        return int.Parse(ppid_str);
+                    }
+                }
+
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, $"Failed to obtain ppid for pid {pid}");
+                return -1;
+            }
+        }
+
+        public bool EnableController(string controller)
+        {
+            if (!AvailableControllers.Contains(controller))
+                return false;
+            
+            if (ChildProcesses.Any())
+                return false;
+            
+            Write("cgroup.subtree_control", $"+{controller}");
+            return true;
+        }
+
         public void Update()
         {
             try
@@ -240,13 +294,17 @@ namespace SharpInit.Platform.Unix
                 AvailableControllers.Clear();
                 Controllers.Clear();
 
-                Type = File.ReadAllText($"{FileSystemPath}/cgroup.type").Trim();
+                if (Path == "" || Path == "/")
+                    Type = "domain";
+                else
+                    Type = File.ReadAllText($"{FileSystemPath}/cgroup.type").Trim();
 
                 ChildProcesses.AddRange(
                     File.ReadAllText($"{FileSystemPath}/{(Threaded ? "cgroup.threads":"cgroup.procs")}")
                     .Split(new [] { ' ', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Where(pid => int.TryParse(pid, out int _))
                     .Select(int.Parse)
+                    .Where(pid => pid != 2 && GetPPid(pid) != 2)
                     .Distinct());
                 
                 ChildCGroups.AddRange(Directory.GetDirectories(FileSystemPath).Select(d => d.Substring(Manager.CGroupFSPath.Length)));
@@ -258,6 +316,7 @@ namespace SharpInit.Platform.Unix
             }
             catch (Exception ex)
             {
+                Log.Warn(ex);
                 Log.Warn(ex, $"Failed to parse cgroup info for cgroup {Path}");
 
                 Children.Clear();
@@ -272,28 +331,23 @@ namespace SharpInit.Platform.Unix
 
             var lines = new List<string>();
 
-            lines.Add(System.IO.Path.GetFileName(Path));
+            lines.Add(Path == "/" ? "-.slice" : System.IO.Path.GetFileName(Path));
 
             foreach (var child_cgroup in ChildCGroups)
             {
                 var subtree = Manager.GetCGroup(child_cgroup).Walk();
 
-                //if (subtree.Length == 1 && !ChildProcesses.Any())
-                    //lines.Add($"└─{subtree[0]}");
-                //else
+                if (child_cgroup == ChildCGroups.Last() && !ChildProcesses.Any())
                 {
-                    if (child_cgroup == ChildCGroups.Last() && !ChildProcesses.Any())
-                    {
-                        lines.Add($"└─{subtree[0]}");
-                        for (int i = 1; i < subtree.Length; i++)
-                            lines.Add($"  {subtree[i]}");
-                    }
-                    else
-                    {
-                        lines.Add($"├─{subtree[0]}");
-                        for (int i = 1; i < subtree.Length; i++)
-                            lines.Add($"│ {subtree[i]}");
-                    }
+                    lines.Add($"└─{subtree[0]}");
+                    for (int i = 1; i < subtree.Length; i++)
+                        lines.Add($"  {subtree[i]}");
+                }
+                else
+                {
+                    lines.Add($"├─{subtree[0]}");
+                    for (int i = 1; i < subtree.Length; i++)
+                        lines.Add($"│ {subtree[i]}");
                 }
             }
 

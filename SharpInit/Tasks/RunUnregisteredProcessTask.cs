@@ -43,6 +43,11 @@ namespace SharpInit.Tasks
 
             try
             {
+                if (ProcessStartInfo?.Unit?.CGroup?.Exists == true)
+                {
+                    ProcessStartInfo.CGroup = ProcessStartInfo.Unit.CGroup;
+                }
+
                 var process = ProcessHandler.Start(ProcessStartInfo);
 
                 if (ExecutionTime == TimeSpan.Zero)

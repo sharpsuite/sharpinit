@@ -150,6 +150,10 @@ namespace SharpInit
         public List<string> GetJournal(string journal, int lines)
         {
             var entries = ServiceManager.Journal.Tail(journal, lines);
+
+            if (!entries.Any())
+                return new List<string>();
+
             var longest_source_length = entries.Max(e => e.Source.Length);
             var max_allowed_source_length = 30;
 

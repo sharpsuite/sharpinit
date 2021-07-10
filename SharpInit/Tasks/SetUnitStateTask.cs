@@ -56,7 +56,7 @@ namespace SharpInit.Tasks
             return new TaskResult(this, ResultType.Success);
         }
 
-        private string PrintUnitState(UnitState state)
+        public static string PrintUnitState(UnitState state)
         {
             if (state == UnitState.Any)
                 return "any";

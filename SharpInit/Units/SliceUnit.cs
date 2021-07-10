@@ -84,6 +84,7 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for slice {UnitName}");
 
+            transaction.Add(new CheckUnitStateTask(UnitState.Active, UnitName, stop: true, reverse: true));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating));
             transaction.Add(new AllocateSliceTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
@@ -96,7 +97,8 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for slice {UnitName}");
 
-            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
+            transaction.Add(new CheckUnitStateTask(UnitState.Inactive, UnitName, stop: true, reverse: true));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
             return transaction;

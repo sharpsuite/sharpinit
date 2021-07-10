@@ -40,10 +40,10 @@ namespace SharpInit.Units
 
             IEnumerable<RequirementDependency> req_graph = null;
             
-            while (!(req_graph = Registry.RequirementDependencies.TraverseDependencyGraph(
+            while ((req_graph = Registry.RequirementDependencies.TraverseDependencyGraph(
                 unit.UnitName, 
                 t => t.RequirementType != RequirementDependencyType.Conflicts && t.RequirementType != RequirementDependencyType.PartOf, 
-                add_reverse: false)).SequenceEqual(visited_dependencies))
+                add_reverse: false)).Count() != visited_dependencies.Count)
             {
                 // list all units to be started
                 foreach(var dependency in req_graph)

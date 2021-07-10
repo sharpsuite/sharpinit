@@ -196,7 +196,10 @@ namespace SharpInit.Tasks
             if (task.Identifier == 0)
                 task.Identifier = GetNewIdentifier();
 
-            Tasks[task.Identifier] = task;
+            lock(Tasks)
+            {
+                Tasks[task.Identifier] = task;
+            }
 
             var exec = new TaskExecution(this, task, context);
             exec.State = TaskExecutionState.Registered;

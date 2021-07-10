@@ -67,8 +67,9 @@ namespace SharpInit
             if (PlatformUtilities.CurrentlyOn("linux"))
             {
                 CGroupManager = new CGroupManager(this);
-                InitializeCGroups();
             }
+            else
+                CGroupManager.Supported = false;
         }
 
         public void MoveToScope(string scope)
@@ -83,7 +84,6 @@ namespace SharpInit
             }
 
             Scope = Registry.GetUnit<ScopeUnit>(scope);
-            //Scope.ParentSlice = "-.slice";
 
             Runner.Register(Planner.CreateActivationTransaction(Scope)).Enqueue().Wait();
 
@@ -95,10 +95,12 @@ namespace SharpInit
             CGroupManager.RootCGroup.Update();
 
             if (CGroupManager.RootCGroup.ChildProcesses.Any())
-                throw new Exception($"Failed!");
+            {
+                Log.Error($"Some processes remain in the root cgroup! Continuing regardless, but this may be critical.");
+            }
         }
 
-        private void InitializeCGroups()
+        public void InitializeCGroups()
         {
             if (!PlatformUtilities.CurrentlyOn("linux"))
                 return;
@@ -107,6 +109,12 @@ namespace SharpInit
                 return;
 
             CGroupManager.UpdateRoot();
+
+            if (CGroupManager.Supported == false)
+            {
+                Log.Info($"cgroups unsupported");
+                return;
+            }
 
             if (UnixPlatformInitialization.UnderSystemd)
             {
@@ -126,7 +134,8 @@ namespace SharpInit
                         var psi = new System.Diagnostics.ProcessStartInfo("/usr/bin/systemd-run");
 
                         psi.FileName = "/usr/bin/systemd-run";
-                        psi.ArgumentList.Add("-p Delegate=yes");
+                        psi.ArgumentList.Add("-p");
+                        psi.ArgumentList.Add("Delegate=yes");
                         psi.ArgumentList.Add("--scope");
                         psi.ArgumentList.Add(sharpinitctl_location); 
                         psi.ArgumentList.Add("join-manager-to-current-cgroup");
@@ -153,6 +162,24 @@ namespace SharpInit
                     else
                     {
                         Log.Info($"cgroup support enabled, root cgroup is: {CGroupManager.RootCGroup}");
+                    }
+                }
+            }
+            else
+            {
+                if (UnixPlatformInitialization.IsPrivileged)
+                {
+                    if (CGroupManager.RootCGroup.Path == "/")
+                    {
+                        Log.Info($"We are in the root cgroup");
+                    }
+
+                    CGroupManager.MarkCGroupWritable(CGroupManager.RootCGroup);
+
+                    if (CGroupManager.CanCreateCGroups())
+                    {
+                        MoveToScope("init.scope");
+                        CGroupManager.RootCGroup.EnableController("pids");
                     }
                 }
             }

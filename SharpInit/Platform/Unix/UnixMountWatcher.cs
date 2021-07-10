@@ -63,6 +63,8 @@ namespace SharpInit.Platform.Unix
         {
             ParseMounts();
 
+            /* This seems to be broken.
+
             var mount_fd = Syscall.open("/proc/self/mountinfo", OpenFlags.O_RDONLY);
             var poll_fd = new Pollfd();
 
@@ -77,6 +79,12 @@ namespace SharpInit.Platform.Unix
             {
                 if ((poll_fd.revents & poll_fd.events) > 0)
                     ParseMounts();
+            } */
+
+            while (true)
+            {
+                System.Threading.Thread.Sleep(10000);
+                ParseMounts();
             }
         }
 

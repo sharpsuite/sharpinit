@@ -82,6 +82,8 @@ namespace SharpInit
 
                     Log.Info($"Listening on {IpcListener.SocketEndPoint}");
 
+                    ServiceManager.InitializeCGroups();
+
                     if (!args.Any(a => a == "--no-activate-default")) 
                     {
                         ActivateUnitIfExists("default.target");

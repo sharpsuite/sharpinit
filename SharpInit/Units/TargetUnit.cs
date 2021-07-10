@@ -36,6 +36,7 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for unit {UnitName}");
 
+            transaction.Add(new CheckUnitStateTask(UnitState.Active, UnitName, stop: true, reverse: true));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating));
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
@@ -47,7 +48,8 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for unit {UnitName}");
 
-            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
+            transaction.Add(new CheckUnitStateTask(UnitState.Inactive, UnitName, stop: true, reverse: true));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
             return transaction;

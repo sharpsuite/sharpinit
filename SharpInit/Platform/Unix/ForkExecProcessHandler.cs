@@ -160,12 +160,12 @@ namespace SharpInit.Platform.Unix
         public ProcessInfo Start(ProcessStartInfo psi)
         {
             HashSet<int> opened_fds = new HashSet<int>();
-            Action<int> register_fd = (Action<int>)(fd => { Log.Info($"asked to register fd {fd}"); if (fd > 0) { opened_fds.Add(fd); } });
+            Action<int> register_fd = (Action<int>)(fd => { if (fd > 0) { opened_fds.Add(fd); } });
             Action<int, int> register_fd_pair = (Action<int, int>)((a, b) => { register_fd(a); register_fd(b); });
             Action<IEnumerable<int>> register_fds = (Action<IEnumerable<int>>)(fds => { foreach (var fd in fds) { register_fd(fd); } });
-            Func<int, bool> close_inner = (Func<int, bool>)(fd => { Log.Info($"asked to close fd {fd}"); if (fd >= 0) { var close_ret = Syscall.close(fd); if(close_ret == 0) { return true; } Log.Warn($"close returned {close_ret} for {fd}, errno: {Syscall.GetLastError()}"); return true; } else { return false; } });
+            Func<int, bool> close_inner = (Func<int, bool>)(fd => { if (fd >= 0) { var close_ret = Syscall.close(fd); if(close_ret == 0) { return true; } Log.Warn($"close returned {close_ret} for {fd}, errno: {Syscall.GetLastError()}"); return true; } else { return false; } });
             Action<int> close_if_open = (Action<int>)(fd => { if (close_inner(fd)) { opened_fds.Remove(fd); } });
-            Action clear_fds = (Action)(delegate { Log.Info($"closing {opened_fds.Count} fds: {string.Join(',', opened_fds)}"); foreach (var fd in opened_fds) { close_if_open(fd); } });
+            Action clear_fds = (Action)(delegate { foreach (var fd in opened_fds) { close_if_open(fd); } });
 
             var helper = new forkhelper_t();
             var argv_c = -1;
@@ -304,6 +304,8 @@ namespace SharpInit.Platform.Unix
                 try { process = System.Diagnostics.Process.GetProcessById(fork_ret); } catch (Exception ex) { Log.Error(ex); }
 
                 var process_info = new ProcessInfo(process) { ProcessHandler = this };
+                Processes.Add(fork_ret);
+                ProcessInfos[fork_ret] = process_info;
 
                 var control_stream = new Mono.Unix.UnixStream(control_read, false);
                 var control_sr = new StreamReader(control_stream);
@@ -344,8 +346,6 @@ namespace SharpInit.Platform.Unix
 
                 if (!psi.WaitUntilExec)
                 {
-                    Processes.Add(fork_ret);
-                    ProcessInfos[fork_ret] = process_info;
                     return process_info;
                 }
 
@@ -368,8 +368,6 @@ namespace SharpInit.Platform.Unix
                 {
                     if (control_data.Length == 0) // no further control info, so assume exec worked
                     {
-                        Processes.Add(fork_ret);
-                        ProcessInfos[fork_ret] = process_info;
                         return process_info;
                     }
                     else 
@@ -379,8 +377,6 @@ namespace SharpInit.Platform.Unix
                     }
                 }
 
-                Processes.Add(fork_ret);
-                ProcessInfos[fork_ret] = process_info;
                 return process_info;
             }
             catch
