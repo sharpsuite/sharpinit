@@ -19,8 +19,8 @@ sharpinit is not ready for production use!
       - [x] target units
       - [x] service units
       - [x] socket units
-      - [ ] slice units
-      - [ ] scope units
+      - [x] slice units
+      - [x] scope units
       - [ ] timer units
     - [ ] Handle cgroups and namespace isolation for processes
     - [x] Adopt orphaned processes and reap them
