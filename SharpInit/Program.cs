@@ -21,7 +21,7 @@ namespace SharpInit
 
         static Logger Log = LogManager.GetCurrentClassLogger();
         static IpcListener IpcListener { get; set; }
-        public static ServiceManager ServiceManager { get; private set;}
+        public static ServiceManager ServiceManager { get; private set; }
         public static async Task Main(string[] args)
         {
             var done = new ManualResetEventSlim(false);

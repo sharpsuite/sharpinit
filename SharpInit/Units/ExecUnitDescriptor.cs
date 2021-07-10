@@ -81,5 +81,10 @@ namespace SharpInit.Units
         [UnitProperty("@/@", UnitPropertyType.Bool)]
         public bool TtyVHangup { get; set; }
         [UnitProperty("@/@", UnitPropertyType.Bool)]
-        public bool TtyVtDisallocate { get; set; }}
+        public bool TtyVtDisallocate { get; set; }
+        
+        
+        [UnitProperty("@/@", UnitPropertyType.String, "system.slice")]
+        public string Slice { get; set; }
+    }
 }

@@ -27,7 +27,9 @@ namespace SharpInitControl
             {"load", LoadUnit },
             {"journal", GetJournal},
             {"enable", InstallUnits},
-            {"disable", UninstallUnits}
+            {"disable", UninstallUnits},
+            {"join-manager-to-current-cgroup", JoinCGroup},
+            {"service-manager-pid", PrintServiceManagerPid}
         };
 
         static IpcConnection Connection { get; set; }
@@ -51,6 +53,43 @@ namespace SharpInitControl
             Commands[verb](verb, args.Skip(1).ToArray());
             
             Environment.Exit(0);
+        }
+
+        static void PrintServiceManagerPid(string verb, string[] args) => Console.WriteLine(Context.GetServiceManagerProcessId());
+
+        static void JoinCGroup(string verb, string[] args)
+        {
+            string target_cgroup = "";
+
+            if (!args.Any())
+            {
+                target_cgroup = File.ReadAllText("/proc/self/cgroup");
+            }
+            else
+                target_cgroup = args.First();
+            
+            target_cgroup = target_cgroup.Trim();
+            target_cgroup = target_cgroup.TrimStart(':', '0');
+            
+            var manager_pid = Context.GetServiceManagerProcessId();
+            var manager_uid = Mono.Unix.UnixFileSystemInfo.GetFileSystemEntry($"/proc/{manager_pid}").OwnerUserId;
+            var manager_gid = Mono.Unix.UnixFileSystemInfo.GetFileSystemEntry($"/proc/{manager_pid}").OwnerGroupId;
+
+            Console.Write($"Moving to cgroup {target_cgroup}...");
+
+            try 
+            { 
+                var psi = new System.Diagnostics.ProcessStartInfo("/usr/bin/chown", $"-R {manager_uid}:{manager_gid} /sys/fs/cgroup{target_cgroup}");
+                System.Diagnostics.Process.Start(psi).WaitForExit();
+
+                File.WriteAllText($"/sys/fs/cgroup{target_cgroup}/cgroup.procs", manager_pid.ToString()); 
+                Console.WriteLine(Context.MoveToCGroup(target_cgroup) ? "success" : "error");
+            } 
+            catch (Exception ex) 
+            { 
+                Console.WriteLine("error"); 
+                Console.WriteLine(ex);
+            }
         }
 
         static void GetJournal(string verb, string[] args)
@@ -169,6 +208,21 @@ namespace SharpInitControl
                 Console.WriteLine($"State change reason: {status.StateChangeReason}");
             }
 
+            Console.Write($"CGroup: ");
+
+            var offset = Console.CursorLeft;
+
+            foreach (var line in status.ProcessTree)
+            {
+                Console.CursorLeft = offset;
+                string l = line;
+
+                if (l.Length > (Console.WindowWidth - Console.CursorLeft))
+                    l = l.Substring(0, (Console.WindowWidth - (Console.CursorLeft + 3))) + "...";
+
+                Console.WriteLine(l);
+            }
+            
             Console.WriteLine();
 
             foreach (var line in status.LogLines)

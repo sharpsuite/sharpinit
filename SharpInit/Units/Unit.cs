@@ -1,4 +1,6 @@
 ﻿using SharpInit.Tasks;
+using SharpInit.Platform.Unix;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +26,10 @@ namespace SharpInit.Units
         public SocketManager SocketManager => ServiceManager.SocketManager;
 
         public ServiceManager ServiceManager { get; set; }
+
+        public string ParentSlice { get; set; }
+
+        public CGroup CGroup { get; set; }
 
         public event OnUnitConfigurationChanged ConfigurationChanged;
         public event OnUnitStateChanged UnitStateChanged;
@@ -127,7 +133,14 @@ namespace SharpInit.Units
         }
 
         public virtual IEnumerable<Dependency> GetDefaultDependencies() => new Dependency[0];
-        public virtual IEnumerable<Dependency> GetImplicitDependencies() => new Dependency[0];
+        public virtual IEnumerable<Dependency> GetImplicitDependencies()
+        {
+            if (!string.IsNullOrWhiteSpace(ParentSlice) && ParentSlice != UnitName)
+            {
+                yield return new OrderingDependency(left: UnitName, right: ParentSlice, from: UnitName, type: OrderingDependencyType.After);
+                yield return new RequirementDependency(left: UnitName, right: ParentSlice, from: UnitName, type: RequirementDependencyType.Requires);
+            }
+        }
 
         private void AddDependencies()
         {

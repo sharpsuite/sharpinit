@@ -33,7 +33,15 @@ namespace SharpInit.Units
         }
 
         public override UnitDescriptor GetUnitDescriptor() => Descriptor;
-        public override void SetUnitDescriptor(UnitDescriptor desc) { Descriptor = (ServiceUnitDescriptor)desc; base.SetUnitDescriptor(desc); }
+        public override void SetUnitDescriptor(UnitDescriptor desc) 
+        { 
+            Descriptor = (ServiceUnitDescriptor)desc; 
+
+            if (string.IsNullOrWhiteSpace(ParentSlice))
+                ParentSlice = Descriptor.Slice; // This is sticky (if set once, can't be unset)
+
+            base.SetUnitDescriptor(desc); 
+        }
 
         public override IEnumerable<Dependency> GetDefaultDependencies()
         {
@@ -108,8 +116,8 @@ namespace SharpInit.Units
         {
             return new Transaction(
                 new DelayTask(Descriptor.RestartSec),
-                ServiceManager.Planner.CreateDeactivationTransaction(UnitName, "Unit is being restarted"),
-                ServiceManager.Planner.CreateActivationTransaction(UnitName, "Unit is being restarted"));
+                ServiceManager.Planner.CreateDeactivationTransaction(UnitName, $"{UnitName} is being restarted"),
+                ServiceManager.Planner.CreateActivationTransaction(UnitName, $"{UnitName} is being restarted"));
         }
 
         private void HandleProcessStart(object sender, ServiceProcessStartEventArgs e)
@@ -130,6 +138,8 @@ namespace SharpInit.Units
                 SetState(UnitState.Failed, $"\"{Descriptor.ServiceType}\" service has more than one ExecStart");
                 return null;       
             }
+            
+            transaction.Add(new AllocateSliceTask(this));
 
             if (!string.IsNullOrWhiteSpace(Descriptor.TtyPath))
             {

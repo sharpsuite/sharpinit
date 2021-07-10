@@ -278,6 +278,21 @@ namespace SharpInit.Platform.Unix
 
                 Log.Info($"Process started with pid {fork_ret}, path: {psi.Path}, args: [{string.Join(',', psi.Arguments.Select(arg => $"\"{arg}\""))}]");
 
+                if (psi.CGroup != null)
+                {
+                    if (!psi.CGroup.ManagedByUs)
+                    {
+                        Log.Warn($"pid {fork_ret} is to be joined to cgroup {psi.CGroup}, but the cgroup is not managed by us! Process won't be joined.");
+                    }
+                    else
+                    {
+                        if (!psi.CGroup.Join(fork_ret))
+                        {
+                            throw new Exception($"Failed to join pid {fork_ret} to cgroup {psi.CGroup}");
+                        }
+                    }
+                }
+
                 close_if_open(stdin_read);
                 close_if_open(stdout_write);
                 close_if_open(stderr_write);

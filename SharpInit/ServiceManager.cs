@@ -1,4 +1,5 @@
 ﻿using SharpInit.Platform;
+using SharpInit.Platform.Unix;
 using SharpInit.Units;
 using SharpInit.Tasks;
 
@@ -6,11 +7,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
+
+using NLog;
 
 namespace SharpInit
 {
     public class ServiceManager
     {
+        Logger Log = LogManager.GetCurrentClassLogger();
+
         public event OnUnitStateChanged UnitStateChanged;
         public event OnServiceProcessExit ServiceProcessExit;
         public event OnServiceProcessStart ServiceProcessStart;
@@ -25,9 +31,13 @@ namespace SharpInit
         public TaskRunner Runner { get; set; }
         public TransactionPlanner Planner { get; set; }
 
+        public ScopeUnit Scope { get; set; }
+
         public Journal Journal;
 
         public IProcessHandler ProcessHandler;
+
+        public CGroupManager CGroupManager { get; private set; }
         
         public ServiceManager() :
             this(PlatformUtilities.GetImplementation<IProcessHandler>())
@@ -53,6 +63,99 @@ namespace SharpInit
             Runner = new TaskRunner(this);
 
             SocketManager = new SocketManager();
+
+            if (PlatformUtilities.CurrentlyOn("linux"))
+            {
+                CGroupManager = new CGroupManager(this);
+                InitializeCGroups();
+            }
+        }
+
+        public void MoveToScope(string scope)
+        {
+            if (Scope != null)
+                return;
+
+            if (Registry.GetUnit(scope) == null)
+            {
+                var unit_file = new GeneratedUnitFile(scope, destroy_on_reload: false).WithProperty("Scope/Slice", "-.slice");
+                Registry.IndexUnitFile(unit_file);
+            }
+
+            Scope = Registry.GetUnit<ScopeUnit>(scope);
+            //Scope.ParentSlice = "-.slice";
+
+            Runner.Register(Planner.CreateActivationTransaction(Scope)).Enqueue().Wait();
+
+            var pids = CGroupManager.RootCGroup.ChildProcesses;
+
+            foreach (var pid in pids)
+                Scope.CGroup.Join(pid);
+            
+            CGroupManager.RootCGroup.Update();
+
+            if (CGroupManager.RootCGroup.ChildProcesses.Any())
+                throw new Exception($"Failed!");
+        }
+
+        private void InitializeCGroups()
+        {
+            if (!PlatformUtilities.CurrentlyOn("linux"))
+                return;
+            
+            if (CGroupManager.CanCreateCGroups())
+                return;
+
+            CGroupManager.UpdateRoot();
+
+            if (UnixPlatformInitialization.UnderSystemd)
+            {
+                if (UnixPlatformInitialization.IsPrivileged)
+                {
+                    Log.Info($"Running under systemd with root privileges. Allocating Delegate=yes cgroup...");
+
+                    var sharpinitctl_location = "/usr/bin/sharpinitctl";
+                    if (!File.Exists(sharpinitctl_location))
+                    {
+                        Log.Warn($"Could not find sharpinitctl at {sharpinitctl_location}. Please make it available at that path for automatic cgroup setup.");
+                        Log.Warn($"To manually enable cgroup support for this SharpInit instance, run 'sharpinitctl join-manager-to-current-cgroup' in a Delegate=yes scope unit.");
+                    }
+                    else
+                    {
+                        // TODO: do this over dbus
+                        var psi = new System.Diagnostics.ProcessStartInfo("/usr/bin/systemd-run");
+
+                        psi.FileName = "/usr/bin/systemd-run";
+                        psi.ArgumentList.Add("-p Delegate=yes");
+                        psi.ArgumentList.Add("--scope");
+                        psi.ArgumentList.Add(sharpinitctl_location); 
+                        psi.ArgumentList.Add("join-manager-to-current-cgroup");
+                        
+                        System.Diagnostics.Process.Start(psi)?.WaitForExit();
+
+                        if (CGroupManager.CanCreateCGroups())
+                        {
+                            Log.Info($"Successfully acquired cgroup from systemd: {CGroupManager.RootCGroup}");
+                        }
+                        else
+                        {
+                            Log.Warn($"Failed to acquire cgroup from systemd. cgroups will not be used.");
+                        }
+                    }
+                }
+                else
+                {
+                    if (!CGroupManager.CanCreateCGroups())
+                    {
+                        Log.Info($"Running under systemd, but SharpInit is unprivileged. Run 'sharpinitctl join-manager-to-current-cgroup' before starting any SharpInit units in a Delegate=yes systemd scope to enable cgroup support.");
+                        Log.Info("After starting any SharpInit units, cgroup support cannot be enabled again.");
+                    }
+                    else
+                    {
+                        Log.Info($"cgroup support enabled, root cgroup is: {CGroupManager.RootCGroup}");
+                    }
+                }
+            }
         }
 
         private void HandleUnitAdded(object sender, UnitAddedEventArgs e)

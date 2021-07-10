@@ -137,7 +137,12 @@ namespace SharpInit
             info.ActivationTime = unit.ActivationTime;
             info.LoadTime = unit.Descriptor.Created;
             info.StateChangeReason = unit.StateChangeReason;
-            info.LogLines = ServiceManager.Journal.Tail(unit_name, 10).Select(entry => entry.Message).ToList();
+            info.LogLines = GetJournal(unit_name, 10);
+
+            if (unit.CGroup?.Exists == true)
+                info.ProcessTree = unit.CGroup.Walk().ToList();
+            else
+                info.ProcessTree = new List<string>();
 
             return info;
         }
@@ -188,5 +193,22 @@ namespace SharpInit
         {
             return false;
         }
+
+        public bool MoveToCGroup(string cgroup_name)
+        {
+            if (ServiceManager.CGroupManager == null)
+                return false;
+
+            if (cgroup_name.StartsWith("0::"))
+                cgroup_name = cgroup_name.Substring("0::".Length);
+            
+            ServiceManager.CGroupManager.UpdateRoot(ServiceManager.CGroupManager.GetCGroup(cgroup_name));
+            ServiceManager.CGroupManager.MarkCGroupWritable(cgroup_name);
+            
+            ServiceManager.MoveToScope("init.scope");
+            return true;
+        }
+        
+        public int GetServiceManagerProcessId() => Environment.ProcessId;
     }
 }

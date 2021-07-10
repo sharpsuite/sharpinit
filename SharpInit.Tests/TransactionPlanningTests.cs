@@ -105,7 +105,7 @@ namespace SharpInit.Tests
                 last_target = target_file.UnitName;
             }
 
-            Assert.IsTrue(unit_files.All(Registry.IndexUnitFile));
+            Assert.IsTrue(unit_files.All(f => Registry.IndexUnitFile(f)));
             Registry.Reload();
 
             var tx = Planner.CreateActivationTransaction(base_target_name);

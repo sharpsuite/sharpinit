@@ -53,6 +53,11 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.Environment["LISTEN_FDNUMS"] = string.Join(':', fds.Select(fd => fd.Number));
                 }
 
+                if (Unit.CGroup?.Exists == true)
+                {
+                    ProcessStartInfo.CGroup = Unit.CGroup;
+                }
+
                 var process = Unit.ServiceManager.StartProcess(Unit, ProcessStartInfo);
 
                 if (WaitForExit)

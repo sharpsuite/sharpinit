@@ -21,6 +21,8 @@ namespace SharpInit.Ipc
 
         public List<string> LogLines { get; set; }
 
+        public List<string> ProcessTree { get; set; }
+
         public UnitInfo()
         {
 

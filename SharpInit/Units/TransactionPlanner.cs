@@ -35,28 +35,42 @@ namespace SharpInit.Units
             var ignore_conflict_deactivation_failure = new Dictionary<string, bool>();
             var fail_if_unstarted = new Dictionary<string, bool>();
             var ignore_failure = new Dictionary<string, bool>() { { unit.UnitName, false } };
-            var req_graph = Registry.RequirementDependencies.TraverseDependencyGraph(unit.UnitName, t => t.RequirementType != RequirementDependencyType.Conflicts && t.RequirementType != RequirementDependencyType.PartOf, false);
+
+            var visited_dependencies = new List<Dependency>();
+
+            IEnumerable<RequirementDependency> req_graph = null;
             
-            // list all units to be started
-            foreach(var dependency in req_graph)
+            while (!(req_graph = Registry.RequirementDependencies.TraverseDependencyGraph(
+                unit.UnitName, 
+                t => t.RequirementType != RequirementDependencyType.Conflicts && t.RequirementType != RequirementDependencyType.PartOf, 
+                add_reverse: false)).SequenceEqual(visited_dependencies))
             {
-                var parent = dependency.LeftUnit;
-                var child = dependency.RightUnit;
-
-                var target_unit = Registry.GetUnit(child);
-
-                if (target_unit == null)
-                    continue;
-
-                if (!unit_list.Contains(target_unit))
-                    unit_list.Add(target_unit);
-                
-                if (!transaction.Reasoning.ContainsKey(target_unit))
+                // list all units to be started
+                foreach(var dependency in req_graph)
                 {
-                    transaction.Reasoning[target_unit] = new List<string>();
-                }
+                    if (visited_dependencies.Contains(dependency))
+                        continue;
+                    
+                    visited_dependencies.Add(dependency);
 
-                transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
+                    var parent = dependency.LeftUnit;
+                    var child = dependency.RightUnit;
+
+                    var target_unit = Registry.GetUnit(child);
+
+                    if (target_unit == null)
+                        continue;
+
+                    if (!unit_list.Contains(target_unit))
+                        unit_list.Add(target_unit);
+                    
+                    if (!transaction.Reasoning.ContainsKey(target_unit))
+                    {
+                        transaction.Reasoning[target_unit] = new List<string>();
+                    }
+
+                    transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
+                }
             }
 
             // determine whether the failure of each unit activation makes the entire transaction fail
@@ -97,7 +111,7 @@ namespace SharpInit.Units
             var new_order = new List<Unit>();
             var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit));
             var initial_nodes_filtered = initial_nodes.Where(dependency => unit_list.Any(u => dependency.LeftUnit == u.UnitName || dependency.RightUnit == u.UnitName));
-            var selected_nodes = initial_nodes_filtered.Select(t => t.LeftUnit).Distinct().ToList(); // find the "first" nodes
+            var selected_nodes = initial_nodes_filtered.Select(t => t.RightUnit).Distinct().ToList(); // find the "first" nodes
 
             if (!initial_nodes_filtered.Any() && !initial_nodes.Any() && order_graph.Any())
             {
@@ -148,6 +162,9 @@ namespace SharpInit.Units
                 {
                     var index_1 = new_order.FindIndex(u => u.UnitName == order_rule.LeftUnit);
                     var index_2 = new_order.FindIndex(u => u.UnitName == order_rule.RightUnit);
+
+                    if (index_1 == -1 || index_2 == -1)
+                        continue;
 
                     if (index_1 < index_2)
                     {

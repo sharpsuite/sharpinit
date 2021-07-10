@@ -210,7 +210,7 @@ namespace SharpInit.Units
             return null;
         }
 
-        public bool IndexUnitFile(UnitFile file)
+        public bool IndexUnitFile(UnitFile file, bool create_unit = true)
         {
             var name = file.UnitName;
 
@@ -230,7 +230,7 @@ namespace SharpInit.Units
                 unit.SetUnitDescriptor(GetUnitDescriptor(name));
                 unit.RegisterDependencies(OrderingDependencies, RequirementDependencies);
             }
-            else
+            else if (create_unit)
             {
                 AddUnit(CreateUnit(name));
             }
@@ -261,7 +261,15 @@ namespace SharpInit.Units
             else if (UnitFiles.ContainsKey(unparametrized_unit_name))
                 files = UnitFiles[unparametrized_unit_name];
             else
-                return null;
+            {
+                if (name.EndsWith(".slice")) // Temporary, implement something like UnitGenerator to get around this
+                {
+                    IndexUnitFile(new GeneratedUnitFile(name, destroy_on_reload: false).WithProperty("Unit/Description", name), create_unit: false);
+                    files = UnitFiles[unparametrized_unit_name];
+                }
+                else
+                    return null;
+            }
 
             var ext = Path.GetExtension(name);
 
@@ -361,12 +369,16 @@ namespace SharpInit.Units
             UnitTypes[".target"] = typeof(TargetUnit);
             UnitTypes[".socket"] = typeof(SocketUnit);
             UnitTypes[".mount"] = typeof(MountUnit);
+            UnitTypes[".slice"] = typeof(SliceUnit);
+            UnitTypes[".scope"] = typeof(ScopeUnit);
 
             UnitDescriptorTypes[typeof(Unit)] = typeof(UnitDescriptor);
             UnitDescriptorTypes[typeof(ServiceUnit)] = typeof(ServiceUnitDescriptor);
             UnitDescriptorTypes[typeof(TargetUnit)] = typeof(UnitDescriptor);
             UnitDescriptorTypes[typeof(SocketUnit)] = typeof(SocketUnitDescriptor);
             UnitDescriptorTypes[typeof(MountUnit)] = typeof(MountUnitDescriptor);
+            UnitDescriptorTypes[typeof(SliceUnit)] = typeof(UnitDescriptor);
+            UnitDescriptorTypes[typeof(ScopeUnit)] = typeof(ExecUnitDescriptor);
         }
     }
 }

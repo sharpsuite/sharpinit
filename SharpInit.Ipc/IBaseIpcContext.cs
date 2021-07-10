@@ -52,5 +52,10 @@ namespace SharpInit.Ipc
         [IpcFunction("install-unit")]
         bool UninstallUnit(string name);
         
+        [IpcFunction("move-to-cgroup")]
+        bool MoveToCGroup(string cgroup_name);
+
+        [IpcFunction("get-pid")]
+        int GetServiceManagerProcessId();
     }
 }

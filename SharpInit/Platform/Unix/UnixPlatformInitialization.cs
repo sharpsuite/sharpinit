@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.IO;
+using System.Linq;
+
+using SharpInit.Tasks;
 
 using Mono.Unix.Native;
 
@@ -15,6 +19,8 @@ namespace SharpInit.Platform.Unix
     public class UnixPlatformInitialization : GenericPlatformInitialization
     {
         public static bool IsSystemManager = false;
+        public static bool UnderSystemd = false;
+        public static bool IsPrivileged = false;
 
         Logger Log = LogManager.GetCurrentClassLogger();
 
@@ -26,6 +32,9 @@ namespace SharpInit.Platform.Unix
             IsSystemManager = Syscall.getpid() == 1;
             
             Log.Debug($"SharpInit is {(IsSystemManager ? "the" : "not the")} system manager.");
+
+            IsPrivileged = Syscall.getuid() == 0;
+            UnderSystemd = Directory.Exists("/var/run/systemd");
 
             var sid = Syscall.setsid();
             Log.Debug($"New session id is {sid}");

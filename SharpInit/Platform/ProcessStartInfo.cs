@@ -1,4 +1,6 @@
 ﻿using SharpInit.Units;
+using SharpInit.Platform.Unix;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,6 +59,8 @@ namespace SharpInit.Platform
         public TimeSpan Timeout { get; set; }
 
         public bool WaitUntilExec { get; set; }
+
+        public CGroup CGroup { get; set; }
 
         public ProcessStartInfo()
         {
