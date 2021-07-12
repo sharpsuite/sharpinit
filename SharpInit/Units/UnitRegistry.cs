@@ -131,7 +131,7 @@ namespace SharpInit.Units
                 {
                     var target = SymlinkTools.GetTarget(file);
 
-                    Log.Warn($"Symlink detected from {file} to {target}");
+                    Log.Debug($"Symlink detected from {file} to {target}");
 
                     var fileinfo = new FileInfo(file);
 

@@ -51,7 +51,7 @@ namespace SharpInit.Tasks
                 };
 
                 var task = new RunRegisteredProcessTask(psi, Unit, wait_for_exit: true, exit_timeout: (int)Descriptor.TimeoutSec.TotalMilliseconds);
-                var result = ExecuteYielding(task, context);
+                var result = ExecuteBlocking(task, context);
 
                 if (result.Message != "exit code 0")
                     return new TaskResult(this, ResultType.Failure, result.Message);

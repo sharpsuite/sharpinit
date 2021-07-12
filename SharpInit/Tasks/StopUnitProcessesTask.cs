@@ -38,7 +38,7 @@ namespace SharpInit.Tasks
             foreach (var process in processes)
             {
                 var stop_process_task = new StopProcessTask(process, GracePeriod);
-                var result = ExecuteYielding(stop_process_task, context);
+                var result = ExecuteBlocking(stop_process_task, context);
 
                 if (result.Type != ResultType.Success)
                     failed = true; // let's keep killing all processes we can anyway 

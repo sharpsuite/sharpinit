@@ -11,6 +11,9 @@ namespace SharpInit.Units
 {
     public class ServiceUnit : Unit
     {
+        static Dictionary<(string, UnitStateChangeType), (string, string)> CustomStatusMessages = new Dictionary<(string, UnitStateChangeType), (string, string)>();
+
+        public override Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages => CustomStatusMessages;
         Logger Log = LogManager.GetCurrentClassLogger();
 
         public new ServiceUnitDescriptor Descriptor { get; set; }
@@ -127,8 +130,9 @@ namespace SharpInit.Units
 
         internal override Transaction GetActivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for {this.UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
 
+            transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
             transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
@@ -199,8 +203,9 @@ namespace SharpInit.Units
 
         internal override Transaction GetDeactivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
 
+            transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, this, stop: true, reverse: true);
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new StopUnitProcessesTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
@@ -212,7 +217,7 @@ namespace SharpInit.Units
 
         public override Transaction GetReloadTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Reload transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Unknown);
             transaction.Add(new SetUnitStateTask(this, UnitState.Reloading, UnitState.Active));
 
             var working_dir = Descriptor.WorkingDirectory;

@@ -9,6 +9,14 @@ namespace SharpInit.Units
 {
     public class TargetUnit : Unit
     {
+        static Dictionary<(string, UnitStateChangeType), (string, string)> CustomStatusMessages = new Dictionary<(string, UnitStateChangeType), (string, string)>()
+        {
+            {("success", UnitStateChangeType.Activation), ("  OK  ", "Reached target {0}.")},
+            {("success", UnitStateChangeType.Deactivation), ("  OK  ", "Stopped target {0}.")},
+        };
+
+        public override Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages => CustomStatusMessages;
+
         Logger Log = LogManager.GetCurrentClassLogger();
         
         public new UnitDescriptor Descriptor { get; set; }
@@ -34,9 +42,9 @@ namespace SharpInit.Units
 
         internal override Transaction GetActivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
 
-            transaction.Add(new CheckUnitStateTask(UnitState.Active, UnitName, stop: true, reverse: true));
+            transaction.Precheck = new CheckUnitStateTask(UnitState.Active, UnitName, stop: true, reverse: true);
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating));
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
@@ -46,9 +54,9 @@ namespace SharpInit.Units
 
         internal override Transaction GetDeactivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
 
-            transaction.Add(new CheckUnitStateTask(UnitState.Inactive, UnitName, stop: true, reverse: true));
+            transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, UnitName, stop: true, reverse: true);
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 

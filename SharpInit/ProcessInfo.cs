@@ -55,6 +55,40 @@ namespace SharpInit
             return true;
         }
 
+        public async System.Threading.Tasks.Task<bool> WaitForExitAsync(TimeSpan timeout)
+        {
+            if (HasExited)
+                return true;
+
+            var waiter = new ManualResetEvent(false);
+            var cancellation_token = new CancellationTokenSource();
+
+            OnProcessExit handler = null;
+            handler = (OnProcessExit)((pid, code) => 
+            {
+                if (pid != this.Id)
+                    return;
+
+                cancellation_token.Cancel();
+                ProcessHandler.ProcessExit -= handler;
+            });
+
+            ProcessHandler.ProcessExit += handler;
+            if (HasExited)
+            {
+                handler(this.Id, 0);
+                return true;
+            }
+
+            await System.Threading.Tasks.Task.Delay(timeout, cancellation_token.Token);
+            
+            if (cancellation_token.IsCancellationRequested)
+                return true;
+            
+            handler(this.Id, 0);
+            return false;
+        }
+
         public bool WaitForExit(TimeSpan timeout)
         {
             if (HasExited)

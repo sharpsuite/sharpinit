@@ -21,8 +21,11 @@ namespace SharpInit.Tasks
         public abstract string Type { get; }
         public abstract TaskResult Execute(TaskContext context);
 
-        protected TaskResult ExecuteYielding(Task task, TaskContext context) => Execution.YieldExecute(task, context);
-        protected TaskResult ExecuteYielding(TaskExecution exec) => Execution.YieldExecute(exec);
+        protected TaskResult ExecuteBlocking(Task task, TaskContext context) => Execution.ExecuteBlocking(task, context);
+        protected TaskResult ExecuteBlocking(TaskExecution exec) => Execution.ExecuteBlocking(exec);
+
+        protected async System.Threading.Tasks.Task<TaskResult> ExecuteAsync(Task task, TaskContext context) => await Execution.ExecuteAsync(task, context);
+        protected async System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskExecution exec) => await Execution.ExecuteAsync(exec);
 
         public override string ToString()
         {
@@ -31,5 +34,11 @@ namespace SharpInit.Tasks
 
             return $"{Type}/{Identifier,16:x16}";
         }
+    }
+
+    public abstract class AsyncTask : Task
+    {
+        public override TaskResult Execute(TaskContext context) => ExecuteAsync(context).Result;
+        public abstract System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context);
     }
 }

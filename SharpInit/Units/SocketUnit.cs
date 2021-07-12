@@ -13,6 +13,15 @@ namespace SharpInit.Units
 {
     public class SocketUnit : Unit
     {
+        static Dictionary<(string, UnitStateChangeType), (string, string)> CustomStatusMessages = new Dictionary<(string, UnitStateChangeType), (string, string)>()
+        {
+            {("success", UnitStateChangeType.Activation), ("  OK  ", "Listening on {0}.")},
+            {("success", UnitStateChangeType.Deactivation), ("  OK  ", "Closed {0}.")},
+
+            {("failure", UnitStateChangeType.Activation), ("FAILED", "Failed to listen on {0}.")}
+        };
+
+        public override Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages => CustomStatusMessages;
         Logger Log = LogManager.GetCurrentClassLogger();
 
         public new SocketUnitDescriptor Descriptor { get; set; }
@@ -70,7 +79,7 @@ namespace SharpInit.Units
                 }
             }
 
-            var transaction = new UnitStateChangeTransaction(this, $"Socket activation for {target_unit.UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation, $"Socket activation for {target_unit.UnitName}");
             transaction.Add(new AlterTransactionContextTask("state_change_reason", $"Socket activation from {UnitName}"));
 
             var file_descriptors = new List<FileDescriptor>();
@@ -101,7 +110,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetActivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
 
             transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
@@ -132,7 +141,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetDeactivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for unit {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
 

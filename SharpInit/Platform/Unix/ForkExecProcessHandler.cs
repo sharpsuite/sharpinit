@@ -157,7 +157,8 @@ namespace SharpInit.Platform.Unix
             return (read, write);
         }
 
-        public ProcessInfo Start(ProcessStartInfo psi)
+        public ProcessInfo Start(ProcessStartInfo psi) => StartAsync(psi).Result;
+        public async System.Threading.Tasks.Task<ProcessInfo> StartAsync(ProcessStartInfo psi)
         {
             HashSet<int> opened_fds = new HashSet<int>();
             Action<int> register_fd = (Action<int>)(fd => { if (fd > 0) { opened_fds.Add(fd); } });
@@ -327,29 +328,33 @@ namespace SharpInit.Platform.Unix
 
                 Log.Debug($"sent sync signal for pid {fork_ret} startup");
 
-                if (Syscall.poll(poll_fds, 1, timeout) <= 0)
+                byte[] control_buf = new byte[1];
+
+                var cancellation_token = new CancellationTokenSource(timeout);
+                int read = await control_stream.ReadAsync(control_buf, 0, 1, cancellation_token.Token);
+
+                if (read != 1 || cancellation_token.IsCancellationRequested)
                 {
-                    Syscall.kill(fork_ret, Signum.SIGKILL);
                     throw new Exception($"pid {fork_ret} launch timed out");
                 }
 
-                Log.Debug($"pid {fork_ret} startup synchronized, poll result: {poll_fds[0].revents}");
+                Log.Debug($"pid {fork_ret} startup synchronized");
 
-                var starting_line = control_sr.ReadLine();
+                var starting_line = await control_sr.ReadLineAsync();
                 if(starting_line != "starting")
                     throw new Exception($"pid {fork_ret} expected \"starting\" message from control pipe, received \"{starting_line}\"");
 
                 Log.Debug($"read {starting_line} for pid {fork_ret} startup");
 
-                while (!control_sr.EndOfStream)
-                    Log.Debug($"next line: {control_sr.ReadLine()}");
-
                 if (!psi.WaitUntilExec)
                 {
                     return process_info;
                 }
+                
+                while (!control_sr.EndOfStream)
+                    Log.Debug($"next line: {await control_sr.ReadLineAsync()}");
 
-                var control_data = new StringBuilder();
+                /*var control_data = new StringBuilder();
                 
                 while ((poll_fds[0].revents & PollEvents.POLLHUP) == 0)
                 {
@@ -375,7 +380,7 @@ namespace SharpInit.Platform.Unix
                         Syscall.kill(fork_ret, Signum.SIGKILL);
                         throw new Exception($"Unexpected control data: {control_data.ToString()}");
                     }
-                }
+                }*/
 
                 return process_info;
             }

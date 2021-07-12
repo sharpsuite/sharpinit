@@ -11,7 +11,7 @@ namespace SharpInit.Tasks
     /// A Task that contains other Tasks. The child tasks execute sequentially, and execution can 
     /// stop depending on the TaskResult returned by each child Task.
     /// </summary>
-    public class Transaction : Task
+    public class Transaction : AsyncTask
     {
         static Logger Log = LogManager.GetCurrentClassLogger();
 
@@ -27,6 +27,8 @@ namespace SharpInit.Tasks
         /// The error handling mode of this transaction. Set to Ignore if execution should continue upon the failure of a child Task.
         /// </summary>
         public TransactionErrorHandlingMode ErrorHandlingMode { get; set; }
+
+        public TransactionSynchronizationMode TransactionSynchronizationMode { get; set; }
 
         public object Lock { get; set; }
 
@@ -110,19 +112,38 @@ namespace SharpInit.Tasks
         /// </summary>
         /// <returns>A TaskResult that has the ResultType Success if all tasks executed successfully, 
         /// or the TaskResult returned by a failed task, depending on ErrorHandlingMode.</returns>
-        public override TaskResult Execute(TaskContext context = null)
+        public async override System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context = null)
         {
             Context = context ?? new TaskContext();
             var lock_obj = Lock ?? new object();
 
-            Log.Info($"{Execution} is {this}");
+            Log.Debug($"{Execution} is {this}");
 
-            lock (lock_obj)
+            IEnumerable<IEnumerable<Task>> sub_transactions = null;
+
+            if (TransactionSynchronizationMode == TransactionSynchronizationMode.Implicit)
+                sub_transactions = Tasks.Select(t => new [] {t});
+            else if (TransactionSynchronizationMode == TransactionSynchronizationMode.Explicit)
+                sub_transactions = Tasks.Partition(t => t is SynchronizationTask);
+
+            Log.Debug($"{TransactionSynchronizationMode} synchronization, {sub_transactions.Count()} execution groups, {sub_transactions.Sum(subset => subset.Count())} total tasks");
+
+            foreach (var task_group in sub_transactions)
             {
-                foreach (var task in Tasks)
+                var executions_list = new List<System.Threading.Tasks.Task<TaskResult>>();
+
+                foreach (var task in task_group)
+                    executions_list.Add(Runner.ExecuteAsync(task, Context));
+                
+                var executions = executions_list.ToArray();
+
+                Log.Debug($"Waiting for {executions.Length} tasks to complete...");
+                await System.Threading.Tasks.Task.WhenAll(executions);
+                Log.Debug($"{executions.Length} tasks complete");
+
+                foreach (var execution in executions)
                 {
-                    var execution = Runner.Register(task, Context);
-                    var result = ExecuteYielding(execution);
+                    var result = execution.Result;
 
                     if (result.Type != ResultType.Success &&
                         !result.Type.HasFlag(ResultType.Ignorable))
@@ -132,10 +153,10 @@ namespace SharpInit.Tasks
                         if (result.Type.HasFlag(ResultType.Timeout))
                         {
                             if (OnTimeout != null)
-                                ExecuteYielding(OnTimeout, Context);
+                                ExecuteBlocking(OnTimeout, Context);
                         }
                         else if (OnFailure != null)
-                            ExecuteYielding(OnFailure, Context);
+                            ExecuteBlocking(OnFailure, Context);
                         
                         if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore)
                             return result;
@@ -143,7 +164,7 @@ namespace SharpInit.Tasks
                     
                     if (result.Type.HasFlag(ResultType.StopExecution))
                     {
-                        break;
+                        return new TaskResult(this, ResultType.Success);
                     }
                 }
             }
@@ -198,9 +219,34 @@ namespace SharpInit.Tasks
         }
     }
 
+    public static class IEnumerablePartitionHelper
+    {
+        public static IEnumerable<IEnumerable<T>> Partition<T>(this IEnumerable<T> set, Predicate<T> partition_predicate)
+        {
+            var enumerator = set.GetEnumerator();
+            while (enumerator.MoveNext())
+                yield return GetNextPartition(enumerator, partition_predicate);
+        }
+
+        public static IEnumerable<T> GetNextPartition<T>(IEnumerator<T> set, Predicate<T> partition_predicate)
+        {
+            do
+            {
+                if (!partition_predicate(set.Current))
+                    yield return set.Current;
+            } while (set.MoveNext() && !partition_predicate(set.Current));
+        }
+    }
+
     public enum TransactionErrorHandlingMode
     {
         Fail,
         Ignore
+    }
+
+    public enum TransactionSynchronizationMode
+    {
+        Implicit,
+        Explicit
     }
 }

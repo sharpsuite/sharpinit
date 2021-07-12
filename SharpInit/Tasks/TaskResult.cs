@@ -39,6 +39,7 @@ namespace SharpInit.Tasks
         Ignorable = 0x4,
         SoftFailure = Failure | Ignorable,
         Timeout = Failure | 0x8,
-        StopExecution = 0x16
+        StopExecution = 0x16,
+        StoppedEarly = 0x32,
     }
 }

@@ -8,7 +8,7 @@ namespace SharpInit.Tasks
     /// <summary>
     /// Starts a process, optionally waits for it to exit before continuing execution.
     /// </summary>
-    public class RunUnregisteredProcessTask : Task
+    public class RunUnregisteredProcessTask : AsyncTask
     {
         public override string Type => "run-unregistered-process";
         public ProcessStartInfo ProcessStartInfo { get; set; }
@@ -36,7 +36,7 @@ namespace SharpInit.Tasks
             
         }
 
-        public override TaskResult Execute(TaskContext context)
+        public async override System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context)
         {
             if (ProcessStartInfo == null)
                 return new TaskResult(this, ResultType.Failure, "No ProcessStartInfo supplied.");
@@ -48,13 +48,13 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.CGroup = ProcessStartInfo.Unit.CGroup;
                 }
 
-                var process = ProcessHandler.Start(ProcessStartInfo);
+                var process = await ProcessHandler.StartAsync(ProcessStartInfo);
 
                 if (ExecutionTime == TimeSpan.Zero)
                     return new TaskResult(this, ResultType.Success);
                 else
                 {
-                    if (!process.WaitForExit(ExecutionTime))
+                    if (!(await process.WaitForExitAsync(ExecutionTime)))
                     {
                         process.Process.Kill();
                         return new TaskResult(this, ResultType.Timeout, $"The process {process.Id} did not exit in the given amount of time.");

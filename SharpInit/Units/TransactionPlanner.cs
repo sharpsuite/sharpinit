@@ -25,7 +25,9 @@ namespace SharpInit.Units
 
         public UnitStateChangeTransaction CreateActivationTransaction(Unit unit, string reason = null)
         {
-            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Activate {unit.UnitName}" };
+            var transaction = new UnitStateChangeTransaction(unit, UnitStateChangeType.Activation);
+
+            transaction.TransactionSynchronizationMode = TransactionSynchronizationMode.Explicit;
 
             if (reason != null)
                 transaction.Add(new AlterTransactionContextTask("state_change_reason", reason));
@@ -111,7 +113,7 @@ namespace SharpInit.Units
             var new_order = new List<Unit>();
             var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit));
             var initial_nodes_filtered = initial_nodes.Where(dependency => unit_list.Any(u => dependency.LeftUnit == u.UnitName || dependency.RightUnit == u.UnitName));
-            var selected_nodes = initial_nodes_filtered.Select(t => t.RightUnit).Distinct().ToList(); // find the "first" nodes
+            var selected_nodes = new List<List<string>>() { initial_nodes_filtered.Select(t => t.LeftUnit).Distinct().ToList() }; // find the "first" nodes
 
             if (!initial_nodes_filtered.Any() && !initial_nodes.Any() && order_graph.Any())
             {
@@ -126,33 +128,44 @@ namespace SharpInit.Units
 
                 while(selected_nodes.Any())
                 {
-                    var dep = selected_nodes.First();
-                    selected_nodes.Remove(dep);
+                    var node_list = selected_nodes[0];
+                    selected_nodes.RemoveAt(0);
 
-                    var dep_unit = Registry.GetUnit(dep);
+                    var edges_to_add = new List<string>();
 
-                    if (dep_unit == null)
+                    foreach (var dep in node_list)
                     {
-                        if (!ignore_failure.ContainsKey(dep) || ignore_failure[dep])
-                            continue;
-                        else
-                            throw new Exception($"Couldn't find required unit {dep}");
+                        processed_vertices.Add(dep);
+                        var dep_unit = Registry.GetUnit(dep);
+
+                        if (dep_unit == null)
+                        {
+                            if (!ignore_failure.ContainsKey(dep) || ignore_failure[dep])
+                                continue;
+                            else
+                                throw new Exception($"Couldn't find required unit {dep}");
+                        }
+                        
+                        if (unit_list.Contains(dep_unit) && !new_order.Contains(dep_unit))
+                        {
+                            new_order.Add(dep_unit);
+                        }
+
+                        var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
+                        other_edges.ForEach(edge => order_graph.Remove(edge));
+                        edges_to_add.AddRange(other_edges.Where(edge => { var m = edge.RightUnit; return !order_graph.Any(e => e.RightUnit == m && !processed_vertices.Contains(e.LeftUnit)); }).Select(t => t.RightUnit));
+
                     }
 
-                    var dependent_unit = Registry.GetUnit(dep);
-                    
-                    if (unit_list.Contains(dependent_unit) && !new_order.Contains(dependent_unit))
-                        new_order.Add(dependent_unit);
+                    new_order.Add(null);
+                    edges_to_add = edges_to_add.Distinct().ToList();
 
-                    var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
-                    other_edges.ForEach(edge => order_graph.Remove(edge));
-                    var edges_to_add = other_edges.Where(edge => { var m = edge.RightUnit; return !order_graph.Any(e => e.RightUnit == m && !processed_vertices.Contains(e.LeftUnit)); }).Select(t => t.RightUnit);
-
-                    selected_nodes.AddRange(edges_to_add);
+                    if (edges_to_add.Any())
+                        selected_nodes.Add(edges_to_add);
                 }
 
-                new_order.Reverse();
                 new_order = new_order.Concat(unit_list.Where(u => !new_order.Contains(u)).ToList()).ToList();
+                new_order.Reverse();
 
                 // check the new order against the rules
                 bool satisfied = true;
@@ -160,8 +173,8 @@ namespace SharpInit.Units
 
                 foreach (var order_rule in order_graph)
                 {
-                    var index_1 = new_order.FindIndex(u => u.UnitName == order_rule.LeftUnit);
-                    var index_2 = new_order.FindIndex(u => u.UnitName == order_rule.RightUnit);
+                    var index_1 = new_order.FindIndex(u => u?.UnitName == order_rule.LeftUnit);
+                    var index_2 = new_order.FindIndex(u => u?.UnitName == order_rule.RightUnit);
 
                     if (index_1 == -1 || index_2 == -1)
                         continue;
@@ -187,13 +200,16 @@ namespace SharpInit.Units
             unit_list = new_order;
 
             // get a list of units to stop
-            var conflicts = unit_list.SelectMany(u => Registry.RequirementDependencies.GetDependencies(u.UnitName).Where(d => d.RequirementType == RequirementDependencyType.Conflicts));
+            var conflicts = unit_list.Where(u => u != null).SelectMany(u => Registry.RequirementDependencies.GetDependencies(u.UnitName).Where(d => d.RequirementType == RequirementDependencyType.Conflicts));
             var units_to_stop = new List<Unit>();
 
             foreach(var conflicting_dep in conflicts)
             {
                 var left = Registry.GetUnit(conflicting_dep.LeftUnit);
                 var right = Registry.GetUnit(conflicting_dep.RightUnit);
+
+                if (left == null || right == null)
+                    continue;
 
                 Unit unit_to_stop = null;
 
@@ -257,10 +273,17 @@ namespace SharpInit.Units
                 deactivation_transaction.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
 
                 transaction.Add(deactivation_transaction);
+                transaction.Add(new SynchronizationTask());
             }
 
             foreach(var sub_unit in unit_list)
             {
+                if (sub_unit == null)
+                {
+                    transaction.Add(new SynchronizationTask());
+                    continue;
+                }
+
                 transaction.AffectedUnits.Add(sub_unit);
                 var activation_transaction = sub_unit.GetActivationTransaction();
 
@@ -282,7 +305,9 @@ namespace SharpInit.Units
         
         public UnitStateChangeTransaction CreateDeactivationTransaction(Unit unit, string reason = null)
         {
-            var transaction = new UnitStateChangeTransaction(unit) { Name = $"Deactivate {unit.UnitName}" };
+            var transaction = new UnitStateChangeTransaction(unit, UnitStateChangeType.Deactivation);
+
+            transaction.TransactionSynchronizationMode = TransactionSynchronizationMode.Explicit;
 
             if (reason != null)
                 transaction.Add(new AlterTransactionContextTask("state_change_reason", reason));
@@ -385,6 +410,7 @@ namespace SharpInit.Units
             {
                 transaction.AffectedUnits.Add(sub_unit);
                 transaction.Add(sub_unit.GetDeactivationTransaction());
+                transaction.Add(new SynchronizationTask());
             }
 
             return transaction;

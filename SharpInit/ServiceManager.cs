@@ -211,9 +211,9 @@ namespace SharpInit
                 ProcessesByUnit[unit].Remove(proc_info);
         }
 
-        public ProcessInfo StartProcess(Unit unit, ProcessStartInfo psi)
+        public async System.Threading.Tasks.Task<ProcessInfo> StartProcessAsync(Unit unit, ProcessStartInfo psi)
         {
-            var process = ProcessHandler.Start(psi);
+            var process = await ProcessHandler.StartAsync(psi);
 
             if (!process.Process.HasExited)
                 unit.RaiseProcessStart(process);
@@ -221,6 +221,7 @@ namespace SharpInit
             RegisterProcess(unit, process);
             return process;
         }
+        public ProcessInfo StartProcess(Unit unit, ProcessStartInfo psi) => StartProcessAsync(unit, psi).Result;
 
         public void RegisterProcess(Unit unit, ProcessInfo proc)
         {

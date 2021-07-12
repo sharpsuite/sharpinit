@@ -12,6 +12,9 @@ namespace SharpInit.Units
 {
     public class ScopeUnit : Unit
     {
+        static Dictionary<(string, UnitStateChangeType), (string, string)> CustomStatusMessages = new Dictionary<(string, UnitStateChangeType), (string, string)>();
+
+        public override Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages => CustomStatusMessages;
         Logger Log = LogManager.GetCurrentClassLogger();
         
         public new ExecUnitDescriptor Descriptor { get; set; }
@@ -48,7 +51,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetActivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Activation transaction for slice {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating));
             transaction.Add(new AllocateSliceTask(this));
@@ -60,7 +63,7 @@ namespace SharpInit.Units
 
         internal override Transaction GetDeactivationTransaction()
         {
-            var transaction = new UnitStateChangeTransaction(this, $"Deactivation transaction for slice {UnitName}");
+            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));

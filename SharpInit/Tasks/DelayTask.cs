@@ -8,7 +8,7 @@ namespace SharpInit.Tasks
     /// <summary>
     /// Delays execution for the provided period of time.
     /// </summary>
-    public class DelayTask : Task
+    public class DelayTask : AsyncTask
     {
         public override string Type => "delay";
         public TimeSpan Delay { get; set; }
@@ -29,9 +29,9 @@ namespace SharpInit.Tasks
             this(TimeSpan.FromMilliseconds(milliseconds))
         { }
 
-        public override TaskResult Execute(TaskContext context)
+        public async override System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context)
         {
-            Thread.Sleep(Delay);
+            await System.Threading.Tasks.Task.Delay(Delay);
             return new TaskResult(this, ResultType.Success);
         }
     }

@@ -24,6 +24,8 @@ namespace SharpInit.Platform
 
         }
 
+        public async System.Threading.Tasks.Task<ProcessInfo> StartAsync(ProcessStartInfo psi) => Start(psi);
+
         public ProcessInfo Start(ProcessStartInfo psi)
         {
             var path = psi.Path;

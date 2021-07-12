@@ -46,6 +46,8 @@ namespace SharpInit.Units
         private DependencyGraph<RequirementDependency> RequirementDependencyGraph { get; set; }
         private DependencyGraph<OrderingDependency> OrderingDependencyGraph { get; set; }
 
+        public abstract Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages { get; }
+
         protected Unit(string name, UnitDescriptor descriptor)
             : this()
         {

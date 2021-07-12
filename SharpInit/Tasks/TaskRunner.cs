@@ -34,6 +34,7 @@ namespace SharpInit.Tasks
         public Stack<long> ParentTasks { get; set; }
 
         internal ManualResetEventSlim done = new ManualResetEventSlim(false);
+        internal CancellationTokenSource done_cts = new CancellationTokenSource();
 
         internal TaskExecution(TaskRunner runner, Task task, TaskContext context)
         {
@@ -52,14 +53,32 @@ namespace SharpInit.Tasks
 
         public TaskExecution Wait() { done.Wait(); return this; }
         public bool Wait(TimeSpan timeout) => done.Wait(timeout);
-        internal TaskResult YieldExecute(Task other, TaskContext ctx) => YieldExecute(Runner.Register(other, ctx));
-        internal TaskResult YieldExecute(TaskExecution exec)
+        
+        public async System.Threading.Tasks.Task<TaskExecution> WaitAsync() { await System.Threading.Tasks.Task.Delay(-1, done_cts.Token); return this; }
+        public async System.Threading.Tasks.Task<TaskExecution> WaitAsync(TimeSpan timeout) { await System.Threading.Tasks.Task.Delay(timeout, done_cts.Token); return this; }
+        internal TaskResult ExecuteBlocking(Task other, TaskContext ctx) => ExecuteBlocking(Runner.Register(other, ctx));
+        internal TaskResult ExecuteBlocking(TaskExecution exec)
         {
             exec.ParentTasks.Push(Task.Identifier);
             foreach (var parent in ParentTasks)
                 exec.ParentTasks.Push(parent);
             
             return Runner.ExecuteBlocking(exec);
+        }
+        internal async System.Threading.Tasks.Task<TaskResult> ExecuteAsync(Task other, TaskContext ctx) => await ExecuteAsync(Runner.Register(other, ctx));
+        internal async System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskExecution exec)
+        {
+            exec.ParentTasks.Push(Task.Identifier);
+            foreach (var parent in ParentTasks)
+                exec.ParentTasks.Push(parent);
+            
+            return await Runner.ExecuteAsync(exec);
+        }
+
+        internal void SignalDone()
+        {
+            done.Set();
+            done_cts.Cancel();
         }
 
         public override string ToString()
@@ -90,11 +109,11 @@ namespace SharpInit.Tasks
 
         int executed = 0;
 
-        public void Run()
+        public async void Run()
         {
             while (true)
             {
-                Log.Info($"{TaskQueue.Count} tasks in queue, {executed} executed");
+                Log.Debug($"{TaskQueue.Count} tasks in queue, {executed} executed");
 
                 TaskExecution execution;
                 while (!TaskQueue.TryDequeue(out execution))
@@ -110,7 +129,7 @@ namespace SharpInit.Tasks
 
                 try 
                 {
-                    ExecuteBlocking(execution);
+                    await ExecuteAsync(execution);
                 }
                 catch (Exception ex)
                 {
@@ -141,9 +160,9 @@ namespace SharpInit.Tasks
             }
         }
 
-        internal TaskResult ExecuteBlocking(Task task, TaskContext context = null) => ExecuteBlocking(this.Register(task, context));
+        internal async System.Threading.Tasks.Task<TaskResult> ExecuteAsync(Task task, TaskContext context) => await ExecuteAsync(Register(task, context));
 
-        internal TaskResult ExecuteBlocking(TaskExecution execution)
+        internal async System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskExecution execution)
         {
             if (execution == null || execution.Task == null || execution.Runner != this || 
                (execution.State != TaskExecutionState.Enqueued && execution.State != TaskExecutionState.Registered))
@@ -155,11 +174,17 @@ namespace SharpInit.Tasks
             try 
             {
                 execution.State = TaskExecutionState.Executing;
-                Log.Info($"{execution} starting...");
+                Log.Debug($"{execution} starting...");
 
                 try 
                 {
-                    execution.Result = execution.Task.Execute(execution.Context); 
+                    if (execution.Task is AsyncTask async_task)
+                    {
+                        Log.Info($"{execution} is async");
+                        execution.Result = await async_task.ExecuteAsync(execution.Context);
+                    }
+                    else
+                        execution.Result = execution.Task.Execute(execution.Context); 
                 }
                 catch (Exception ex)
                 {
@@ -169,21 +194,25 @@ namespace SharpInit.Tasks
                 finally
                 {
                     executed++;
-                    execution.done.Set();
+                    execution.SignalDone();
                 }
 
-                Log.Info($"{execution} done");
-                execution.done.Set();
+                Log.Debug($"{execution} done");
+                execution.SignalDone();
             }
             catch (Exception ex)
             {
                 Log.Error(ex);
                 execution.State = TaskExecutionState.Aborted;
-                execution.done.Set();
+                execution.SignalDone();
             }
 
             return execution.Result;
         }
+
+        internal TaskResult ExecuteBlocking(Task task, TaskContext context = null) => ExecuteBlocking(this.Register(task, context));
+
+        internal TaskResult ExecuteBlocking(TaskExecution execution) => ExecuteAsync(execution).Result;
 
         public TaskExecution Register(Task task, TaskContext context = null)
         {
@@ -215,7 +244,7 @@ namespace SharpInit.Tasks
                 return;
             }
 
-            Log.Info($"{exec.Task} enqueued");
+            Log.Debug($"{exec.Task} enqueued");
             exec.State = TaskExecutionState.Enqueued;
             TaskQueue.Enqueue(exec);
         }

@@ -10,7 +10,7 @@ namespace SharpInit.Tasks
     /// <summary>
     /// Starts a process and associates it with the service manager of a particular unit.
     /// </summary>
-    public class RunRegisteredProcessTask : Task
+    public class RunRegisteredProcessTask : AsyncTask
     {
         public override string Type => "run-registered-process";
         public ProcessStartInfo ProcessStartInfo { get; set; }
@@ -31,7 +31,7 @@ namespace SharpInit.Tasks
             WaitExitMilliseconds = exit_timeout;
         }
 
-        public override TaskResult Execute(TaskContext context)
+        public async override System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context)
         {
             if (ProcessStartInfo == null || Unit == null)
                 return new TaskResult(this, ResultType.Failure, "No ProcessStartInfo or Unit supplied.");
@@ -58,7 +58,8 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.CGroup = Unit.CGroup;
                 }
 
-                var process = Unit.ServiceManager.StartProcess(Unit, ProcessStartInfo);
+                await System.Threading.Tasks.Task.Delay(500);
+                var process = await Unit.ServiceManager.StartProcessAsync(Unit, ProcessStartInfo);
 
                 if (WaitForExit)
                 {
