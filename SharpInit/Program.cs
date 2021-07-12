@@ -52,10 +52,34 @@ namespace SharpInit
 
                     new Thread(ServiceManager.Runner.Run).Start();
 
-                    var journal_target = new JournalTarget(ServiceManager.Journal) { Layout = "[${uppercase:${level}}] ${message}" };
+                    var journal_target = new JournalTarget(ServiceManager.Journal) { Layout = "[${uppercase:${level}}:${level:format=Ordinal}] ${message}" };
                     var config = LogManager.Configuration;
                     config.AddTarget("journal", journal_target);
                     config.AddRuleForAllLevels("journal");
+
+                    if (PlatformUtilities.CurrentlyOn("linux") && SharpInit.Platform.Unix.UnixPlatformInitialization.IsSystemManager)
+                    {
+                        var journal_fd = SharpInit.Platform.Unix.UnixPlatformInitialization.JournalOutputFd;
+
+                        if (journal_fd > 1)
+                        {
+                            Log.Info($"Rerouting log output to fd {journal_fd}");
+                            config.RemoveTarget("stdout");
+                            
+                            ServiceManager.Journal.JournalDataReceived += (s, e) => 
+                            {
+                                if (e.Entry.LogLevel < 2)
+                                    return;
+                                
+                                var kern_loglevel = 7 - e.Entry.LogLevel;
+
+                                var text = e.Data;
+                                var rendered = $"sharpinit[1]: [ {e.Source} ] {text}";
+
+                                SharpInit.Platform.Unix.UnixUtilities.WriteToFd(journal_fd, rendered);
+                            };
+                        }
+                    }
 
                     LogManager.Configuration = config;
 

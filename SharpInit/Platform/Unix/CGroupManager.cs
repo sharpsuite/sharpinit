@@ -266,7 +266,6 @@ namespace SharpInit.Platform.Unix
             }
             catch (Exception ex)
             {
-                Log.Warn(ex, $"Failed to obtain ppid for pid {pid}");
                 return -1;
             }
         }

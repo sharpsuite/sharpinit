@@ -32,17 +32,18 @@ namespace SharpInit
 
         public IEnumerable<JournalEntry> Tail(string name, int lines = int.MaxValue) =>
             Buffers.ContainsKey(name) ? GetBuffer(name).Tail(lines) : new JournalEntry[0];
-        internal void RaiseJournalData(string from, string message) =>
-            RaiseJournalData(from, Encoding.UTF8.GetBytes(message));
+        internal void RaiseJournalData(string from, string message, int level = 2) =>
+            RaiseJournalData(from, Encoding.UTF8.GetBytes(message), level);
 
-        internal void RaiseJournalData(string from, byte[] data) =>
+        internal void RaiseJournalData(string from, byte[] data, int level = 2) =>
             RaiseJournalData(new JournalEntry() 
             { 
                 Source = from, 
                 RawMessage = data, 
                 Message = Encoding.UTF8.GetString(data), 
                 Created = DateTime.UtcNow, 
-                LocalTime = Program.ElapsedSinceStartup().TotalSeconds 
+                LocalTime = Program.ElapsedSinceStartup().TotalSeconds,
+                LogLevel = level
             });
 
         internal void RaiseJournalData(JournalEntry entry)
@@ -88,6 +89,7 @@ namespace SharpInit
         public double LocalTime { get; set; }
         public string Message { get; set; }
         public byte[] RawMessage { get; set; }
+        public int LogLevel { get; set; }
 
         public JournalEntry()
         { }
@@ -121,7 +123,7 @@ namespace SharpInit
             var unit_source = sources.First() as string;
 
             var rendered = this.Layout.Render(log_event);
-            Journal.RaiseJournalData(unit_source, rendered);
+            Journal.RaiseJournalData(unit_source, rendered, log_event.Level.Ordinal);
 
             for (int i = sources.Length - 1; i >= 0; i--)
                 NLog.NestedDiagnosticsLogicalContext.PushObject(sources[i]);

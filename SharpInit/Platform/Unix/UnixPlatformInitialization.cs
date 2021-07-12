@@ -21,6 +21,7 @@ namespace SharpInit.Platform.Unix
         public static bool IsSystemManager = false;
         public static bool UnderSystemd = false;
         public static bool IsPrivileged = false;
+        public static int JournalOutputFd = 1;
 
         Logger Log = LogManager.GetCurrentClassLogger();
 
@@ -52,7 +53,14 @@ namespace SharpInit.Platform.Unix
                 Log.Debug($"dup2: {Syscall.dup2(devnull, 1)}");
                 Log.Debug($"dup2: {Syscall.dup2(devnull, 2)}");
                 
-                Log.Debug($"Releasing tty: {TtyUtilities.ReleaseTerminal()}");
+                try { Log.Debug($"Releasing tty: {TtyUtilities.ReleaseTerminal()}"); } catch (Exception ex) { Log.Info(ex); }
+
+                Log.Info($"Reopening /dev/kmsg as log target...");
+
+                var dev_kmsg = Syscall.open("/dev/kmsg", OpenFlags.O_WRONLY | OpenFlags.O_NOCTTY | OpenFlags.O_CLOEXEC);
+
+                if (dev_kmsg >= 0)
+                    JournalOutputFd = dev_kmsg;
             }
         }
 
