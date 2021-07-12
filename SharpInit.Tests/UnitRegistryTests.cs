@@ -117,12 +117,10 @@ namespace SharpInit.Tests
                 {"/etc/sharpinit/units/test@.service", "test@.service" },
                 {"C:\\Users\\User\\.config\\sharpinit\\units\\notepad.service", "notepad.service" },
                 {"relative/path/to/sshd@22.service", "sshd@.service" },
-                {"backslash\\relative\\path\\test.target", "test.target" }
-
             };
 
             foreach (var pair in dictionary)
-                Assert.AreEqual(UnitParser.GetUnitName(pair.Key), pair.Value);
+                Assert.AreEqual(pair.Value, UnitParser.GetUnitName(pair.Key));
         }
 
         [TestMethod]

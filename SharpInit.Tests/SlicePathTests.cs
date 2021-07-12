@@ -28,7 +28,7 @@ namespace SharpInit.Tests
 
         public Dictionary<string, string> SlicesWithPaths = new Dictionary<string, string>()
         {
-            {"-.slice", "/"},
+            {"-.slice", ""},
             {"machine.slice", "/machine.slice"},
             {"user-1000.slice", "/user.slice/user-1000.slice"},
             {"user-1000-session.slice", "/user.slice/user-1000.slice/user-1000-session.slice"},
