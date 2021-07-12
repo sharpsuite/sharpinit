@@ -58,7 +58,6 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.CGroup = Unit.CGroup;
                 }
 
-                await System.Threading.Tasks.Task.Delay(500);
                 var process = await Unit.ServiceManager.StartProcessAsync(Unit, ProcessStartInfo);
 
                 if (WaitForExit)
