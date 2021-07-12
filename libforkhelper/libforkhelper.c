@@ -68,7 +68,7 @@ int augmented_fork(forkhelper_t a)
             exit(223);
         }
 
-        dprintf(args->control_fd, "starting\n");
+        dprintf(args->control_fd, " starting\n");
 
         dprintf(args->control_fd, "_setsid\n", args->stdin_fd);
         if (setsid() < 0)
