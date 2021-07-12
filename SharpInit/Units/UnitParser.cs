@@ -396,12 +396,13 @@ namespace SharpInit.Units
 
             var quoting = false;
             string current_run = "";
+            char quote_char = ' ';
 
             for(int i = 0; i < str.Length; i++)
             {
                 var current_char = str[i];
 
-                if(quoting && current_char == '"')
+                if(quoting && current_char == quote_char)
                 {
                     quoting = false;
 
@@ -410,9 +411,10 @@ namespace SharpInit.Units
 
                     current_run = "";
                 }
-                else if (current_char == '"')
+                else if (current_char == '"' || current_char == '\'')
                 {
                     quoting = true;
+                    quote_char = current_char;
 
                     if (!string.IsNullOrWhiteSpace(current_run))
                         ret.Add(current_run.TrimEnd(' '));
