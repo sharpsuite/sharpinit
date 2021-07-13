@@ -54,8 +54,13 @@ namespace SharpInit.Tasks
         public TaskExecution Wait() { done.Wait(); return this; }
         public bool Wait(TimeSpan timeout) => done.Wait(timeout);
         
-        public async System.Threading.Tasks.Task<TaskExecution> WaitAsync() { await System.Threading.Tasks.Task.Delay(-1, done_cts.Token); return this; }
-        public async System.Threading.Tasks.Task<TaskExecution> WaitAsync(TimeSpan timeout) { await System.Threading.Tasks.Task.Delay(timeout, done_cts.Token); return this; }
+        public async System.Threading.Tasks.Task<TaskExecution> WaitAsync() 
+        {
+            if (done_cts.Token.IsCancellationRequested)
+                return this;
+            await System.Threading.Tasks.Task.Delay(-1, done_cts.Token).ContinueWith(t => {}); return this; 
+        }
+        public async System.Threading.Tasks.Task<TaskExecution> WaitAsync(TimeSpan timeout) { await System.Threading.Tasks.Task.Delay(timeout, done_cts.Token).ContinueWith(t => {}); return this; }
         internal TaskResult ExecuteBlocking(Task other, TaskContext ctx) => ExecuteBlocking(Runner.Register(other, ctx));
         internal TaskResult ExecuteBlocking(TaskExecution exec)
         {

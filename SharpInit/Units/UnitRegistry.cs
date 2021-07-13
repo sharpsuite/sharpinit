@@ -28,6 +28,7 @@ namespace SharpInit.Units
         public Dictionary<string, List<UnitFile>> UnitFiles = new Dictionary<string, List<UnitFile>>();
 
         public Dictionary<string, Unit> Units = new Dictionary<string, Unit>();
+        public Dictionary<string, List<string>> Aliases = new Dictionary<string, List<string>>();
 
         public DependencyGraph<OrderingDependency> OrderingDependencies = new DependencyGraph<OrderingDependency>();
         public DependencyGraph<RequirementDependency> RequirementDependencies = new DependencyGraph<RequirementDependency>();
@@ -40,6 +41,21 @@ namespace SharpInit.Units
         internal UnitRegistry(ServiceManager manager)
         {
             ServiceManager = manager;
+        }
+
+        public bool AliasUnit(Unit unit, string alias)
+        {
+            if (Units.ContainsKey(alias))
+                return false;
+            
+            if (!Units.ContainsValue(unit))
+                return false;
+            
+            if (!Aliases.ContainsKey(alias))
+                Aliases[alias] = new List<string>();
+            
+            Aliases[alias].Add(unit.UnitName);
+            return true;
         }
 
         public void CreateBaseUnits()
@@ -199,6 +215,11 @@ namespace SharpInit.Units
             {
                 return Units[name] as T;
             }
+
+            if (CheckForAlias(name) != name)
+            {
+                return Units[CheckForAlias(name)] as T;
+            }
             
             var new_unit = CreateUnit(name);
             if (new_unit != null)
@@ -281,12 +302,34 @@ namespace SharpInit.Units
             return (Unit)Activator.CreateInstance(type, name, descriptor);
         }
 
+        public string CheckForAlias(string name)
+        {
+            if (Aliases.ContainsKey(name))
+            {
+                return Aliases[name].FirstOrDefault(Units.ContainsKey);
+            }
+
+            return name;
+        }
+
         public UnitDescriptor GetUnitDescriptor(string name)
         {
-            var unit_name = UnitParser.GetUnitName(name, with_parameter: true);
+            string unit_name = name;
+            var parametrized_unit_name = UnitParser.GetUnitName(name, with_parameter: true);
+            var unparametrized_unit_name = UnitParser.GetUnitName(name, with_parameter: false);
 
+            if (UnitFiles.ContainsKey(parametrized_unit_name))
+                unit_name = parametrized_unit_name;
+            else if (UnitFiles.ContainsKey(unparametrized_unit_name))
+                unit_name = unparametrized_unit_name;
+            
             if (!UnitFiles.ContainsKey(unit_name))
-                unit_name = UnitParser.GetUnitName(name, with_parameter: false);
+            {
+                if (UnitFiles.ContainsKey(CheckForAlias(parametrized_unit_name)))
+                    unit_name = CheckForAlias(parametrized_unit_name);
+                else if (UnitFiles.ContainsKey(CheckForAlias(unparametrized_unit_name)))
+                    unit_name = CheckForAlias(unparametrized_unit_name);
+            }
 
             var ext = Path.GetExtension(unit_name);
 
@@ -371,6 +414,7 @@ namespace SharpInit.Units
             UnitTypes[".mount"] = typeof(MountUnit);
             UnitTypes[".slice"] = typeof(SliceUnit);
             UnitTypes[".scope"] = typeof(ScopeUnit);
+            UnitTypes[".device"] = typeof(DeviceUnit);
 
             UnitDescriptorTypes[typeof(Unit)] = typeof(UnitDescriptor);
             UnitDescriptorTypes[typeof(ServiceUnit)] = typeof(ServiceUnitDescriptor);
@@ -379,6 +423,7 @@ namespace SharpInit.Units
             UnitDescriptorTypes[typeof(MountUnit)] = typeof(MountUnitDescriptor);
             UnitDescriptorTypes[typeof(SliceUnit)] = typeof(UnitDescriptor);
             UnitDescriptorTypes[typeof(ScopeUnit)] = typeof(ExecUnitDescriptor);
+            UnitDescriptorTypes[typeof(DeviceUnit)] = typeof(UnitDescriptor);
         }
     }
 }

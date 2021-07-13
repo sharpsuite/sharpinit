@@ -26,7 +26,10 @@ namespace SharpInit.Platform
 
         public bool IsSymlink(string path)
         {
-            return UnixFileSystemInfo.GetFileSystemEntry(path).IsSymbolicLink;
+            if (UnixFileSystemInfo.TryGetFileSystemEntry(path, out UnixFileSystemInfo entry))
+                return entry.Exists && entry.IsSymbolicLink;
+            
+            return false;
         }
 
         public bool CreateSymlink(string target, string path, bool symbolic)

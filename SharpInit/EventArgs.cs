@@ -6,6 +6,38 @@ using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
+    public delegate void OnDeviceAdded(object sender, DeviceAddedEventArgs e);
+    public class DeviceAddedEventArgs : EventArgs
+    {
+        public string DevicePath { get; set; }
+        
+        public DeviceAddedEventArgs(string dev_path)
+        {
+            DevicePath = dev_path;
+        }
+    }
+    public delegate void OnDeviceRemoved(object sender, DeviceRemovedEventArgs e);
+    public class DeviceRemovedEventArgs : EventArgs
+    {
+        public string DevicePath { get; set; }
+        
+        public DeviceRemovedEventArgs(string dev_path)
+        {
+            DevicePath = dev_path;
+        }
+    }
+    
+    public delegate void OnDeviceUpdated(object sender, DeviceUpdatedEventArgs e);
+    public class DeviceUpdatedEventArgs : EventArgs
+    {
+        public string DevicePath { get; set; }
+        
+        public DeviceUpdatedEventArgs(string dev_path)
+        {
+            DevicePath = dev_path;
+        }
+    }
+
     public delegate void OnUnitConfigurationChanged(object sender, UnitConfigurationChangedEventArgs e);
     public class UnitConfigurationChangedEventArgs : EventArgs
     {

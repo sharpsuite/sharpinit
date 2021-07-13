@@ -57,6 +57,28 @@ namespace SharpInit
                     config.AddTarget("journal", journal_target);
                     config.AddRuleForAllLevels("journal");
 
+                    if (PlatformUtilities.CurrentlyOn("linux"))
+                    {
+                        if (System.IO.Directory.Exists("/run/udev/tags"))
+                        {
+                            try
+                            {
+                                Platform.Unix.UdevEnumerator.ServiceManager = ServiceManager;
+                                Platform.Unix.UdevEnumerator.InitializeHandlers();
+                                Platform.Unix.UdevEnumerator.ScanDevicesByTag("systemd");
+                                Platform.Unix.UdevEnumerator.ScanDevicesByTag("sharpinit");
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Warn(ex, $"Failed to retrieve devices from udevd.");
+                            }
+                        }
+                        else
+                        {
+                            Log.Info($"udevd is not running.");
+                        }
+                    }
+
                     if (PlatformUtilities.CurrentlyOn("linux") && SharpInit.Platform.Unix.UnixPlatformInitialization.IsSystemManager)
                     {
                         var journal_fd = SharpInit.Platform.Unix.UnixPlatformInitialization.JournalOutputFd;

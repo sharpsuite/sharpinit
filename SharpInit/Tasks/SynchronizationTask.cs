@@ -22,5 +22,10 @@ namespace SharpInit.Tasks
         {
             return new TaskResult(this, ResultType.Success);
         }
+
+        public override string ToString()
+        {
+            return "------ synchronization barrier ------";
+        }
     }
 }

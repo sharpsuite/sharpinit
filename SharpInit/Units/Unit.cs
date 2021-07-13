@@ -46,6 +46,8 @@ namespace SharpInit.Units
         private DependencyGraph<RequirementDependency> RequirementDependencyGraph { get; set; }
         private DependencyGraph<OrderingDependency> OrderingDependencyGraph { get; set; }
 
+        private System.Threading.CancellationTokenSource StateChangeCancellationToken { get; set; }
+
         public abstract Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages { get; }
 
         protected Unit(string name, UnitDescriptor descriptor)
@@ -62,6 +64,7 @@ namespace SharpInit.Units
 
             ConfigurationChanged += HandleConfigurationChange;
             StartupThrottle = new ActionThrottle(TimeSpan.Zero, 0);
+            StateChangeCancellationToken = new System.Threading.CancellationTokenSource();
         }
 
         public abstract UnitDescriptor GetUnitDescriptor();
@@ -69,12 +72,20 @@ namespace SharpInit.Units
         {
             ConfigurationChanged?.Invoke(this, new UnitConfigurationChangedEventArgs(this));
         }
+
+        public async System.Threading.Tasks.Task<bool> WaitForStateChange(TimeSpan timeout) 
+        { 
+            var current_token = StateChangeCancellationToken.Token;
+            return await System.Threading.Tasks.Task.Delay(timeout, current_token).ContinueWith(t => t.Exception == default);
+        }
         
         internal void SetState(UnitState next_state, string reason = null)
         {
             // block while state changes are handled
             // TODO: Investigate whether this could result in a deadlock
             UnitStateChanged?.Invoke(this, new UnitStateChangedEventArgs(this, next_state, reason)); 
+            StateChangeCancellationToken.Cancel();
+            StateChangeCancellationToken = new System.Threading.CancellationTokenSource();
 
             PreviousState = CurrentState;
             CurrentState = next_state;
