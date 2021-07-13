@@ -29,7 +29,8 @@ namespace SharpInitControl
             {"enable", InstallUnits},
             {"disable", UninstallUnits},
             {"join-manager-to-current-cgroup", JoinCGroup},
-            {"service-manager-pid", PrintServiceManagerPid}
+            {"service-manager-pid", PrintServiceManagerPid},
+            {"show", ShowUnit}
         };
 
         static IpcConnection Connection { get; set; }
@@ -171,6 +172,21 @@ namespace SharpInitControl
                 Console.WriteLine("loaded {0} units in total", loaded_units);
             else
                 Console.WriteLine("error");
+        }
+
+        static void ShowUnit(string verb, string[] args)
+        {
+            var unit = args.First();
+            var props = Context.GetUnitProperties(unit);
+
+            if (props == null || !props.Any())
+                return;
+            
+            foreach (var pair in props)
+            {
+                foreach (var val in pair.Value)
+                    Console.WriteLine($"{pair.Key}={val}");
+            }
         }
 
         static void GetUnitStatus(string verb, string[] args)

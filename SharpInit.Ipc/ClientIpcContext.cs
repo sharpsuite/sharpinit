@@ -79,6 +79,8 @@ namespace SharpInit.Ipc
         public bool MoveToCGroup(string cgroup_name) => MakeCall<bool>(Wrap(cgroup_name));
         public int GetServiceManagerProcessId() => MakeCall<int>();
 
+        public Dictionary<string, List<string>> GetUnitProperties(string name) => MakeCall<Dictionary<string, List<string>>>(Wrap(name));
+
         public Dictionary<string, List<string>> GetActivationPlan(string unit)
         {
             var result = InvokeIpcFunction("get-activation-plan", unit);

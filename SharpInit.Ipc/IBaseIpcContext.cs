@@ -57,5 +57,8 @@ namespace SharpInit.Ipc
 
         [IpcFunction("get-pid")]
         int GetServiceManagerProcessId();
+
+        [IpcFunction("get-unit-properties")]
+        Dictionary<string, List<string>> GetUnitProperties(string name);
     }
 }

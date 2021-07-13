@@ -147,6 +147,16 @@ namespace SharpInit
             return info;
         }
 
+        public Dictionary<string, List<string>> GetUnitProperties(string name)
+        {
+            var unit = ServiceManager.Registry.GetUnit(name);
+
+            if (unit == null)
+                return null;
+            
+            return unit.Descriptor.GetProperties();
+        }
+
         public List<string> GetJournal(string journal, int lines)
         {
             var entries = ServiceManager.Journal.Tail(journal, lines);

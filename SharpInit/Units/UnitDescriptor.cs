@@ -160,6 +160,36 @@ namespace SharpInit.Units
             Created = DateTime.UtcNow;
         }
 
+        public Dictionary<string, List<string>> GetProperties()
+        {
+            var self_properties = this.GetType().GetProperties();
+            var properties_with_attribute = self_properties.Where(prop => prop.GetCustomAttributes(typeof(UnitPropertyAttribute), true).Any());
+            var properties = new Dictionary<string, List<string>>();
+
+            foreach (var property in properties_with_attribute)
+            {
+                var val = property.GetValue(this);
+
+                if (!properties.ContainsKey(property.Name))
+                    properties[property.Name] = new List<string>();
+
+                switch (val)
+                {
+                    case string str:
+                        properties[property.Name].Add(str);
+                        break;
+                    case List<string> strs:
+                        properties[property.Name].AddRange(strs);
+                        break;
+                    default:
+                        properties[property.Name].Add(val?.ToString() ?? "(null)");
+                        break;
+                }
+            }
+
+            return properties;
+        }
+
         internal void InstantiateDescriptor(UnitInstantiationContext ctx)
         {
             var self_properties = this.GetType().GetProperties();
@@ -178,7 +208,6 @@ namespace SharpInit.Units
                             list[i] = ctx.Substitute(list[i]);
                         }
                         break;
-
                 }
             }
         }
