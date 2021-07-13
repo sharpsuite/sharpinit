@@ -59,24 +59,31 @@ namespace SharpInit
 
                     if (PlatformUtilities.CurrentlyOn("linux"))
                     {
-                        if (System.IO.Directory.Exists("/run/udev/tags"))
+                        System.Threading.Tasks.Task.Run(() => 
                         {
-                            try
+                            while (!System.IO.Directory.Exists("/run/udev/tags"))
+                                System.Threading.Thread.Sleep(100);
+
+                            if (System.IO.Directory.Exists("/run/udev/tags"))
                             {
-                                Platform.Unix.UdevEnumerator.ServiceManager = ServiceManager;
-                                Platform.Unix.UdevEnumerator.InitializeHandlers();
-                                Platform.Unix.UdevEnumerator.ScanDevicesByTag("systemd");
-                                Platform.Unix.UdevEnumerator.ScanDevicesByTag("sharpinit");
+                                try
+                                {
+                                    Platform.Unix.UdevEnumerator.ServiceManager = ServiceManager;
+                                    Platform.Unix.UdevEnumerator.InitializeHandlers();
+                                    
+                                    var task = new SharpInit.Tasks.ScanUdevDevicesTask();
+                                    ServiceManager.Runner.Register(task).Enqueue().Wait();
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Warn(ex, $"Failed to retrieve devices from udevd.");
+                                }
                             }
-                            catch (Exception ex)
+                            else
                             {
-                                Log.Warn(ex, $"Failed to retrieve devices from udevd.");
+                                Log.Info($"udevd is not running.");
                             }
-                        }
-                        else
-                        {
-                            Log.Info($"udevd is not running.");
-                        }
+                        });
                     }
 
                     if (PlatformUtilities.CurrentlyOn("linux") && SharpInit.Platform.Unix.UnixPlatformInitialization.IsSystemManager)
@@ -107,7 +114,7 @@ namespace SharpInit
 
                     NLog.NestedDiagnosticsLogicalContext.Push("main");
 
-                    ServiceManager.Registry.ScanDefaultDirectories();
+                    ServiceManager.RunOnQueue(() => ServiceManager.Registry.ScanDefaultDirectories(), "scan-default-dirs");
                     
                     Log.Info($"Loaded {ServiceManager.Registry.Units.Count} units");
 

@@ -72,6 +72,12 @@ namespace SharpInit
                 CGroupManager.Supported = false;
         }
 
+        public void RunOnQueue(Action action, string type = "delegate")
+        {
+            var task = new DelegateTask(action, type);
+            Runner.Register(task).Enqueue().Wait();
+        }
+
         public void MoveToScope(string scope)
         {
             if (Scope != null)

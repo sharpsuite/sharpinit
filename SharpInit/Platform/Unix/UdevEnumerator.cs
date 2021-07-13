@@ -30,6 +30,31 @@ namespace SharpInit.Platform.Unix
         {
             DeviceAdded += HandleNewDevice;
             DeviceRemoved += HandleDeviceRemoved;
+
+            var watcher = new FileSystemWatcher("/run/udev");
+            watcher.NotifyFilter = NotifyFilters.Attributes
+                                 | NotifyFilters.CreationTime
+                                 | NotifyFilters.DirectoryName
+                                 | NotifyFilters.FileName
+                                 | NotifyFilters.LastWrite
+                                 | NotifyFilters.Security
+                                 | NotifyFilters.Size;
+
+            watcher.Created += HandleUdevDirectoryInotify;
+            watcher.Deleted += HandleUdevDirectoryInotify;
+            watcher.Changed += HandleUdevDirectoryInotify;
+            watcher.IncludeSubdirectories = true;
+            watcher.EnableRaisingEvents = true;
+        }
+        private static void HandleUdevDirectoryInotify(object sender, FileSystemEventArgs e)
+        {
+            Log.Debug($"change at {e.FullPath}: {e.ChangeType}");
+
+            if (ServiceManager?.Runner != null)
+            {
+                var task = new SharpInit.Tasks.ScanUdevDevicesTask();
+                ServiceManager.Runner.Register(task).Enqueue().Wait();
+            }
         }
 
         private static void HandleNewDevice(object sender, DeviceAddedEventArgs e)
@@ -170,56 +195,59 @@ namespace SharpInit.Platform.Unix
 
         public static void ScanDevicesByTag(string tag)
         {
-            if (!Directory.Exists($"/run/udev/tags/{tag}"))
+            lock (Units)
             {
-                Log.Warn($"No devices found for tag {tag}, or udev is non-systemd");
-                return;
+                if (!Directory.Exists($"/run/udev/tags/{tag}"))
+                {
+                    Log.Warn($"No devices found for tag {tag}, or udev is non-systemd");
+                    return;
+                }
+
+                var files = Directory.GetFiles($"/run/udev/tags/{tag}");
+                var devices_hit = new List<string>();
+
+                foreach (var file in files)
+                {
+                    var device_id = Path.GetFileName(file);
+                    var dev = UdevDevice.FromDeviceId(device_id);
+
+                    if (dev != null && !string.IsNullOrWhiteSpace(dev.SysPath))
+                    {
+                        devices_hit.Add(dev.SysPath);
+                    }
+                    else
+                    {
+                        Log.Warn($"Could not identify device \"{file}\"");
+                        continue;
+                    }
+
+                    if (Devices.ContainsKey(dev.SysPath))
+                    {
+                        Log.Debug($"Reparsing {dev.SysPath}");
+                        Devices[dev.SysPath].ParseDatabaseIfExists();
+                        continue;
+                    }
+
+                    Log.Debug($"Discovered new device {dev.SysPath}");
+                    Devices[dev.SysPath] = dev;
+                    dev.ParseDatabaseIfExists();
+                    DeviceAdded?.Invoke(null, new DeviceAddedEventArgs(dev.SysPath));
+                }
+
+                var devices_to_remove = new List<string>();
+
+                foreach (var pair in Devices)
+                {
+                    if (!devices_hit.Contains(pair.Key) && pair.Value.Tags.Contains(tag))
+                    {
+                        Log.Info($"Device {pair.Value.SysPath} has been removed");
+                        devices_to_remove.Add(pair.Key);
+                        DeviceRemoved?.Invoke(null, new DeviceRemovedEventArgs(pair.Key));
+                    }
+                }
+
+                devices_to_remove.ForEach(dev => Devices.Remove(dev));
             }
-
-            var files = Directory.GetFiles($"/run/udev/tags/{tag}");
-            var devices_hit = new List<string>();
-
-            foreach (var file in files)
-            {
-                var device_id = Path.GetFileName(file);
-                var dev = UdevDevice.FromDeviceId(device_id);
-
-                if (dev != null && !string.IsNullOrWhiteSpace(dev.SysPath))
-                {
-                    devices_hit.Add(dev.SysPath);
-                }
-                else
-                {
-                    Log.Warn($"Could not identify device \"{file}\"");
-                    continue;
-                }
-
-                if (Devices.ContainsKey(dev.SysPath))
-                {
-                    Log.Debug($"Reparsing {dev.SysPath}");
-                    Devices[dev.SysPath].ParseDatabaseIfExists();
-                    continue;
-                }
-
-                Log.Debug($"Discovered new device {dev.SysPath}");
-                Devices[dev.SysPath] = dev;
-                dev.ParseDatabaseIfExists();
-                DeviceAdded?.Invoke(null, new DeviceAddedEventArgs(dev.SysPath));
-            }
-
-            var devices_to_remove = new List<string>();
-
-            foreach (var pair in Devices)
-            {
-                if (!devices_hit.Contains(pair.Key) && pair.Value.Tags.Contains(tag))
-                {
-                    Log.Info($"Device {pair.Value.SysPath} has been removed");
-                    devices_to_remove.Add(pair.Key);
-                    DeviceRemoved?.Invoke(null, new DeviceRemovedEventArgs(pair.Key));
-                }
-            }
-
-            devices_to_remove.ForEach(dev => Devices.Remove(dev));
         }
     }
 
