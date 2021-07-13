@@ -80,7 +80,7 @@ namespace SharpInit
                 return true;
             }
 
-            await System.Threading.Tasks.Task.Delay(timeout, cancellation_token.Token);
+            await System.Threading.Tasks.Task.Delay(timeout, cancellation_token.Token).ContinueWith(t => {});
             
             if (cancellation_token.IsCancellationRequested)
                 return true;

@@ -68,6 +68,8 @@ namespace SharpInit.Platform
             StandardInputTarget = "null";
             StandardOutputTarget = "null";
             StandardErrorTarget = "null";
+            Environment = new Dictionary<string, string>();
+            Arguments = new string[0];
         }
 
         public ProcessStartInfo(string path, string[] arguments = null, IUserIdentifier user = null, Dictionary<string, string> environment = null, string working_dir = null) 

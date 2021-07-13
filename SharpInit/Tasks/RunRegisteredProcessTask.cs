@@ -17,6 +17,7 @@ namespace SharpInit.Tasks
         public Unit Unit { get; set; }
         public bool WaitForExit { get; set; }
         public int WaitExitMilliseconds { get; set; }
+        public ProcessInfo Process { get; set; }
 
         /// <summary>
         /// Starts a process with the parameters outlined in <paramref name="psi"/> and associates it with the service manager of <paramref name="unit"/>.
@@ -58,16 +59,16 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.CGroup = Unit.CGroup;
                 }
 
-                var process = await Unit.ServiceManager.StartProcessAsync(Unit, ProcessStartInfo);
+                Process = await Unit.ServiceManager.StartProcessAsync(Unit, ProcessStartInfo);
 
                 if (WaitForExit)
                 {
-                    if (process.WaitForExit(WaitExitMilliseconds <= -1 ? TimeSpan.MaxValue : TimeSpan.FromMilliseconds(WaitExitMilliseconds)))
-                        return new TaskResult(this, ResultType.Success, $"pid {process.Id} exit code {process.ExitCode}");
+                    if (Process.WaitForExit(WaitExitMilliseconds <= -1 ? TimeSpan.MaxValue : TimeSpan.FromMilliseconds(WaitExitMilliseconds)))
+                        return new TaskResult(this, ResultType.Success, $"pid {Process.Id} exit code {Process.ExitCode}");
                     else
                     {
-                        process.Process.Kill();
-                        return new TaskResult(this, ResultType.Timeout, $"Process {process.Id} did not exit in the given timeframe.");
+                        Process.Process.Kill();
+                        return new TaskResult(this, ResultType.Timeout, $"Process {Process.Id} did not exit in the given timeframe.");
                     }
                 }
 

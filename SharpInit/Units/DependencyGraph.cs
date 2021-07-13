@@ -73,7 +73,7 @@ namespace SharpInit.Units
                 if (!add_reverse)
                     relevant_dependencies = relevant_dependencies.Where(d => d.LeftUnit == current_unit);
 
-                relevant_dependencies = relevant_dependencies.Where(filter);
+                relevant_dependencies = relevant_dependencies.Where(filter).ToList();
 
                 foreach(var dependency in relevant_dependencies)
                 {

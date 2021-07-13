@@ -318,27 +318,32 @@ namespace SharpInit.Units
             var parametrized_unit_name = UnitParser.GetUnitName(name, with_parameter: true);
             var unparametrized_unit_name = UnitParser.GetUnitName(name, with_parameter: false);
 
-            if (UnitFiles.ContainsKey(parametrized_unit_name))
-                unit_name = parametrized_unit_name;
-            else if (UnitFiles.ContainsKey(unparametrized_unit_name))
-                unit_name = unparametrized_unit_name;
-            
-            if (!UnitFiles.ContainsKey(unit_name))
+            Type type;
+            UnitFile[] files;
+
+            lock (UnitFiles)
             {
-                if (UnitFiles.ContainsKey(CheckForAlias(parametrized_unit_name)))
-                    unit_name = CheckForAlias(parametrized_unit_name);
-                else if (UnitFiles.ContainsKey(CheckForAlias(unparametrized_unit_name)))
-                    unit_name = CheckForAlias(unparametrized_unit_name);
+                if (UnitFiles.ContainsKey(parametrized_unit_name))
+                    unit_name = parametrized_unit_name;
+                else if (UnitFiles.ContainsKey(unparametrized_unit_name))
+                    unit_name = unparametrized_unit_name;
+                
+                if (!UnitFiles.ContainsKey(unit_name))
+                {
+                    if (UnitFiles.ContainsKey(CheckForAlias(parametrized_unit_name)))
+                        unit_name = CheckForAlias(parametrized_unit_name);
+                    else if (UnitFiles.ContainsKey(CheckForAlias(unparametrized_unit_name)))
+                        unit_name = CheckForAlias(unparametrized_unit_name);
+                }
+
+                var ext = Path.GetExtension(unit_name);
+
+                type = UnitTypes[ext];
+                files = UnitFiles[unit_name].ToArray();
+                Array.Sort(files, CompareUnitFiles);
             }
 
-            var ext = Path.GetExtension(unit_name);
-
-            var type = UnitTypes[ext];
-            var files = UnitFiles[unit_name];
-
-            files.Sort(CompareUnitFiles);
-
-            var descriptor = UnitParser.FromFiles(UnitDescriptorTypes[type], files.ToArray());
+            var descriptor = UnitParser.FromFiles(UnitDescriptorTypes[type], files);
             var context = new UnitInstantiationContext();
 
             var pure_unit_name = UnitParser.GetUnitName(name, with_parameter: false);

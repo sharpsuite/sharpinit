@@ -33,11 +33,11 @@ namespace SharpInit.Tasks
                     return new TaskResult(this, ResultType.Failure, $"Mount unit name does not match Where= parameter: \"{Unit.UnitName}\" has \"Where={Descriptor.Where}\", expected unit name to be \"{StringEscaper.EscapePath(Descriptor.Where)}.mount\"");
                 
                 var mount_type = Descriptor.Type ?? "auto";
-                var args = new List<string>() { "--types", mount_type };
+                var args = new List<string>() { "-t", mount_type };
 
                 if (!string.IsNullOrWhiteSpace(Descriptor.Options))
                 {
-                    args.Add("--options");
+                    args.Add("-o");
                     args.Add(Descriptor.Options);
                 }
                 
@@ -47,7 +47,7 @@ namespace SharpInit.Tasks
                 if (Descriptor.ReadWriteOnly)
                     args.Add("-w");
                 
-                args.AddRange(new [] { "--source", Descriptor.What, "--target", Descriptor.Where });
+                args.AddRange(new [] { Descriptor.What, Descriptor.Where });
 
                 // Create target directory if it doesn't exist.
                 var dir = Descriptor.Where;
@@ -86,7 +86,7 @@ namespace SharpInit.Tasks
                 var task = new RunRegisteredProcessTask(psi, Unit, wait_for_exit: true, exit_timeout: (int)Descriptor.TimeoutSec.TotalMilliseconds);
                 var result = await ExecuteAsync(task, context);
 
-                if (result.Message != "exit code 0")
+                if (task.Process?.ExitCode != 0)
                     return new TaskResult(this, ResultType.Failure, result.Message);
                 
                 return result;
