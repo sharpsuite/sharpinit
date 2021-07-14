@@ -24,6 +24,9 @@ namespace SharpInit.Coverage
             var supported_listens = new [] { "Stream", "Datagram", "SequentialPacket", "FIFO"};
             var supported_conditionals = new [] { "" };
 
+            SharpInit.Units.UnitConditions.BuildConditionCache();
+            supported_conditionals = SharpInit.Units.UnitConditions.ConditionCache.Keys.ToArray();
+
             foreach (var listen in supported_listens)
                 property_support[$"Socket/Listen{listen}"] = int.MaxValue;
 

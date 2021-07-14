@@ -16,10 +16,13 @@ namespace SharpInit.Units
 
     public static class UnitConditions
     {
-        static Dictionary<string, Func<string, bool>> ConditionCache = new Dictionary<string, Func<string, bool>>();
+        public static Dictionary<string, Func<string, bool>> ConditionCache = new Dictionary<string, Func<string, bool>>();
         static Dictionary<string, bool> ConditionNegatable = new Dictionary<string, bool>();
-        static void BuildConditionCache()
+        public static void BuildConditionCache()
         {
+            ConditionCache.Clear();
+            ConditionNegatable.Clear();
+
             var functions = typeof(UnitConditions).GetMethods(BindingFlags.Public | BindingFlags.Static);
 
             foreach (var function in functions)
