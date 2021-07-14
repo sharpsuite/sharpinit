@@ -226,6 +226,13 @@ namespace SharpInit.Units
 
                     transaction.Add(new RunRegisteredProcessTask(forking_psi, this, true, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
                     break;
+                case ServiceType.Dbus:
+                    var dbus_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
+                    dbus_psi.WaitUntilExec = true;
+
+                    transaction.Add(new RunRegisteredProcessTask(dbus_psi, this, true, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
+                    transaction.Add(new WaitForDBusName(Descriptor.BusName, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
+                    break;
                 default:
                     Log.Error($"{UnitName} has unsupported service type {Descriptor.ServiceType}");
                     SetState(UnitState.Failed, $"Unsupported service type \"{Descriptor.ServiceType}\"");

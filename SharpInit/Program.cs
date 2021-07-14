@@ -11,6 +11,8 @@ using Mono.Unix.Native;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 
+using Tmds.DBus;
+
 namespace SharpInit
 {
     class Program
@@ -86,6 +88,10 @@ namespace SharpInit
                             }
                         });
                     }
+
+                    Log.Info($"Connecting to dbus...");
+                    await ServiceManager.DBusManager.Connect();
+                    Log.Info($"Connected to dbus");
 
                     if (PlatformUtilities.CurrentlyOn("linux") && SharpInit.Platform.Unix.UnixPlatformInitialization.IsSystemManager)
                     {

@@ -38,6 +38,7 @@ namespace SharpInit
         public IProcessHandler ProcessHandler;
 
         public CGroupManager CGroupManager { get; private set; }
+        public DbusManager DBusManager { get; private set; }
         
         public ServiceManager() :
             this(PlatformUtilities.GetImplementation<IProcessHandler>())
@@ -63,6 +64,8 @@ namespace SharpInit
             Runner = new TaskRunner(this);
 
             SocketManager = new SocketManager();
+
+            DBusManager = new DbusManager(this);
 
             if (PlatformUtilities.CurrentlyOn("linux"))
             {
