@@ -235,15 +235,8 @@ namespace SharpInit.Units
                 transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
                 ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
 
-            if (Descriptor.ServiceType != ServiceType.Oneshot)
+            if (Descriptor.ServiceType != ServiceType.Oneshot || Descriptor.RemainAfterExit)
                 transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
-            else
-            {
-                if (Descriptor.RemainAfterExit)
-                    transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
-                else
-                    transaction.Add(new SetUnitStateTask(this, UnitState.Inactive));
-            }
             
             transaction.Add(new SetMainPidTask(this, transaction.Tasks.OfType<RunRegisteredProcessTask>().FirstOrDefault()));
             transaction.Add(new UpdateUnitActivationTimeTask(this));

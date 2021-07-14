@@ -206,6 +206,12 @@ namespace SharpInit
             }
 
             var proc_info = ProcessesById[pid];
+
+            if (proc_info.ExitProcessed)
+                return;
+
+            proc_info.ExitProcessed = true;
+
             var unit = proc_info.SourceUnit;
 
             unit.RaiseProcessExit(proc_info, exit_code);
@@ -220,11 +226,13 @@ namespace SharpInit
         public async System.Threading.Tasks.Task<ProcessInfo> StartProcessAsync(Unit unit, ProcessStartInfo psi)
         {
             var process = await ProcessHandler.StartAsync(psi);
+            RegisterProcess(unit, process);
 
             if (!process.Process.HasExited)
                 unit.RaiseProcessStart(process);
+            else
+                unit.RaiseProcessExit(process, process.ExitCode);
 
-            RegisterProcess(unit, process);
             return process;
         }
         public ProcessInfo StartProcess(Unit unit, ProcessStartInfo psi) => StartProcessAsync(unit, psi).Result;
@@ -244,7 +252,6 @@ namespace SharpInit
                 ProcessesByUnit[unit] = new List<ProcessInfo>();
 
             ProcessesByUnit[unit].Add(proc);
-            proc.SourceUnit = unit;
         }
 
         public void RegisterProcess(Unit unit, System.Diagnostics.Process proc)

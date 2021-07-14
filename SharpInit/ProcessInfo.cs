@@ -36,6 +36,7 @@ namespace SharpInit
         public int Id { get; set; }
         public int ExitCode { get; set; }
         public bool HasExited { get; set; }
+        public bool ExitProcessed { get; set; }
         public Process Process { get; set; }
 
         public ProcessInfo(Process proc, Unit source_unit = null)
