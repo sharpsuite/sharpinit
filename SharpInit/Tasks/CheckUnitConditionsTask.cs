@@ -39,7 +39,8 @@ namespace SharpInit.Tasks
                     if (!result)
                     {
                         var failed_assertions = assertions.Where(a => !UnitConditions.CheckCondition(a.Key, a.Value)).Select(a => $"{a.Key}={a.Value}");
-                        return new TaskResult(this, ResultType.Failure, $"Assertions failed: [{string.Join(", ", failed_assertions)}]");
+                        Runner.ExecuteBlocking(new SetUnitStateTask(Unit, UnitState.Inactive, reason: $"Unit startup assertions failed: [{string.Join(", ", failed_assertions)}]"), Execution.Context);
+                        return new TaskResult(this, ResultType.StopExecution, $"Assertions failed: [{string.Join(", ", failed_assertions)}]");
                     }
                 }
 

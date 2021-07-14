@@ -120,6 +120,7 @@ namespace SharpInit.Units
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
 
             transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
+            transaction.Add(new CheckUnitConditionsTask(this));
             transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
             transaction.Add(new MountTask(this));
