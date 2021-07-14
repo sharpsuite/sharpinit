@@ -91,7 +91,7 @@ namespace SharpInit
 
             Scope = Registry.GetUnit<ScopeUnit>(scope);
 
-            Runner.Register(Planner.CreateActivationTransaction(Scope)).Enqueue().Wait();
+            Runner.Register(LateBoundUnitActivationTask.CreateActivationTransaction(Scope)).Enqueue().Wait();
 
             var pids = CGroupManager.RootCGroup.ChildProcesses;
 
@@ -235,6 +235,7 @@ namespace SharpInit
                 throw new InvalidOperationException("This pid has already been registered");
             
             proc.ServiceManager = this;
+            proc.SourceUnit = unit;
 
             ManagedProcesses.Add(proc);
             ProcessesById[proc.Id] = proc;

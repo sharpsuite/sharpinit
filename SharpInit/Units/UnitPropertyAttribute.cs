@@ -36,6 +36,7 @@ namespace SharpInit.Units
         StringList,
         StringListSpaceSeparated,
         Enum,
-        Time
+        Time,
+        Signal
     }
 }

@@ -46,6 +46,26 @@ namespace SharpInit
             SourceUnit = source_unit;
         }
 
+        private ProcessInfo() {}
+
+        public static ProcessInfo FromPid(int pid, Unit source = null)
+        {
+            var proc_info = new ProcessInfo();
+            proc_info.Id = pid;
+            proc_info.SourceUnit = source;
+
+            try
+            {
+                proc_info.Process = System.Diagnostics.Process.GetProcessById(pid);
+            }
+            catch
+            {
+
+            }
+
+            return proc_info;
+        }
+
         public bool SendSignal(Signum signal)
         {
             if (!PlatformSupportsSignaling)

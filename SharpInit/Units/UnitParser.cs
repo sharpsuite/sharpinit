@@ -5,6 +5,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
+using Mono.Unix.Native;
+
 namespace SharpInit.Units
 {
     public static class UnitParser
@@ -151,6 +153,35 @@ namespace SharpInit.Units
                             break;
                         case UnitPropertyType.Enum:
                             prop.SetValue(descriptor, Enum.Parse(attribute.EnumType, last_value.Replace("-", ""), true));
+                            break;
+                        case UnitPropertyType.Signal:
+                            Mono.Unix.Native.Signum sigval = Mono.Unix.Native.Signum.SIGUNUSED;
+                            var signame = last_value.ToUpperInvariant();
+
+                            if (int.TryParse(signame, out int signum))
+                            {
+                                if (Enum.IsDefined(typeof(Mono.Unix.Native.Signum), signum))
+                                {
+                                    sigval = (Mono.Unix.Native.Signum)signum;
+                                }
+                            }
+
+                            if (!signame.StartsWith("SIG"))
+                                signame = "SIG" + signame;
+                            
+                            if (Enum.IsDefined(typeof(Mono.Unix.Native.Signum), signame))
+                            {
+                                sigval = Enum.Parse<Mono.Unix.Native.Signum>(signame);
+                            }
+
+                            if (sigval != Signum.SIGUNUSED)
+                            {
+                                if (prop.PropertyType == typeof(Signum))
+                                    prop.SetValue(descriptor, sigval);
+                                else if (prop.PropertyType == typeof(int))
+                                    prop.SetValue(descriptor, (int)sigval);
+                            }
+                            
                             break;
                     }
                 }

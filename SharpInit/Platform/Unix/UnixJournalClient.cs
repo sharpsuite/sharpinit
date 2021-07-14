@@ -108,10 +108,11 @@ namespace SharpInit.Platform.Unix
             while (true)
             {
                 var wait_ret = Syscall.epoll_wait(EpollFd.Number, event_arr, event_arr.Length, 1);
+                var clients = Clients.ToList();
 
                 for (int i = 0; i < wait_ret; i++) 
                 {
-                    var client = Clients.FirstOrDefault(client => client.ReadFd.Number == event_arr[i].fd);
+                    var client = clients.FirstOrDefault(client => client.ReadFd.Number == event_arr[i].fd);
                     long read = 0;
                     var contents = new List<byte>();
 

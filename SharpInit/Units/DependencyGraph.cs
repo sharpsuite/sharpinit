@@ -40,6 +40,8 @@ namespace SharpInit.Units
             Dependencies.AddRange(dependencies.SelectMany(t => t));
         }
 
+        public DependencyGraph<T> Clone() => new DependencyGraph<T>() { Dependencies = Dependencies.ToList() };
+
         /// <summary>
         /// Gathers a list of dependencies that involve a particular unit.
         /// </summary>

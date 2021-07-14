@@ -24,7 +24,7 @@ namespace SharpInit.Tasks
         /// </summary>
         /// <param name="psi">The ProcessStartInfo that defines the parameters of the process to be executed.</param>
         /// <param name="unit">The Unit to associate the newly created process with.</param>
-        public RunRegisteredProcessTask(ProcessStartInfo psi, Unit unit, bool wait_for_exit = false, int exit_timeout = -1)
+        public RunRegisteredProcessTask(ProcessStartInfo psi, Unit unit, bool wait_for_exit = false, int exit_timeout = -1, bool set_main_pid = false)
         {
             ProcessStartInfo = psi;
             Unit = unit;

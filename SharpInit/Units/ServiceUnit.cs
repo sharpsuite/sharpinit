@@ -20,8 +20,6 @@ namespace SharpInit.Units
 
         public int COMMAND_TIMEOUT = 5000;
 
-        public int MainPid { get; set; }
-
         public ServiceUnit(string name, ServiceUnitDescriptor desc) :
             base(name, desc)
         {
@@ -74,6 +72,9 @@ namespace SharpInit.Units
         {
             SocketManager.UnignoreSocketsByUnit(this);
 
+            if (e.Process?.Id == MainProcessId)
+                MainProcessId = -1;
+
             switch(CurrentState)
             {
                 case UnitState.Deactivating:
@@ -119,8 +120,8 @@ namespace SharpInit.Units
         {
             return new Transaction(
                 new DelayTask(Descriptor.RestartSec),
-                ServiceManager.Planner.CreateDeactivationTransaction(UnitName, $"{UnitName} is being restarted"),
-                ServiceManager.Planner.CreateActivationTransaction(UnitName, $"{UnitName} is being restarted"));
+                LateBoundUnitActivationTask.CreateDeactivationTransaction(UnitName, $"{UnitName} is being restarted"),
+                LateBoundUnitActivationTask.CreateActivationTransaction(UnitName, $"{UnitName} is being restarted"));
         }
 
         private void HandleProcessStart(object sender, ServiceProcessStartEventArgs e)
@@ -195,6 +196,7 @@ namespace SharpInit.Units
             if (Descriptor.ServiceType != ServiceType.Oneshot || Descriptor.RemainAfterExit)
                 transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
             
+            transaction.Add(new SetMainPidTask(this, transaction.Tasks.OfType<RunRegisteredProcessTask>().FirstOrDefault()));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
             transaction.OnFailure = transaction.OnTimeout = new HandleFailureTask(this);
 

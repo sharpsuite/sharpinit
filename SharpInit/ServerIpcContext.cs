@@ -22,7 +22,7 @@ namespace SharpInit
 
         public bool ActivateUnit(string name)
         {
-            var transaction = ServiceManager.Planner.CreateActivationTransaction(name, "Remotely triggered via IPC");
+            var transaction = LateBoundUnitActivationTask.CreateActivationTransaction(name, "Remotely triggered via IPC");
             var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
             var result = exec.Result;
 
@@ -31,7 +31,7 @@ namespace SharpInit
                 Log.Info($"Activation transaction failed. Result type: {result.Type}, message: {result.Message}");
                 Log.Info("Transaction failed at highlighted task: ");
 
-                var tree = transaction.GenerateTree(0, result.Task);
+                var tree = transaction.GeneratedTransaction?.GenerateTree(0, result.Task) ?? "(failed to generate late-bound tx)";
 
                 foreach (var line in tree.Split('\n'))
                     Log.Info(line);
@@ -42,7 +42,7 @@ namespace SharpInit
 
         public bool DeactivateUnit(string name)
         {
-            var transaction = ServiceManager.Planner.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
+            var transaction = LateBoundUnitActivationTask.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
             var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
             var result = exec.Result;
 
@@ -51,7 +51,7 @@ namespace SharpInit
                 Log.Info($"Deactivation transaction failed. Result type: {result.Type}, message: {result.Message}");
                 Log.Info("Transaction failed at highlighted task: ");
 
-                var tree = transaction.GenerateTree(0, result.Task);
+                var tree = transaction.GeneratedTransaction?.GenerateTree(0, result.Task) ?? "(failed to generate late-bound tx)";
 
                 foreach (var line in tree.Split('\n'))
                     Log.Info(line);
@@ -137,6 +137,7 @@ namespace SharpInit
             info.ActivationTime = unit.ActivationTime;
             info.LoadTime = unit.Descriptor.Created;
             info.StateChangeReason = unit.StateChangeReason;
+            info.MainProcessId = unit.MainProcessId;
             info.LogLines = GetJournal(unit_name, 10);
 
             if (unit.CGroup?.Exists == true)

@@ -9,6 +9,7 @@ using NLog;
 using Mono.Unix;
 using Mono.Unix.Native;
 using SharpInit.Platform;
+using SharpInit.Tasks;
 
 namespace SharpInit
 {
@@ -22,7 +23,7 @@ namespace SharpInit
         static Logger Log = LogManager.GetCurrentClassLogger();
         static IpcListener IpcListener { get; set; }
         public static ServiceManager ServiceManager { get; private set; }
-        public static async Task Main(string[] args)
+        public static async System.Threading.Tasks.Task Main(string[] args)
         {
             var done = new ManualResetEventSlim(false);
             using (var shutdownCts = new CancellationTokenSource())
@@ -148,7 +149,7 @@ namespace SharpInit
                     
                     try 
                     {
-                        await Task.Delay(Timeout.Infinite, shutdownCts.Token);
+                        await System.Threading.Tasks.Task.Delay(Timeout.Infinite, shutdownCts.Token);
                     }
                     catch (Exception ex) { Log.Error(ex); }
                     
@@ -186,12 +187,21 @@ namespace SharpInit
             if (ServiceManager.Registry.GetUnit(name) != null)
             {
                 Log.Info($"Activating {name}...");
-                var tx = ServiceManager.Planner.CreateActivationTransaction(name, "Main thread");
-                Log.Debug($"This is the transaction:");
-                Log.Debug(tx.GenerateTree());
+                var tx = LateBoundUnitActivationTask.CreateActivationTransaction(name, "Main thread");
 
                 var exec = ServiceManager.Runner.Register(tx).Enqueue();
                 exec.Wait();
+
+                if (tx.GeneratedTransaction != null)
+                {
+                    Log.Debug($"This is the transaction:");
+                    Log.Debug(tx.GeneratedTransaction.GenerateTree());
+                }
+                else
+                {
+                    Log.Warn($"Failed to generate late-bound transaction.");
+                }
+
                 var result = exec.Result;
 
                 if (result.Type == Tasks.ResultType.Success)
@@ -206,12 +216,20 @@ namespace SharpInit
             if (ServiceManager.Registry.GetUnit(name) != null)
             {
                 Log.Info($"Deactivating {name}...");
-                var tx = ServiceManager.Planner.CreateDeactivationTransaction(name, "Main thread");
-                Log.Debug($"This is the transaction:");
-                Log.Debug(tx.GenerateTree());
+                var tx = LateBoundUnitActivationTask.CreateDeactivationTransaction(name, "Main thread");
 
                 var exec = ServiceManager.Runner.Register(tx).Enqueue();
                 exec.Wait();
+
+                if (tx.GeneratedTransaction != null)
+                {
+                    Log.Debug($"This is the transaction:");
+                    Log.Debug(tx.GeneratedTransaction.GenerateTree());
+                }
+                else
+                {
+                    Log.Warn($"Failed to generate late-bound transaction.");
+                }
                 var result = exec.Result;
 
                 if (result.Type == Tasks.ResultType.Success)

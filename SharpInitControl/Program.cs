@@ -224,22 +224,28 @@ namespace SharpInitControl
                 Console.WriteLine($"State change reason: {status.StateChangeReason}");
             }
 
-            Console.Write($"CGroup: ");
+            if (status.MainProcessId > 0)
+                Console.WriteLine($"Main process: {status.MainProcessId}");
 
-            var offset = Console.CursorLeft;
-
-            foreach (var line in status.ProcessTree)
+            if (status.ProcessTree.Any())
             {
-                Console.CursorLeft = offset;
-                string l = line;
+                Console.Write($"CGroup: ");
 
-                if (l.Length > (Console.WindowWidth - Console.CursorLeft))
-                    l = l.Substring(0, (Console.WindowWidth - (Console.CursorLeft + 3))) + "...";
+                var offset = Console.CursorLeft;
 
-                Console.WriteLine(l);
+                foreach (var line in status.ProcessTree)
+                {
+                    Console.CursorLeft = offset;
+                    string l = line;
+
+                    if (l.Length > (Console.WindowWidth - Console.CursorLeft))
+                        l = l.Substring(0, (Console.WindowWidth - (Console.CursorLeft + 3))) + "...";
+
+                    Console.WriteLine(l);
+                }
+                
+                Console.WriteLine();
             }
-            
-            Console.WriteLine();
 
             foreach (var line in status.LogLines)
             {

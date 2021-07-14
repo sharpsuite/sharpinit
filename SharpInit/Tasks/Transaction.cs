@@ -136,10 +136,7 @@ namespace SharpInit.Tasks
                     executions_list.Add(Runner.ExecuteAsync(task, Context));
                 
                 var executions = executions_list.ToArray();
-
-                Log.Debug($"Waiting for {executions.Length} tasks to complete...");
                 await System.Threading.Tasks.Task.WhenAll(executions);
-                Log.Debug($"{executions.Length} tasks complete");
 
                 foreach (var execution in executions)
                 {
@@ -202,11 +199,11 @@ namespace SharpInit.Tasks
                 }
                 else if (task == highlighted)
                 {
-                    sb.AppendLine($"{indent_str}{task.Type} <----- {highlight_text}");
+                    sb.AppendLine($"{indent_str}{task} <----- {highlight_text}");
                 }
                 else
                 {
-                    sb.AppendLine($"{indent_str}{task.Type}");
+                    sb.AppendLine($"{indent_str}{task}");
                 }
             }
 

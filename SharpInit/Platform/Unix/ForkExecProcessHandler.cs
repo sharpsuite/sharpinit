@@ -411,6 +411,7 @@ namespace SharpInit.Platform.Unix
             if (!Processes.Contains(pid))
             {
                 Log.Info($"Received process exit for untracked pid {pid} (code {exit_code})");
+                ProcessExit?.Invoke(pid, exit_code);
                 return;
             }
 

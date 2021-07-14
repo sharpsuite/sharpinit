@@ -38,11 +38,14 @@ namespace SharpInit.Units
             var fail_if_unstarted = new Dictionary<string, bool>();
             var ignore_failure = new Dictionary<string, bool>() { { unit.UnitName, false } };
 
+            var copy_of_req_deps = Registry.RequirementDependencies.Clone();
+            var copy_of_ord_deps = Registry.OrderingDependencies.Clone();
+
             var visited_dependencies = new List<Dependency>();
 
             IEnumerable<RequirementDependency> req_graph = null;
             
-            while ((req_graph = Registry.RequirementDependencies.TraverseDependencyGraph(
+            while ((req_graph = copy_of_req_deps.TraverseDependencyGraph(
                 unit.UnitName, 
                 t => t.RequirementType != RequirementDependencyType.Conflicts && t.RequirementType != RequirementDependencyType.PartOf, 
                 add_reverse: false)).Count() != visited_dependencies.Count)
@@ -73,6 +76,8 @@ namespace SharpInit.Units
 
                     transaction.Reasoning[target_unit].Add($"Activating {target_unit.UnitName} because of dependency {dependency}");
                 }
+
+                copy_of_req_deps = Registry.RequirementDependencies.Clone();
             }
 
             // determine whether the failure of each unit activation makes the entire transaction fail
@@ -104,11 +109,11 @@ namespace SharpInit.Units
             }
 
             // determine whether each unit is actually to be started or not (Requisite only checks whether the unit is active)
-            fail_if_unstarted = unit_list.ToDictionary(u => u.UnitName, u => Registry.RequirementDependencies.GetDependencies(u.UnitName).All(dep => dep.RequirementType == RequirementDependencyType.Requisite));
+            fail_if_unstarted = unit_list.ToDictionary(u => u.UnitName, u => copy_of_req_deps.GetDependencies(u.UnitName).All(dep => dep.RequirementType == RequirementDependencyType.Requisite));
             fail_if_unstarted[unit.UnitName] = false; // the unit we're set out to start isn't subject to this
 
             // create unit ordering according to ordering dependencies
-            var order_graph = Registry.OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
+            var order_graph = copy_of_ord_deps.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
             
             var new_order = new List<Unit>();
             var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit));
@@ -200,7 +205,7 @@ namespace SharpInit.Units
             unit_list = new_order;
 
             // get a list of units to stop
-            var conflicts = unit_list.Where(u => u != null).SelectMany(u => Registry.RequirementDependencies.GetDependencies(u.UnitName).Where(d => d.RequirementType == RequirementDependencyType.Conflicts));
+            var conflicts = unit_list.Where(u => u != null).SelectMany(u => copy_of_req_deps.GetDependencies(u.UnitName).Where(d => d.RequirementType == RequirementDependencyType.Conflicts));
             var units_to_stop = new List<Unit>();
 
             foreach(var conflicting_dep in conflicts)
@@ -312,7 +317,10 @@ namespace SharpInit.Units
             if (reason != null)
                 transaction.Add(new AlterTransactionContextTask("state_change_reason", reason));
 
-            var units_to_deactivate = Registry.RequirementDependencies.TraverseDependencyGraph(unit.UnitName, 
+            var copy_of_req_deps = Registry.RequirementDependencies.Clone();
+            var copy_of_ord_deps = Registry.OrderingDependencies.Clone();
+
+            var units_to_deactivate = copy_of_req_deps.TraverseDependencyGraph(unit.UnitName, 
                 t => t.RequirementType == RequirementDependencyType.BindsTo || 
                 t.RequirementType == RequirementDependencyType.PartOf).SelectMany(dep => 
                 {
@@ -346,7 +354,7 @@ namespace SharpInit.Units
             units_to_deactivate.Add(unit);
             units_to_deactivate = units_to_deactivate.Distinct().ToList();
 
-            var order_graph = Registry.OrderingDependencies.TraverseDependencyGraph(unit.UnitName, t => units_to_deactivate.Any(u => u.UnitName == t.LeftUnit || u.UnitName == t.RightUnit), true).ToList();
+            var order_graph = copy_of_ord_deps.TraverseDependencyGraph(unit.UnitName, t => units_to_deactivate.Any(u => u.UnitName == t.LeftUnit || u.UnitName == t.RightUnit), true).ToList();
 
             var new_order = new List<Unit>();
             var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit)).Select(t => t.LeftUnit).Distinct().ToList(); // find the "first" nodes

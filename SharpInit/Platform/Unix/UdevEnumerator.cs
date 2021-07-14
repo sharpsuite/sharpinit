@@ -134,13 +134,24 @@ namespace SharpInit.Platform.Unix
 
             if (dev_unit.IsActive)
             {
-                var tx1 = dev_unit.GetExternalActivationTransaction();
-                var tx2 = ServiceManager.Planner.CreateActivationTransaction(dev_unit);
-
-                tx2.Prepend(tx1);
-
-                ServiceManager.Runner.Register(tx2).Enqueue();
+                ServiceManager.Runner.Register(GenerateActivation(dev_unit)).Enqueue();
             }
+        }
+
+        private static Transaction GenerateActivation(DeviceUnit unit)
+        {
+            var tx1 = unit.GetExternalActivationTransaction();
+            var tx2 = LateBoundUnitActivationTask.CreateActivationTransaction(unit);
+
+            return new Transaction(tx1, tx2);
+        }
+
+        private static Transaction GenerateDeactivation(DeviceUnit unit)
+        {
+            var tx1 = unit.GetExternalDeactivationTransaction();
+            var tx2 = LateBoundUnitActivationTask.CreateDeactivationTransaction(unit);
+
+            return new Transaction(tx1, tx2);
         }
 
         private static void HandleDeviceUpdated(object sender, DeviceUpdatedEventArgs e)
@@ -158,21 +169,11 @@ namespace SharpInit.Platform.Unix
 
             if (!dev_unit.IsActive && next_active)
             {
-                var tx1 = dev_unit.GetExternalActivationTransaction();
-                var tx2 = ServiceManager.Planner.CreateActivationTransaction(dev_unit);
-
-                tx2.Prepend(tx1);
-
-                ServiceManager.Runner.Register(tx2).Enqueue();
+                ServiceManager.Runner.Register(GenerateActivation(dev_unit)).Enqueue();
             }
             else if (dev_unit.IsActive && !next_active)
             {
-                var tx1 = dev_unit.GetExternalDeactivationTransaction();
-                var tx2 = ServiceManager.Planner.CreateDeactivationTransaction(dev_unit);
-
-                tx2.Prepend(tx1);
-
-                ServiceManager.Runner.Register(tx2).Enqueue();
+                ServiceManager.Runner.Register(GenerateDeactivation(dev_unit)).Enqueue();
             }
         }
 
@@ -185,12 +186,7 @@ namespace SharpInit.Platform.Unix
 
             var dev_unit = Units[e.DevicePath];
 
-            var tx1 = dev_unit.GetExternalDeactivationTransaction();
-            var tx2 = ServiceManager.Planner.CreateDeactivationTransaction(dev_unit);
-
-            tx2.Prepend(tx1);
-
-            ServiceManager.Runner.Register(tx2).Enqueue();
+            ServiceManager.Runner.Register(GenerateDeactivation(dev_unit)).Enqueue();
         }
 
         public static void ScanDevicesByTag(string tag)

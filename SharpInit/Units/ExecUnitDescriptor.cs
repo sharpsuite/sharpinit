@@ -86,5 +86,34 @@ namespace SharpInit.Units
         
         [UnitProperty("@/@", UnitPropertyType.String, "system.slice")]
         public string Slice { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.Enum, KillMode.ControlGroup, typeof(KillMode))]
+        public KillMode KillMode { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.Signal, 15)] // SIGTERM
+        public int KillSignal { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.Signal, -1)]
+        public int RestartKillSignal { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.Signal, 9)] // SIGKILL
+        public int FinalKillSignal { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.Signal, 6)] // SIGABRT
+        public int WatchdogKillSignal { get; set; }
+        
+        [UnitProperty("@/@", UnitPropertyType.Bool, false)]
+        public bool SendSighup { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.Bool, true)]
+        public bool SendSigkill { get; set; }
+    }
+
+    public enum KillMode
+    {
+        ControlGroup,
+        Mixed,
+        Process,
+        None
     }
 }

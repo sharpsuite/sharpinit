@@ -50,6 +50,8 @@ namespace SharpInit.Units
 
         public abstract Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages { get; }
 
+        public int MainProcessId { get; set; }
+
         protected Unit(string name, UnitDescriptor descriptor)
             : this()
         {
