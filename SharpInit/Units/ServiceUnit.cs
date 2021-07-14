@@ -215,7 +215,7 @@ namespace SharpInit.Units
                 case ServiceType.Oneshot:
                     foreach (var line in Descriptor.ExecStart)
                     {
-                        var oneshot_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
+                        var oneshot_psi = ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec);
                         oneshot_psi.WaitUntilExec = true;
                         transaction.Add(new RunRegisteredProcessTask(oneshot_psi, this, true, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
                     }

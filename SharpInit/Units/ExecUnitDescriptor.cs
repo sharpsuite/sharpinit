@@ -73,6 +73,15 @@ namespace SharpInit.Units
         [UnitProperty("@/Environment", UnitPropertyType.StringListSpaceSeparated)]
         public List<string> Environment { get; set; }
 
+        [UnitProperty("@/@", UnitPropertyType.StringList)]
+        public List<string> EnvironmentFile { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.StringListSpaceSeparated)]
+        public List<string> PassEnvironment { get; set; }
+
+        [UnitProperty("@/@", UnitPropertyType.StringListSpaceSeparated)]
+        public List<string> UnsetEnvironment { get; set; }
+
         [UnitProperty("@/@")]
         public string TtyPath { get; set; }
 

@@ -47,7 +47,7 @@ namespace SharpInit.Units
             var descriptor = (UnitDescriptor)Activator.CreateInstance(descriptor_type);
             descriptor.Files = files;
 
-            var properties_touched = new List<UnitPropertyAttribute>();
+            var properties_touched = new List<PropertyInfo>();
 
             foreach (var file in files)
             {
@@ -110,7 +110,7 @@ namespace SharpInit.Units
                     var handler_type = attribute.PropertyType;
                     var last_value = values.Last();
 
-                    properties_touched.Add(attribute);
+                    properties_touched.Add(prop);
 
                     switch (handler_type)
                     {
@@ -181,7 +181,7 @@ namespace SharpInit.Units
                                 else if (prop.PropertyType == typeof(int))
                                     prop.SetValue(descriptor, (int)sigval);
                             }
-                            
+
                             break;
                     }
                 }
@@ -200,7 +200,7 @@ namespace SharpInit.Units
 
                 var attribute = (UnitPropertyAttribute)unit_property_attributes.FirstOrDefault();
 
-                if (!properties_touched.Contains(attribute))
+                if (!properties_touched.Contains(prop))
                 {
                     if (prop.PropertyType == typeof(List<string>) && attribute.DefaultValue == null)
                         prop.SetValue(descriptor, new List<string>());
@@ -419,6 +419,53 @@ namespace SharpInit.Units
                 {
                     current_value = current_value.Substring(0, current_value.Length - 1);
                 }
+            }
+
+            return properties;
+        }
+
+        public static List<KeyValuePair<string, string>> ParseEnvironmentFile(string contents)
+        {
+            var properties = new List<KeyValuePair<string, string>>();
+            var lines = contents.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Concat(new [] { "" }); // emit last line
+
+            var continuing_line = "";
+
+            foreach (var l in lines)
+            {
+                var line = l;
+
+                if (line.StartsWith('#') || line.StartsWith(';'))
+                    continue;
+                
+                if (line.EndsWith('\\'))
+                {
+                    line = line.Substring(0, line.Length - 1);
+
+                    if (!line.Contains('"') && !continuing_line.Contains('"')) // rough heuristic
+                        line = line.TrimStart();
+                    
+                    continuing_line += line;
+                    continue;
+                }
+                else if (continuing_line.Any())
+                {
+                    line = continuing_line + line;
+                    continuing_line = "";
+                }
+
+                var key_length = line.IndexOf('=');
+
+                if (key_length == -1)
+                    continue;
+
+                var key = line.Substring(0, key_length);
+                var value = line.Substring(key_length + 1);
+
+                value = value.Trim();
+                value = value.Trim('"');
+
+                properties.Add(new KeyValuePair<string, string>(key, value));
             }
 
             return properties;
