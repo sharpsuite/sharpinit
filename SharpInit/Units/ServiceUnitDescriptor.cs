@@ -31,6 +31,9 @@ namespace SharpInit.Units
         #endregion
 
         #region Exec= command lines
+        [UnitProperty("Service/ExecCondition", UnitPropertyType.StringList)]
+        public List<string> ExecCondition { get; set; }
+
         [UnitProperty("Service/ExecStartPre", UnitPropertyType.StringList)]
         public List<string> ExecStartPre { get; set; }
 
@@ -42,6 +45,9 @@ namespace SharpInit.Units
 
         [UnitProperty("Service/ExecStop", UnitPropertyType.StringList)]
         public List<string> ExecStop { get; set; }
+
+        [UnitProperty("Service/ExecStopPost", UnitPropertyType.StringList)]
+        public List<string> ExecStopPost { get; set; }
 
         [UnitProperty("Service/ExecReload", UnitPropertyType.StringList)]
         public List<string> ExecReload { get; set; }

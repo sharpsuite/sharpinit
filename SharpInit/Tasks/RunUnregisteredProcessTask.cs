@@ -14,6 +14,7 @@ namespace SharpInit.Tasks
         public ProcessStartInfo ProcessStartInfo { get; set; }
         public IProcessHandler ProcessHandler { get; set; }
         public TimeSpan ExecutionTime = TimeSpan.Zero;
+        public ProcessInfo Process { get; set; }
 
         /// <summary>
         /// Starts a process, optionally waits for it to exit before continuing execution.
@@ -48,19 +49,19 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.CGroup = ProcessStartInfo.Unit.CGroup;
                 }
 
-                var process = await ProcessHandler.StartAsync(ProcessStartInfo);
+                Process = await ProcessHandler.StartAsync(ProcessStartInfo);
 
                 if (ExecutionTime == TimeSpan.Zero)
                     return new TaskResult(this, ResultType.Success);
                 else
                 {
-                    if (!(await process.WaitForExitAsync(ExecutionTime)))
+                    if (!(await Process.WaitForExitAsync(ExecutionTime)))
                     {
-                        process.Process.Kill();
-                        return new TaskResult(this, ResultType.Timeout, $"The process {process.Id} did not exit in the given amount of time.");
+                        Process.Process.Kill();
+                        return new TaskResult(this, ResultType.Timeout, $"The process {Process.Id} did not exit in the given amount of time.");
                     }
                     else
-                        return new TaskResult(this, ResultType.Success, $"pid {process.Id} exit code {process.ExitCode}");
+                        return new TaskResult(this, ResultType.Success, $"pid {Process.Id} exit code {Process.ExitCode}");
                 }
             }
             catch (Exception ex)

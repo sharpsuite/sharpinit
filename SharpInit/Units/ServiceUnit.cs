@@ -3,6 +3,7 @@ using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -146,6 +147,47 @@ namespace SharpInit.Units
             
             transaction.Add(new AllocateSliceTask(this));
 
+            var condition_tx = new Transaction();
+            condition_tx.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
+            
+            foreach (var line in Descriptor.ExecCondition)
+            {
+                condition_tx.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
+            }
+
+            transaction.Add(condition_tx);
+
+            // a bit gross
+            DelegateTask condition_check_task = null;
+            condition_check_task = new DelegateTask(() => 
+            {
+                foreach (var task in condition_tx.Tasks)
+                {
+                    if (!(task is RunUnregisteredProcessTask run_unregistered))
+                        continue;
+                    
+                    var exit_code = run_unregistered?.Process?.ExitCode ?? -1;
+
+                    if (exit_code == 0)
+                        continue;
+
+                    if (exit_code > 0 && exit_code < 255)
+                    {
+                        condition_check_task.Runner.ExecuteBlocking(new SetUnitStateTask(this, UnitState.Inactive, reason: "Condition check failed with skip exit code"), condition_check_task.Execution.Context);
+                        condition_check_task.ResultOnException = ResultType.StopExecution;
+                        throw new Exception($"Condition check {run_unregistered.ProcessStartInfo} failed with exit code {exit_code}, skipping unit activation");
+                    }
+
+                    if (exit_code == -1 || exit_code >= 255)
+                    {
+                        condition_check_task.ResultOnException = ResultType.Failure;
+                        throw new Exception($"Condition check {run_unregistered.ProcessStartInfo} failed with exit code {exit_code}, failing unit activation");
+                    }
+                }
+            }, "check-exec-condition");
+            
+            transaction.Add(condition_check_task);
+
             if (!string.IsNullOrWhiteSpace(Descriptor.TtyPath))
             {
                 transaction.Add(new ManipulateTtyTask(Descriptor));
@@ -193,8 +235,15 @@ namespace SharpInit.Units
                 transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
                 ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
 
-            if (Descriptor.ServiceType != ServiceType.Oneshot || Descriptor.RemainAfterExit)
+            if (Descriptor.ServiceType != ServiceType.Oneshot)
                 transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
+            else
+            {
+                if (Descriptor.RemainAfterExit)
+                    transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
+                else
+                    transaction.Add(new SetUnitStateTask(this, UnitState.Inactive));
+            }
             
             transaction.Add(new SetMainPidTask(this, transaction.Tasks.OfType<RunRegisteredProcessTask>().FirstOrDefault()));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
@@ -208,8 +257,31 @@ namespace SharpInit.Units
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
 
             transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, this, stop: true, reverse: true);
+            
+            var exec_stop_tx = new Transaction();
+            exec_stop_tx.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
+            exec_stop_tx.Add(new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: false));
+
+            foreach (var line in Descriptor.ExecStop)
+            {
+                exec_stop_tx.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
+                    ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStopSec), Descriptor.TimeoutStopSec));
+            }
+
+            transaction.Add(exec_stop_tx);
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new StopUnitProcessesTask(this));
+
+            var exec_stop_post_tx = new Transaction();
+            exec_stop_post_tx.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
+
+            foreach (var line in Descriptor.ExecStopPost)
+            {
+                exec_stop_post_tx.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 
+                    ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStopSec), Descriptor.TimeoutStopSec));
+            }
+
+            transaction.Add(exec_stop_post_tx);
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
             transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);

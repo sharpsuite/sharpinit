@@ -10,11 +10,13 @@ namespace SharpInit.Tasks
         public override string Type => _type;
 
         private Action Action { get; set; }
+        public ResultType ResultOnException { get; set; }
 
         public DelegateTask(Action action, string type = "delegate")
         {
             _type = type;
             Action = action;
+            ResultOnException = ResultType.Failure;
         }
 
         public override TaskResult Execute(TaskContext context)
@@ -26,7 +28,7 @@ namespace SharpInit.Tasks
             }
             catch (Exception ex)
             {
-                return new TaskResult(this, ResultType.Failure, ex.Message);
+                return new TaskResult(this, ResultOnException, ex.Message);
             }
         }
     }
