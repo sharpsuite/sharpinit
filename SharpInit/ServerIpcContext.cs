@@ -176,32 +176,7 @@ namespace SharpInit
 
         public bool InstallUnit(string unit_name)
         {
-            var symlinks = Platform.PlatformUtilities.GetImplementation<Platform.ISymlinkTools>();
-            var unit = ServiceManager.Registry.GetUnit(unit_name);
-            var wanted_bys = unit.Descriptor.WantedBy;
-            
-            var unit_source_path = unit.Descriptor.Files.FirstOrDefault(f => Directory.Exists(Path.GetDirectoryName(f.Path))).Path ?? $"/etc/sharpinit/units/{unit_name}";
-            var chief_dir = Path.GetDirectoryName(unit_source_path);
-
-            foreach(var wanted_by in wanted_bys) 
-            {
-                var target_dir = $"{chief_dir}/{wanted_by}.wants";
-                var target_file = $"{target_dir}/{unit_name}";
-
-                if (!Directory.Exists(target_dir))
-                    Directory.CreateDirectory(target_dir);
-                
-                if (File.Exists(target_file))
-                {
-                    Log.Warn($"Skipping enablement symlink {unit_source_path} => {target_file} because target file already exists");
-                    continue;
-                }
-
-                if (!symlinks.CreateSymlink(unit_source_path, target_file, true)) 
-                    Log.Warn($"Failed to enable symlink {unit_source_path} => {target_file}");
-            }
-
-            return true;
+            return ServiceManager.Registry.InstallUnit(unit_name);
         }
 
         public bool UninstallUnit(string unit_name)

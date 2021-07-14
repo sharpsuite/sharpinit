@@ -32,6 +32,21 @@ namespace SharpInit.Platform
             return false;
         }
 
+        public string ResolveSymlink(string path)
+        {
+            if (!IsSymlink(path))
+                return path;
+            
+            var target = GetTarget(path);
+
+            if (!target.StartsWith("/"))
+            {
+                target = Path.GetFullPath(target, path);
+            }
+            
+            return ResolveSymlink(target);
+        }
+
         public bool CreateSymlink(string target, string path, bool symbolic)
         {
             // TODO: Grab a processhandler from a better place
@@ -44,6 +59,7 @@ namespace SharpInit.Platform
                 args = new [] {target, path};
 
             var psi = new ProcessStartInfo("/bin/ln", args);
+            psi.Environment = new System.Collections.Generic.Dictionary<string, string>();
             var task = new RunUnregisteredProcessTask(proc_handler, psi, 500);
             var exec = ServiceManager.Runner.Register(task).Enqueue();
             exec.Wait();

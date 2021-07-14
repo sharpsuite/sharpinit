@@ -9,6 +9,7 @@ namespace SharpInit.Platform
     {
         bool IsSymlink(string path);
         string GetTarget(string path);
+        string ResolveSymlink(string path);
 
         bool CreateSymlink(string target, string path, bool symbolic);
     }

@@ -128,6 +128,12 @@ namespace SharpInit.Units
 
         [UnitProperty("Install/WantedBy", UnitPropertyType.StringListSpaceSeparated)]
         public List<string> WantedBy { get; set; }
+
+        [UnitProperty("Install/Also", UnitPropertyType.StringListSpaceSeparated)]
+        public List<string> Also { get; set; }
+        
+        [UnitProperty("Install/Alias", UnitPropertyType.StringListSpaceSeparated)]
+        public List<string> Alias { get; set; }
         #endregion
 
         #region Limiting properties

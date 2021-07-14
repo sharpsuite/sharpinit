@@ -43,6 +43,62 @@ namespace SharpInit.Units
             ServiceManager = manager;
         }
 
+        public bool InstallUnit(string unit_name, int cycle = 0) 
+        {
+            if (cycle > 10)
+                return false;
+
+            var symlinks = ServiceManager.SymlinkTools;
+            var unit = GetUnit(unit_name);
+            var wanted_bys = unit.Descriptor.WantedBy;
+            
+            var unit_source_path = unit.Descriptor.Files.FirstOrDefault(f => Directory.Exists(Path.GetDirectoryName(f.Path))).Path ?? $"/etc/sharpinit/units/{unit_name}";
+            var chief_dir = Path.GetDirectoryName(unit_source_path);
+
+            foreach(var wanted_by in wanted_bys) 
+            {
+                var target_dir = $"{chief_dir}/{wanted_by}.wants";
+                var target_file = $"{target_dir}/{unit_name}";
+
+                if (!Directory.Exists(target_dir))
+                    Directory.CreateDirectory(target_dir);
+                
+                if (File.Exists(target_file))
+                {
+                    Log.Warn($"Skipping enablement symlink {unit_source_path} => {target_file} because target file already exists");
+                    continue;
+                }
+
+                if (!symlinks.CreateSymlink(unit_source_path, target_file, true)) 
+                    Log.Warn($"Failed to enable symlink {unit_source_path} => {target_file}");
+            }
+
+            var aliases = unit.Descriptor.Alias;
+            
+            foreach (var alias in aliases)
+            {
+                var target_path = $"/etc/sharpinit/units/{alias}";
+
+                if (File.Exists(target_path))
+                {
+                    Log.Warn($"Skipping enablement symlink {unit_source_path} => {target_path} because target file already exists");
+                    continue;
+                }
+
+                if (!symlinks.CreateSymlink(unit_source_path, target_path, true)) 
+                    Log.Warn($"Failed to enable symlink {unit_source_path} => {target_path}");
+            }
+
+            var also = unit.Descriptor.Also;
+
+            foreach (var other_unit_to_install in also)
+            {
+                InstallUnit(other_unit_to_install, cycle + 1);
+            }
+
+            return true;
+        }
+
         public bool AliasUnit(Unit unit, string alias)
         {
             if (Units.ContainsKey(alias))
@@ -51,10 +107,17 @@ namespace SharpInit.Units
             if (!Units.ContainsValue(unit))
                 return false;
             
+            return AliasUnit(unit.UnitName, alias);
+        }
+
+        public bool AliasUnit(string original, string alias)
+        {
             if (!Aliases.ContainsKey(alias))
                 Aliases[alias] = new List<string>();
             
-            Aliases[alias].Add(unit.UnitName);
+            if (!Aliases[alias].Contains(original))
+                Aliases[alias].Add(original);
+            
             return true;
         }
 
@@ -145,7 +208,9 @@ namespace SharpInit.Units
                 
                 if (SymlinkTools.IsSymlink(file))
                 {
-                    var target = SymlinkTools.GetTarget(file);
+                    var target = SymlinkTools.ResolveSymlink(file);
+                    var target_unit_name = UnitParser.GetUnitName(target, with_parameter: true);
+                    var symlinked_name = UnitParser.GetUnitName(file, with_parameter: true);
 
                     Log.Debug($"Symlink detected from {file} to {target}");
 
@@ -154,7 +219,7 @@ namespace SharpInit.Units
                     // If symlinked to an empty file, disable the unit.
                     if (fileinfo.Length == 0)
                     {
-                        IndexUnitFile(new GeneratedUnitFile(UnitParser.GetUnitName(file), destroy_on_reload: true).WithProperty("Disabled", "yes"));
+                        IndexUnitFile(new GeneratedUnitFile(symlinked_name, destroy_on_reload: true).WithProperty("Disabled", "yes"));
                         continue;
                     }
 
@@ -164,32 +229,38 @@ namespace SharpInit.Units
                         // If the file hasn't been indexed yet, do so. This check prevents symlinked files from being parsed more than once.
                         IndexUnitByPath(target);
                     }
-                    else if (!Units.Any(u => u.Key != UnitParser.GetUnitName(file, with_parameter: true)))
+                    
+                    if (!Units.Any(u => u.Key == symlinked_name) && !Aliases.ContainsKey(symlinked_name))
                     {
-                        // This branch handles symlinked and instantiated units. TODO: Check whether this is correct behavior.
-                        IndexUnitByPath(target);
-                    }
-
-                    // detect .wants, .requires
-                    var directory_maps = new Dictionary<string, string>()
-                    {
-                        {".wants", "Unit/Wants" },
-                        {".requires", "Unit/Requires" },
-                    };
-
-                    var directory_name = Path.GetDirectoryName(file);
-
-                    foreach (var directory_mapping in directory_maps) 
-                    {
-                        if (directory_name.EndsWith(directory_mapping.Key))
+                        // detect .wants, .requires
+                        var directory_maps = new Dictionary<string, string>()
                         {
-                            // If we find a directory mapping (like default.target.wants/sshd.service), create an in-memory unit file to
-                            // store the mapped property (in this example, it would be a unit file for default.target that contains
-                            // Wants=sshd.service.
-                            var unit_name = Path.GetFileName(directory_name);
-                            unit_name = unit_name.Substring(0, unit_name.Length - directory_mapping.Key.Length);
-                            var temp_unit_file = new GeneratedUnitFile(unit_name, destroy_on_reload: true).WithProperty(directory_mapping.Value, UnitParser.GetUnitName(file, with_parameter: true));
-                            IndexUnitFile(temp_unit_file);
+                            {".wants", "Unit/Wants" },
+                            {".requires", "Unit/Requires" },
+                        };
+
+                        var directory_name = Path.GetDirectoryName(file);
+                        bool in_mapped_dir = false;
+
+                        foreach (var directory_mapping in directory_maps) 
+                        {
+                            if (directory_name.EndsWith(directory_mapping.Key))
+                            {
+                                in_mapped_dir = true;
+                                // If we find a directory mapping (like default.target.wants/sshd.service), create an in-memory unit file to
+                                // store the mapped property (in this example, it would be a unit file for default.target that contains
+                                // Wants=sshd.service.
+                                var unit_name = Path.GetFileName(directory_name);
+                                unit_name = unit_name.Substring(0, unit_name.Length - directory_mapping.Key.Length);
+                                var temp_unit_file = new GeneratedUnitFile(unit_name, destroy_on_reload: true).WithProperty(directory_mapping.Value, UnitParser.GetUnitName(file, with_parameter: true));
+                                IndexUnitFile(temp_unit_file);
+                            }
+                        }
+
+                        if (!in_mapped_dir)
+                        {
+                            Log.Info($"{symlinked_name} is aliased to {target_unit_name}");
+                            AliasUnit(target_unit_name, symlinked_name);
                         }
                     }
                 }
@@ -262,11 +333,13 @@ namespace SharpInit.Units
         public bool IndexUnitByPath(string path)
         {
             path = Path.GetFullPath(path);
+            path = SymlinkTools.ResolveSymlink(path);
 
             var unit_file = UnitParser.ParseFile(path);
 
             if (unit_file == null)
                 return false;
+            
             return IndexUnitFile(unit_file);
         }
 
