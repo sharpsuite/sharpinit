@@ -22,6 +22,14 @@ namespace SharpInit
 
         public bool ActivateUnit(string name)
         {
+            var unit = ServiceManager.Registry.GetUnit(name);
+
+            if (unit == null)
+                return false;
+            
+            if (unit.Descriptor.RefuseManualStart)
+                return false;
+
             var transaction = LateBoundUnitActivationTask.CreateActivationTransaction(name, "Remotely triggered via IPC");
             var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
             var result = exec.Result;
@@ -42,6 +50,14 @@ namespace SharpInit
 
         public bool DeactivateUnit(string name)
         {
+            var unit = ServiceManager.Registry.GetUnit(name);
+
+            if (unit == null)
+                return false;
+            
+            if (unit.Descriptor.RefuseManualStop)
+                return false;
+
             var transaction = LateBoundUnitActivationTask.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
             var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
             var result = exec.Result;
