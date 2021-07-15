@@ -223,22 +223,25 @@ namespace SharpInit.Platform.Unix
                 
                 if (stdin_read == -1 && stdin_write == -1)
                     (stdin_read, stdin_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "input");
+                
                 register_fd_pair(stdin_read, stdin_write);
                 
                 if (stdout_read == -1 && stdout_write == -1)
                     (stdout_read, stdout_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardOutputTarget, "output");
-                register_fd_pair(stdout_read, stdout_write);
+                
+                if (psi.StandardOutputTarget != "journal")
+                    register_fd_pair(stdout_read, stdout_write);
                 
                 if (stderr_read == -1 && stderr_write == -1)
                     (stderr_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardErrorTarget, "error");
-                register_fd_pair(stderr_read, stderr_write);
+                
+                if (psi.StandardErrorTarget != "journal")
+                    register_fd_pair(stderr_read, stderr_write);
 
                 Syscall.pipe(out int control_read, out int control_write); // used to communicate errors during process creation back to parent
                 register_fd_pair(control_read, control_write);
                 Syscall.pipe(out int semaphore_read, out int semaphore_write); // used to synchronize process startup
                 register_fd_pair(semaphore_read, semaphore_write);
-
-                Log.Trace($"launch fds: {control_read} {control_write} {semaphore_read} {semaphore_write}");
 
                 var stdout_w_ptr = new IntPtr(stdout_write);
                 var stderr_w_ptr = new IntPtr(stderr_write);

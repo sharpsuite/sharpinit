@@ -72,18 +72,21 @@ namespace SharpInit.Platform.Unix
 
         public UnixJournalClient CreateClient(string name)
         {
-            var client = new UnixJournalClient(name);
-            client.AllocateDescriptors();
-            Clients.Add(client);
-
-            int epoll_add_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_ADD, client.ReadFd.Number, EpollEvents.EPOLLIN);
-
-            if (epoll_add_resp != 0)
+            lock (Clients)
             {
-                throw new Exception($"epoll_ctl failed with errno: {Syscall.GetLastError()}");
-            }
+                var client = new UnixJournalClient(name);
+                client.AllocateDescriptors();
+                Clients.Add(client);
 
-            return client;
+                int epoll_add_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_ADD, client.ReadFd.Number, EpollEvents.EPOLLIN);
+
+                if (epoll_add_resp != 0)
+                {
+                    throw new Exception($"epoll_ctl failed with errno: {Syscall.GetLastError()}");
+                }
+
+                return client;
+            }
         }
 
         private void RemoveClient(UnixJournalClient client)
@@ -108,7 +111,9 @@ namespace SharpInit.Platform.Unix
             while (true)
             {
                 var wait_ret = Syscall.epoll_wait(EpollFd.Number, event_arr, event_arr.Length, 1);
-                var clients = Clients.ToList();
+                var clients = new List<UnixJournalClient>();
+                
+                lock (Clients) { clients.AddRange(Clients); }
 
                 for (int i = 0; i < wait_ret; i++) 
                 {
