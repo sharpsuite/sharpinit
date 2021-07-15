@@ -1,0 +1,4 @@
+[submodule "Tmds.DBus"]
+	path = Tmds.DBus
+	url = git@github.com:hexafluoride/Tmds.DBus
+	branch = signal-watcher

@@ -3,16 +3,25 @@ using System.Threading;
 using System.Threading.Tasks;
 using Tmds.DBus;
 
+using NLog;
+using DBus.DBus;
+using System;
+
 namespace SharpInit
 {
-    public class DbusManager
+    public class DBusManager
     {
+        Logger Log = LogManager.GetCurrentClassLogger();
+
         public ServiceManager ServiceManager { get; set; }
         public Connection Connection { get; set; }
 
         public List<string> AcquiredNames { get; set; }
 
-        public DbusManager(ServiceManager manager)
+        IDBus DBusProxy { get; set; }
+        IDisposable NameWatcher { get; set; }
+
+        public DBusManager(ServiceManager manager)
         {
             ServiceManager = manager;
             AcquiredNames = new List<string>();
@@ -25,16 +34,26 @@ namespace SharpInit
                 return;
 
             Connection = new Connection(Address.System);
+
             await Connection.ConnectAsync();
-
-            var dbus_proxy = Connection.CreateProxy<DBus.DBus.IDBus>("org.freedesktop.DBus", "/org/freedesktop/DBus");
-
-            foreach (var name in (await Connection.ListServicesAsync()))
+            await Connection.RegisterServiceAsync("org.sharpinit.sharpinit", options: ServiceRegistrationOptions.AllowReplacement | ServiceRegistrationOptions.ReplaceExisting | ServiceRegistrationOptions.Default);
+            
+            DBusProxy = Connection.CreateProxy<DBus.DBus.IDBus>("org.freedesktop.DBus", "/org/freedesktop/DBus");
+            var rule = new Tmds.DBus.SignalMatchRule()
             {
+                Path = "/org/freedesktop/DBus",
+                Interface = "org.freedesktop.DBus",
+                Member = "NameOwnerChanged"
+            };
+
+            NameWatcher = await Connection.WatchSignalAsync<(string, string, string)>(rule, p => { OnNameAcquired(p.args); });
+
+            var services = await Connection.ListServicesAsync();
+            foreach (var name in services)
+            {
+                Log.Debug($"Discovered dbus service {name}");
                 AcquiredNames.Add(name);
             }
-
-            await dbus_proxy.WatchNameAcquiredAsync(OnNameAcquired);
         }
 
         public async Task<bool> WaitForBusName(string bus_name, int timeout = -1)
@@ -59,8 +78,13 @@ namespace SharpInit
 
         private CancellationTokenSource NameAcquiredCts { get; set; }
 
-        public void OnNameAcquired(string name)
+        public void OnNameAcquired(ValueTuple<string, string, string> names)
         {
+            (string name, string old_owner, string new_owner) = names;
+            
+            if (string.IsNullOrWhiteSpace(new_owner))
+                return;
+
             if (!AcquiredNames.Contains(name))
                 AcquiredNames.Add(name);
             

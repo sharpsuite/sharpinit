@@ -32,11 +32,11 @@
   <ItemGroup>
     <PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
     <PackageReference Include="NLog" Version="4.7.10" />
-    <PackageReference Include="Tmds.DBus" Version="0.9.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SharpInit.Ipc\SharpInit.Ipc.csproj" />
+    <ProjectReference Include="..\Tmds.DBus\src\Tmds.DBus\Tmds.DBus.csproj" />
   </ItemGroup>
 
   <ItemGroup>

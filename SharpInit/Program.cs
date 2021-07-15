@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using SharpInit.Units;
 using System.Threading;
 using System.Threading.Tasks;
@@ -89,9 +89,12 @@ namespace SharpInit
                         });
                     }
 
-                    Log.Info($"Connecting to dbus...");
-                    await ServiceManager.DBusManager.Connect();
-                    Log.Info($"Connected to dbus");
+                    System.Threading.Tasks.Task.Run(async () => 
+                    {
+                        Log.Info($"Connecting to dbus...");
+                        await ServiceManager.DBusManager.Connect();
+                        Log.Info($"Connected to dbus");
+                    });
 
                     if (PlatformUtilities.CurrentlyOn("linux") && SharpInit.Platform.Unix.UnixPlatformInitialization.IsSystemManager)
                     {
