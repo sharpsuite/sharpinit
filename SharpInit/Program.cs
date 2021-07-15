@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using SharpInit.Units;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +12,7 @@ using SharpInit.Platform;
 using SharpInit.Tasks;
 
 using Tmds.DBus;
+using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
@@ -62,39 +63,11 @@ namespace SharpInit
 
                     if (PlatformUtilities.CurrentlyOn("linux"))
                     {
-                        System.Threading.Tasks.Task.Run(() => 
-                        {
-                            while (!System.IO.Directory.Exists("/run/udev/tags"))
-                                System.Threading.Thread.Sleep(100);
-
-                            if (System.IO.Directory.Exists("/run/udev/tags"))
-                            {
-                                try
-                                {
-                                    Platform.Unix.UdevEnumerator.ServiceManager = ServiceManager;
-                                    Platform.Unix.UdevEnumerator.InitializeHandlers();
-                                    
-                                    var task = new SharpInit.Tasks.ScanUdevDevicesTask();
-                                    ServiceManager.Runner.Register(task).Enqueue().Wait();
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log.Warn(ex, $"Failed to retrieve devices from udevd.");
-                                }
-                            }
-                            else
-                            {
-                                Log.Info($"udevd is not running.");
-                            }
-                        });
+                        UdevEnumerator.ServiceManager = ServiceManager;
+                        System.Threading.Tasks.Task.Run(UdevEnumerator.WaitForUdevAndInitialize);
                     }
 
-                    System.Threading.Tasks.Task.Run(async () => 
-                    {
-                        Log.Info($"Connecting to dbus...");
-                        await ServiceManager.DBusManager.Connect();
-                        Log.Info($"Connected to dbus");
-                    });
+                    System.Threading.Tasks.Task.Run(ServiceManager.DBusManager.Connect);
 
                     if (PlatformUtilities.CurrentlyOn("linux") && SharpInit.Platform.Unix.UnixPlatformInitialization.IsSystemManager)
                     {

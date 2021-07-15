@@ -33,9 +33,12 @@ namespace SharpInit
             if (Connection != null)
                 return;
 
+            Log.Info($"Connecting to dbus...");
             Connection = new Connection(Address.System);
 
             await Connection.ConnectAsync();
+
+            Log.Info($"Connected to dbus.");
             await Connection.RegisterServiceAsync("org.sharpinit.sharpinit", options: ServiceRegistrationOptions.AllowReplacement | ServiceRegistrationOptions.ReplaceExisting | ServiceRegistrationOptions.Default);
             
             DBusProxy = Connection.CreateProxy<DBus.DBus.IDBus>("org.freedesktop.DBus", "/org/freedesktop/DBus");

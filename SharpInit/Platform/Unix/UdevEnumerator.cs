@@ -46,6 +46,33 @@ namespace SharpInit.Platform.Unix
             watcher.IncludeSubdirectories = true;
             watcher.EnableRaisingEvents = true;
         }
+
+        public static void WaitForUdevAndInitialize()
+        {
+            while (!System.IO.Directory.Exists("/run/udev/tags"))
+                System.Threading.Thread.Sleep(100);
+
+            if (System.IO.Directory.Exists("/run/udev/tags"))
+            {
+                try
+                {
+                    Platform.Unix.UdevEnumerator.ServiceManager = ServiceManager;
+                    Platform.Unix.UdevEnumerator.InitializeHandlers();
+                    
+                    var task = new SharpInit.Tasks.ScanUdevDevicesTask();
+                    ServiceManager.Runner.Register(task).Enqueue().Wait();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn(ex, $"Failed to retrieve devices from udevd.");
+                }
+            }
+            else
+            {
+                Log.Info($"udevd is not running.");
+            }
+        }
+
         private static void HandleUdevDirectoryInotify(object sender, FileSystemEventArgs e)
         {
             Log.Debug($"change at {e.FullPath}: {e.ChangeType}");
