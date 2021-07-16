@@ -12,8 +12,8 @@ sharpinit is not ready for production use!
     - [x] Dependency builder
     - [x] Support for various dependency shorthands (.wants, .requires)
     - [ ] Support for patching together unit files (.d, vendor control)
-    - [ ] Conditions
-    - [ ] Assertions
+    - [x] Conditions
+    - [x] Assertions
   - [ ] Process manager
     - [ ] Start, stop and manage processes by targets, slices and services
       - [x] target units
@@ -25,11 +25,11 @@ sharpinit is not ready for production use!
     - [ ] Handle cgroups and namespace isolation for processes
     - [x] Adopt orphaned processes and reap them
     - [x] Socket activation
-    - [ ] D-Bus integration
+    - [x] D-Bus integration
 - [ ] Journal daemon
   - [x] Redirect and receive stdout and stderr for StandardOutput/Error=journal services
   - [ ] Save and load journal to and from disk
 - [ ] udev/device management
-  - [ ] device units
+  - [x] device units
   - [ ] automount units
   - [x] mount units
