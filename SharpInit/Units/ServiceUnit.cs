@@ -134,6 +134,45 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
 
+            /*
+                If unit is active, end transaction with success.
+                If unit is startup throttled, fail unit activation.
+                  Record a unit startup attempt. 
+                Indicate that unit is activating. Clear previous failure or inactivity.
+                Allocate a slice for the service. 
+                Execute ExecCondition= directives serially.
+                  For each ExecCondition=, run the command line.
+                    If exit_code > 0, skip unit activation and the rest of any commands, but run ExecStopPost=
+                    If exit_code > 254, fail unit activation and the rest of any commands, but run ExecStopPost=
+                If any TTY= settings, manipulate the mentioned tty.
+                Execute ExecStartPre= directives serially.
+                  For each ExecStartPre=, run the command line.
+                    On failure, fail unit activation and the rest of any commands, but run ExecStopPost=
+                Execute ExecStart= directives serially.
+                  For each ExecStart=, run the command line.
+                    On failure, fail unit activation and the rest of any commands, but run ExecStopPost=
+                If service type is dbus or notify, wait for the appropriate notification.
+                Execute ExecStartPost= directives serially.
+                  For each ExecStartPost=, run the command line.
+                    On failure, fail unit activation and the rest of any commands, but run ExecStopPost=
+                If unit is still 'activating', indicate that unit is active.
+
+                If unit activation has failed, check whether unit can/should be restarted, including rate limiting.
+                  If it should, enqueue an _automated_ restart.
+                  If not, mark the unit as failed.
+            */
+
+            /*
+                // when unit enters failed
+
+            */
+
+            /*
+                Upon receiving a $MAINPID exit, dbus name release, 
+                Set unit state to "deactivating."
+
+            */
+
             transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
             transaction.Add(new CheckUnitConditionsTask(this));
             transaction.Add(new RecordUnitStartupAttemptTask(this));
