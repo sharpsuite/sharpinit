@@ -1,4 +1,4 @@
-﻿using NLog;
+using NLog;
 using SharpInit.Ipc;
 using SharpInit.Tasks;
 using SharpInit.Units;
@@ -31,7 +31,7 @@ namespace SharpInit
                 return false;
 
             var transaction = LateBoundUnitActivationTask.CreateActivationTransaction(name, "Remotely triggered via IPC");
-            var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
+            var exec = ServiceManager.Runner.Register(transaction, TaskContext.With("manual", true)).Enqueue().Wait();
             var result = exec.Result;
 
             if (result.Type != ResultType.Success)
@@ -59,7 +59,7 @@ namespace SharpInit
                 return false;
 
             var transaction = LateBoundUnitActivationTask.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
-            var exec = ServiceManager.Runner.Register(transaction).Enqueue().Wait();
+            var exec = ServiceManager.Runner.Register(transaction, TaskContext.With("manual", true)).Enqueue().Wait();
             var result = exec.Result;
 
             if (result.Type != ResultType.Success)
