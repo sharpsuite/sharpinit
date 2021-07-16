@@ -1,4 +1,4 @@
-﻿using NLog;
+using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -244,7 +244,7 @@ namespace SharpInit.Units
                 ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
 
             if (Descriptor.ServiceType != ServiceType.Oneshot || Descriptor.RemainAfterExit)
-                transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active));
+                transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating | UnitState.Active, fail_silently: true));
             
             transaction.Add(new SetMainPidTask(this, transaction.Tasks.OfType<RunRegisteredProcessTask>().FirstOrDefault()));
             transaction.Add(new UpdateUnitActivationTimeTask(this));

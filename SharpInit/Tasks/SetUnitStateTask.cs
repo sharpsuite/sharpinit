@@ -16,6 +16,7 @@ namespace SharpInit.Tasks
         public UnitState AllowedInputStates { get; set; }
         public UnitState NextState { get; set; }
         public string Reason { get; set; }
+        public bool FailSilently { get; set; }
 
         /// <summary>
         /// Conditionally sets the state of a unit.
@@ -26,18 +27,22 @@ namespace SharpInit.Tasks
         /// this task will return a ResultType of Failure.</param>
         /// <param name="reason">The reason for the unit state change. If there is a "failure" TaskResult in the TaskContext,
         /// this parameter is ignored.</param>
-        public SetUnitStateTask(Unit unit, UnitState next_state, UnitState allowed_input = UnitState.Any, string reason = null)
+        public SetUnitStateTask(Unit unit, UnitState next_state, UnitState allowed_input = UnitState.Any, string reason = null, bool fail_silently = false)
         {
             Unit = unit;
             AllowedInputStates = allowed_input;
             NextState = next_state;
             Reason = reason;
+            FailSilently = fail_silently;
         }
 
         public override TaskResult Execute(TaskContext context)
         {
             if (AllowedInputStates != UnitState.Any && !AllowedInputStates.HasFlag(Unit.CurrentState))
-                return new TaskResult(this, ResultType.Failure, $"{Unit.UnitName} has invalid input state {PrintUnitState(Unit.CurrentState)}, was expecting {PrintUnitState(AllowedInputStates)}");
+            {
+                var failure_type = FailSilently ? ResultType.SoftFailure : ResultType.Failure;
+                return new TaskResult(this, failure_type, $"{Unit.UnitName} has invalid input state {PrintUnitState(Unit.CurrentState)}, was expecting {PrintUnitState(AllowedInputStates)}");
+            }
             
             if (context.Has<TaskResult>("failure"))
             {
