@@ -6,6 +6,7 @@ using System.Text;
 using NLog;
 using NLog.Targets;
 using NLog.Config;
+using System.Collections.Concurrent;
 
 namespace SharpInit.Platform.Unix
 {
@@ -55,6 +56,7 @@ namespace SharpInit.Platform.Unix
     public class UnixJournalManager
     {
         private List<UnixJournalClient> Clients = new List<UnixJournalClient>();
+        private ConcurrentDictionary<int, UnixJournalClient> ClientsByReadFd = new ConcurrentDictionary<int, UnixJournalClient>();
 
         private Logger Log = LogManager.GetCurrentClassLogger();
 
@@ -77,6 +79,7 @@ namespace SharpInit.Platform.Unix
                 var client = new UnixJournalClient(name);
                 client.AllocateDescriptors();
                 Clients.Add(client);
+                ClientsByReadFd[client.ReadFd.Number] = client;
 
                 int epoll_add_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_ADD, client.ReadFd.Number, EpollEvents.EPOLLIN);
 
@@ -94,6 +97,7 @@ namespace SharpInit.Platform.Unix
             var ctl_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_DEL, client.ReadFd?.Number ?? -1, EpollEvents.EPOLLIN);
             client.Deallocate();
             Clients.Remove(client);
+            ClientsByReadFd.TryRemove(new KeyValuePair<int, UnixJournalClient>(client.ReadFd.Number, client));
 
             if (ctl_resp != 0)
                 Log.Error($"epoll_ctl remove failed with errno: {Syscall.GetLastError()}");
@@ -108,16 +112,17 @@ namespace SharpInit.Platform.Unix
 
             EpollEvent[] event_arr = new EpollEvent[event_size];
             var buf = System.Runtime.InteropServices.Marshal.AllocHGlobal(read_buffer_size);
+
             while (true)
             {
                 var wait_ret = Syscall.epoll_wait(EpollFd.Number, event_arr, event_arr.Length, 1);
-                var clients = new List<UnixJournalClient>();
-                
-                lock (Clients) { clients.AddRange(Clients); }
 
                 for (int i = 0; i < wait_ret; i++) 
                 {
-                    var client = clients.FirstOrDefault(client => client.ReadFd.Number == event_arr[i].fd);
+                    var client_found = ClientsByReadFd.TryGetValue(event_arr[i].fd, out UnixJournalClient client);
+                    if (!client_found)
+                        client = null;
+
                     long read = 0;
                     var contents = new List<byte>();
 
