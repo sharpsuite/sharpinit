@@ -35,6 +35,7 @@ namespace SharpInit.Units
         public event OnUnitStateChanged UnitStateChanged;
         public event OnServiceProcessStart ProcessStart;
         public event OnServiceProcessExit ProcessExit;
+        public event OnBusNameReleased BusNameReleased;
 
         public DateTime LastStateChangeTime { get; set; }
         public DateTime ActivationTime { get; set; }
@@ -111,6 +112,11 @@ namespace SharpInit.Units
         internal void RaiseProcessStart(ProcessInfo proc)
         {
             ProcessStart?.Invoke(this, new ServiceProcessStartEventArgs(this, proc));
+        }
+
+        internal void RaiseBusNameReleased(string bus_name, string prev)
+        {
+            BusNameReleased?.Invoke(this, new BusNameReleasedEventArgs(bus_name, prev, this));
         }
 
         private void HandleConfigurationChange(object sender, UnitConfigurationChangedEventArgs e)

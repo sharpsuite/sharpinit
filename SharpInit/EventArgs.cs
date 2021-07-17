@@ -6,6 +6,21 @@ using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
+    public delegate void OnBusNameReleased(object sender, BusNameReleasedEventArgs e);
+    public class BusNameReleasedEventArgs : EventArgs
+    {
+        public string BusName { get; set; }
+        public string PreviousOwner { get; set; }
+        public Unit Unit { get; set; }
+
+        public BusNameReleasedEventArgs(string bus_name, string previous_owner, Unit unit)
+        {
+            BusName = bus_name;
+            PreviousOwner = previous_owner;
+            Unit = unit;
+        }
+    }
+
     public delegate void OnDeviceAdded(object sender, DeviceAddedEventArgs e);
     public class DeviceAddedEventArgs : EventArgs
     {

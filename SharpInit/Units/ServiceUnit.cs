@@ -26,12 +26,14 @@ namespace SharpInit.Units
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
+            BusNameReleased += HandleBusNameReleased;
         }
 
         public ServiceUnit() : base()
         {
             ProcessStart += HandleProcessStart;
             ProcessExit += HandleProcessExit;
+            BusNameReleased += HandleBusNameReleased;
         }
 
         public override UnitDescriptor GetUnitDescriptor() => Descriptor;
@@ -68,6 +70,28 @@ namespace SharpInit.Units
             
             return !RestartSuppressed;
         }
+        
+        private void HandleBusNameReleased(object sender, BusNameReleasedEventArgs e)
+        {
+            switch(CurrentState)
+            {
+                case UnitState.Deactivating:
+                    SetState(UnitState.Inactive, "Bus name released");
+                    break;
+                default:
+                    if (!Descriptor.RemainAfterExit)
+                    {
+                        SetState(UnitState.Inactive, "Bus name released");
+                    }
+                    else if (Descriptor.RemainAfterExit)
+                    {
+                        SetState(CurrentState, $"Bus name released");
+                    }
+                    break;
+            }
+
+            HandleUnitStopped(0);
+        }
 
         private void HandleProcessExit(object sender, ServiceProcessExitEventArgs e)
         {
@@ -75,6 +99,11 @@ namespace SharpInit.Units
 
             if (e.Process?.Id == MainProcessId)
                 MainProcessId = -1;
+            
+            if (Descriptor.ServiceType == ServiceType.Dbus)
+            {
+                return;
+            }
 
             switch(CurrentState)
             {
@@ -99,21 +128,30 @@ namespace SharpInit.Units
                     {
                         SetState(CurrentState, $"Main process exited with code {e.ExitCode}");
                     }
-
-                    var should_restart = false;
-
-                    if (e.ExitCode == 0)
-                        should_restart = Descriptor.Restart.HasFlag(RestartBehavior.CleanExit);
-                    else
-                        should_restart = Descriptor.Restart.HasFlag(RestartBehavior.UncleanExit);
-                    
-                    should_restart = should_restart && CanRestartNow();
-
-                    if(should_restart)
-                    {
-                        ServiceManager.Runner.Register(GetRestartTransaction()).Enqueue();
-                    }
                     break;
+            }
+            
+            HandleUnitStopped(e.ExitCode);
+        }
+
+        private void HandleUnitStopped(int exit_code)
+        {
+            var should_restart = false;
+
+            if (exit_code == 0)
+                should_restart = Descriptor.Restart.HasFlag(RestartBehavior.CleanExit);
+            else
+                should_restart = Descriptor.Restart.HasFlag(RestartBehavior.UncleanExit);
+
+            should_restart = should_restart && CanRestartNow();
+
+            if(should_restart)
+            {
+                ServiceManager.Runner.Register(GetRestartTransaction()).Enqueue();
+            }
+            else
+            {
+                ServiceManager.Runner.Register(LateBoundUnitActivationTask.CreateDeactivationTransaction(this));
             }
         }
 

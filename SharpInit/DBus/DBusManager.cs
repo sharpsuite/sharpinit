@@ -6,6 +6,7 @@ using Tmds.DBus;
 using NLog;
 using DBus.DBus;
 using System;
+using SharpInit.Units;
 
 namespace SharpInit
 {
@@ -18,6 +19,8 @@ namespace SharpInit
 
         public List<string> AcquiredNames { get; set; }
 
+        public Dictionary<string, Unit> AssociatedUnits { get; set; }
+
         IDBus DBusProxy { get; set; }
         IDisposable NameWatcher { get; set; }
 
@@ -26,6 +29,11 @@ namespace SharpInit
             ServiceManager = manager;
             AcquiredNames = new List<string>();
             NameAcquiredCts = new CancellationTokenSource();
+        }
+
+        public void Associate(string bus_name, Unit unit)
+        {
+            AssociatedUnits[bus_name] = unit;
         }
 
         public async Task Connect()
@@ -86,7 +94,15 @@ namespace SharpInit
             (string name, string old_owner, string new_owner) = names;
             
             if (string.IsNullOrWhiteSpace(new_owner))
+            {
+                if (AssociatedUnits.ContainsKey(name))
+                {
+                    AssociatedUnits[name].RaiseBusNameReleased(name, old_owner);
+                    AssociatedUnits.Remove(name);
+                }
+                
                 return;
+            }
 
             if (!AcquiredNames.Contains(name))
                 AcquiredNames.Add(name);
