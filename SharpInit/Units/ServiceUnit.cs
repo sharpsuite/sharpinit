@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 using System;
@@ -211,7 +211,10 @@ namespace SharpInit.Units
 
             */
 
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
+            //transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
+            //transaction.Precheck = new UnitStateConditionTask(this, unmatched: ResultType.Success, (UnitState.Active, ResultType.StopExecution));
+            transaction.Precheck = this.StopIf(UnitState.Active);
+
             transaction.Add(new CheckUnitConditionsTask(this));
             transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
@@ -334,11 +337,11 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
 
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, this, stop: true, reverse: true);
+            transaction.Precheck = this.StopIf(UnitState.Inactive);
             
             var exec_stop_tx = new Transaction();
             exec_stop_tx.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
-            exec_stop_tx.Add(new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: false));
+            exec_stop_tx.Add(this.StopUnless(UnitState.Active));
 
             foreach (var line in Descriptor.ExecStop)
             {

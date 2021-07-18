@@ -41,7 +41,7 @@ namespace SharpInit.Units
         public Transaction GetExternalActivationTransaction(string reason = "Device externally activated")
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
+            transaction.Precheck = this.StopIf(UnitState.Active);
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Any, reason));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
@@ -52,7 +52,7 @@ namespace SharpInit.Units
         public Transaction GetExternalDeactivationTransaction(string reason = "Device externally deactivated")
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, this, stop: true, reverse: true);
+            transaction.Precheck = this.StopIf(UnitState.Inactive);
 
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Any, reason));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
@@ -63,9 +63,7 @@ namespace SharpInit.Units
         internal override Transaction GetActivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
-
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
-            transaction.Add(new WaitForUnitStateTask(UnitState.Active, this, TimeSpan.FromSeconds(5), stop: false, reverse: false));
+            transaction.Add(this.FailUnless(UnitState.Active, TimeSpan.FromSeconds(5)));
 
             return transaction;
         }
@@ -73,9 +71,7 @@ namespace SharpInit.Units
         internal override Transaction GetDeactivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
-
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, this, stop: true, reverse: true);
-            transaction.Add(new WaitForUnitStateTask(UnitState.Inactive, this, TimeSpan.FromSeconds(5), stop: false, reverse: false));
+            transaction.Add(this.FailUnless(UnitState.Inactive, TimeSpan.FromSeconds(5)));
 
             return transaction;
         }

@@ -90,8 +90,8 @@ namespace SharpInit.Units
         internal override Transaction GetActivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
-
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Active, UnitName, stop: true, reverse: true);
+            transaction.Precheck = this.StopIf(UnitState.Active);
+            
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating));
             transaction.Add(new AllocateSliceTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Active, UnitState.Activating));
@@ -103,8 +103,8 @@ namespace SharpInit.Units
         internal override Transaction GetDeactivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
-
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, UnitName, stop: true, reverse: true);
+            transaction.Precheck = this.StopIf(UnitState.Inactive);
+            
             transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 
