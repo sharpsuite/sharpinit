@@ -31,9 +31,12 @@ namespace SharpInit.Tasks
             WaitForExit = wait_for_exit;
             WaitExitMilliseconds = exit_timeout;
         }
+        public static readonly string LastProcessKey = "proc.registered.last_process";
 
         public async override System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context)
         {
+            context.Unset(LastProcessKey);
+
             if (ProcessStartInfo == null || Unit == null)
                 return new TaskResult(this, ResultType.Failure, "No ProcessStartInfo or Unit supplied.");
 
@@ -60,6 +63,7 @@ namespace SharpInit.Tasks
                 }
 
                 Process = await Unit.ServiceManager.StartProcessAsync(Unit, ProcessStartInfo);
+                context[LastProcessKey] = Process;
 
                 if (WaitForExit)
                 {

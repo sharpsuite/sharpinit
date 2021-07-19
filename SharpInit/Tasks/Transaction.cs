@@ -20,6 +20,7 @@ namespace SharpInit.Tasks
         public List<Task> Tasks = new List<Task>();
         public Task OnFailure { get; set; }
         public Task OnTimeout { get; set; }
+        public Task OnSkipped { get; set; }
 
         public TaskContext Context { get; set; }
 
@@ -142,7 +143,13 @@ namespace SharpInit.Tasks
                 {
                     var result = execution.Result;
 
-                    if (result.Type != ResultType.Success &&
+                    if (result.Type.HasFlag(ResultType.Skipped))
+                    {
+                        if (OnSkipped != null)
+                            ExecuteBlocking(OnSkipped, Context);
+                    }
+
+                    if (!result.Type.HasFlag(ResultType.Success) &&
                         !result.Type.HasFlag(ResultType.Ignorable))
                     {
                         Context["failure"] = result;
@@ -152,8 +159,11 @@ namespace SharpInit.Tasks
                             if (OnTimeout != null)
                                 ExecuteBlocking(OnTimeout, Context);
                         }
-                        else if (OnFailure != null)
-                            ExecuteBlocking(OnFailure, Context);
+                        else if (result.Type.HasFlag(ResultType.Failure))
+                        {
+                            if (OnFailure != null)
+                                ExecuteBlocking(OnFailure, Context);
+                        }
                         
                         if (ErrorHandlingMode != TransactionErrorHandlingMode.Ignore)
                             return result;
@@ -161,7 +171,12 @@ namespace SharpInit.Tasks
                     
                     if (result.Type.HasFlag(ResultType.StopExecution))
                     {
-                        return new TaskResult(this, ResultType.Success);
+                        var result_to_propagate = result.Type ^ ResultType.StopExecution;
+
+                        if (result_to_propagate == (ResultType)0)
+                            result_to_propagate = ResultType.Success;
+
+                        return new TaskResult(this, result_to_propagate);
                     }
                 }
             }

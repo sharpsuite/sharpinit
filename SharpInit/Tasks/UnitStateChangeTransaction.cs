@@ -83,7 +83,7 @@ namespace SharpInit.Units
 
                 if (!should_run)
                 {
-                    return new TaskResult(this, ResultType.Success);
+                    return new TaskResult(this, ResultType.Success | ResultType.Skipped);
                 }
 
                 PrintStatusMessage(GetStatusMessage("pre", ChangeType), ephemeral: true);
@@ -96,7 +96,7 @@ namespace SharpInit.Units
 
                 var result = await base.ExecuteAsync(context);
 
-                if (result.Type.HasFlag(ResultType.StoppedEarly))
+                if (result.Type.HasFlag(ResultType.Skipped))
                 {
                     return result;
                 }

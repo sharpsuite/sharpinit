@@ -211,13 +211,10 @@ namespace SharpInit.Units
 
             */
 
-            //transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
-            //transaction.Precheck = new UnitStateConditionTask(this, unmatched: ResultType.Success, (UnitState.Active, ResultType.StopExecution));
             transaction.Precheck = this.StopIf(UnitState.Active);
 
+            transaction.Add(new SetUnitStateTask(this, UnitState.Inactive));
             transaction.Add(new CheckUnitConditionsTask(this));
-            transaction.Add(new RecordUnitStartupAttemptTask(this));
-            transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
             if (Descriptor.ServiceType != ServiceType.Oneshot && Descriptor.ExecStart?.Count != 1)
             {    
@@ -226,48 +223,24 @@ namespace SharpInit.Units
                 return null;       
             }
             
+            transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new AllocateSliceTask(this));
-
-            var condition_tx = new Transaction();
-            condition_tx.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
             
             foreach (var line in Descriptor.ExecCondition)
             {
-                condition_tx.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
-            }
-
-            transaction.Add(condition_tx);
-
-            // a bit gross
-            DelegateTask condition_check_task = null;
-            condition_check_task = new DelegateTask(() => 
-            {
-                foreach (var task in condition_tx.Tasks)
-                {
-                    if (!(task is RunUnregisteredProcessTask run_unregistered))
-                        continue;
-                    
-                    var exit_code = run_unregistered?.Process?.ExitCode ?? -1;
-
+                transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
+                transaction.Add(new CheckProcessExitCodeTask(RunUnregisteredProcessTask.LastProcessKey, exit_code => {
                     if (exit_code == 0)
-                        continue;
-
-                    if (exit_code > 0 && exit_code < 255)
-                    {
-                        condition_check_task.Runner.ExecuteBlocking(new SetUnitStateTask(this, UnitState.Inactive, reason: "Condition check failed with skip exit code"), condition_check_task.Execution.Context);
-                        condition_check_task.ResultOnException = ResultType.StopExecution;
-                        throw new Exception($"Condition check {run_unregistered.ProcessStartInfo} failed with exit code {exit_code}, skipping unit activation");
-                    }
-
-                    if (exit_code == -1 || exit_code >= 255)
-                    {
-                        condition_check_task.ResultOnException = ResultType.Failure;
-                        throw new Exception($"Condition check {run_unregistered.ProcessStartInfo} failed with exit code {exit_code}, failing unit activation");
-                    }
-                }
-            }, "check-exec-condition");
+                        return ResultType.Success;
+                    
+                    if (exit_code < 255)
+                        return ResultType.Success | ResultType.Skipped | ResultType.StopExecution;
+                    
+                    return ResultType.Failure;
+                }));
+            }
             
-            transaction.Add(condition_check_task);
+            transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
 
             if (!string.IsNullOrWhiteSpace(Descriptor.TtyPath))
             {
@@ -328,7 +301,7 @@ namespace SharpInit.Units
             
             transaction.Add(new SetMainPidTask(this, transaction.Tasks.OfType<RunRegisteredProcessTask>().FirstOrDefault()));
             transaction.Add(new UpdateUnitActivationTimeTask(this));
-            transaction.OnFailure = transaction.OnTimeout = new HandleFailureTask(this);
+            transaction.OnFailure = transaction.OnTimeout = transaction.OnSkipped = new HandleFailureTask(this);
 
             return transaction;
         }
@@ -406,22 +379,33 @@ namespace SharpInit.Units
 
             public override TaskResult Execute(TaskContext context)
             {
+                bool should_restart = false;
+                var next_state = UnitState.Failed;
+                var message = "";
+
                 if (!context.Has<TaskResult>("failure"))
                 {   
-                    Unit.SetState(UnitState.Failed);
-                    return new TaskResult(this, ResultType.Success);
+                    next_state = UnitState.Inactive;
                 }
+                else
+                {
+                    var result = context.Get<TaskResult>("failure");
+                    message = result.Message;
 
-                var result = context.Get<TaskResult>("failure");
-                bool should_restart = false;
+                    if (result.Type.HasFlag(ResultType.Ignorable) || 
+                        result.Type.HasFlag(ResultType.Skipped))
+                    {
+                        next_state = UnitState.Inactive;
+                    }
 
-                if (result.Type.HasFlag(ResultType.Timeout))
-                    if (Unit.Descriptor.Restart.HasFlag(RestartBehavior.Timeout))        
-                        should_restart = true;
-                
-                if (result.Type.HasFlag(ResultType.Failure))
-                    if (Unit.Descriptor.Restart.HasFlag(RestartBehavior.UncleanExit))
-                        should_restart = true;
+                    if (result.Type.HasFlag(ResultType.Timeout))
+                        if (Unit.Descriptor.Restart.HasFlag(RestartBehavior.Timeout))        
+                            should_restart = true;
+                    
+                    if (result.Type.HasFlag(ResultType.Failure) && !result.Type.HasFlag(ResultType.Ignorable))
+                        if (Unit.Descriptor.Restart.HasFlag(RestartBehavior.UncleanExit))
+                            should_restart = true;
+                }
 
                 bool should_restart_actual = should_restart && Unit.CanRestartNow();
 
@@ -432,9 +416,16 @@ namespace SharpInit.Units
                 else
                 {
                     if (should_restart)
-                        Unit.SetState(UnitState.Failed, $"{result.Message} (restart throttled)");
+                        Unit.SetState(next_state, $"{message} (restart throttled)");
                     else
-                        Unit.SetState(UnitState.Failed, result.Message);
+                    {
+                        Unit.SetState(next_state, message);
+
+                        var deactivation = Unit.GetDeactivationTransaction() as UnitStateChangeTransaction;
+                        deactivation.Precheck = null;
+                        deactivation.Add(new SetUnitStateTask(Unit, next_state, UnitState.Any, message));
+                        ServiceManager.Runner.Register(deactivation).Enqueue();
+                    }
                     return new TaskResult(this, ResultType.Success);
                 }
 
