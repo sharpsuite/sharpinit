@@ -40,16 +40,5 @@ namespace SharpInit.Tasks
     {
         public override TaskResult Execute(TaskContext context) => ExecuteAsync(context).Result;
         public abstract System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context);
-
-        // TODO: Maybe(?) implement these
-        public static AsyncTask operator |(AsyncTask a, AsyncTask b)
-        {
-            return a;
-        }
-
-        public static AsyncTask operator &(AsyncTask a, AsyncTask b)
-        {
-            return a;
-        }
     }
 }
