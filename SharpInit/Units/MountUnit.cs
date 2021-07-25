@@ -119,7 +119,7 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
 
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Active, this, stop: true, reverse: true);
+            transaction.Precheck = this.StopIf(UnitState.Active);
             transaction.Add(new CheckUnitConditionsTask(this));
             transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Activating, UnitState.Inactive | UnitState.Failed));
@@ -136,9 +136,9 @@ namespace SharpInit.Units
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
 
-            transaction.Precheck = new CheckUnitStateTask(UnitState.Inactive, this, stop: true, reverse: true);
+            transaction.Precheck = this.StopIf(UnitState.Inactive);
             transaction.Add(new CheckMountExternallyManagedTask(this));
-            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
             transaction.Add(new UnmountTask(this));
             transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
 

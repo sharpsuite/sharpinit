@@ -69,6 +69,7 @@ namespace SharpInit.Units
 
         public async override System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context = null)
         {
+            using (ActingTaskMarker.Mark(SourceUnit, this))
             using (NLog.NestedDiagnosticsLogicalContext.Push(SourceUnit.UnitName)) 
             {
                 bool should_run = true;
@@ -82,7 +83,7 @@ namespace SharpInit.Units
 
                 if (!should_run)
                 {
-                    return new TaskResult(this, ResultType.Success);
+                    return new TaskResult(this, ResultType.Success | ResultType.Skipped);
                 }
 
                 PrintStatusMessage(GetStatusMessage("pre", ChangeType), ephemeral: true);
@@ -95,7 +96,7 @@ namespace SharpInit.Units
 
                 var result = await base.ExecuteAsync(context);
 
-                if (result.Type.HasFlag(ResultType.StoppedEarly))
+                if (result.Type.HasFlag(ResultType.Skipped))
                 {
                     return result;
                 }
@@ -162,6 +163,37 @@ namespace SharpInit.Units
                 {
                     Console.WriteLine(message);
                 }
+            }
+        }
+    }
+
+    public class ActingTaskMarker : IDisposable
+    {
+        private Task _previous_task { get; set; }
+        public Unit Unit { get; set; }
+        public Task Task { get; set; }
+
+        public static ActingTaskMarker Mark(Unit unit, Task task)
+        {
+            var m = new ActingTaskMarker();
+
+            m.Unit = unit;
+            m.Task = task;
+            
+            if (unit != null)
+            {
+                m._previous_task = m.Unit.ActingTask;
+                m.Unit.ActingTask = task;
+            }
+
+            return m;
+        }
+
+        void IDisposable.Dispose()
+        {
+            if (Unit != null)
+            {
+                Unit.ActingTask = _previous_task;
             }
         }
     }

@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SharpInit.Platform;
+using SharpInit.Tasks;
 using SharpInit.Units;
 using System;
 using System.Collections.Generic;
@@ -36,7 +37,7 @@ namespace SharpInit.Tests
 
             ServiceManager.Runner.Register(ServiceManager.Planner.CreateActivationTransaction(target_unit)).Enqueue().Wait();
 
-            var state_change_waiter = new SharpInit.Tasks.WaitForUnitStateTask(UnitState.Inactive, target_unit, TimeSpan.FromSeconds(5), stop: true, reverse: false);
+            var state_change_waiter = target_unit.FailUnless(UnitState.Inactive, TimeSpan.FromMilliseconds(1000));
             ServiceManager.Runner.Register(state_change_waiter);
             var state_change_exec_result = state_change_waiter.ExecuteAsync(null);
 
@@ -45,7 +46,7 @@ namespace SharpInit.Tests
 
             Assert.IsTrue(state_change_exec_result.Result.Type == Tasks.ResultType.Success);
 
-            var state_change_waiter_other = new SharpInit.Tasks.WaitForUnitStateTask(UnitState.Active, target_unit, TimeSpan.FromSeconds(1), stop: true, reverse: false);
+            var state_change_waiter_other = target_unit.FailUnless(UnitState.Active, TimeSpan.FromMilliseconds(1000));
             ServiceManager.Runner.Register(state_change_waiter_other);
             var state_change_exec_result_other = state_change_waiter_other.ExecuteAsync(null);
 

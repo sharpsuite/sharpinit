@@ -272,9 +272,9 @@ namespace SharpInit.Units
             foreach (var sub_unit in units_to_stop)
             {
                 transaction.AffectedUnits.Add(sub_unit);
-                var deactivation_transaction = CreateDeactivationTransaction(sub_unit, $"{unit.UnitName} is being activated");
+                var deactivation_transaction = CreateDeactivationTransaction(sub_unit, $"{unit.UnitName} is being activated, which conflicts with {sub_unit.UnitName}");
 
-                deactivation_transaction.Prepend(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName, true));
+                deactivation_transaction.Prepend(sub_unit.StopIf(UnitState.Inactive));
                 deactivation_transaction.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
 
                 transaction.Add(deactivation_transaction);
@@ -293,7 +293,7 @@ namespace SharpInit.Units
                 var activation_transaction = sub_unit.GetActivationTransaction();
 
                 if (fail_if_unstarted.ContainsKey(sub_unit.UnitName) && fail_if_unstarted[sub_unit.UnitName])
-                    activation_transaction.Prepend(new CheckUnitStateTask(UnitState.Active, sub_unit.UnitName));
+                    activation_transaction.Prepend(sub_unit.StopIf(UnitState.Active));
 
                 if (ignore_failure.ContainsKey(sub_unit.UnitName) && !ignore_failure[sub_unit.UnitName])
                     activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;

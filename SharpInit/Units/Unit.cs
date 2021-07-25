@@ -1,4 +1,4 @@
-﻿using SharpInit.Tasks;
+using SharpInit.Tasks;
 using SharpInit.Platform.Unix;
 
 using System;
@@ -50,6 +50,7 @@ namespace SharpInit.Units
         private System.Threading.CancellationTokenSource StateChangeCancellationToken { get; set; }
 
         public abstract Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages { get; }
+        public Task ActingTask { get; set; }
 
         public int MainProcessId { get; set; }
 

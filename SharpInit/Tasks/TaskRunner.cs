@@ -88,7 +88,7 @@ namespace SharpInit.Tasks
 
         public override string ToString()
         {
-            return $"{string.Join('/', ParentTasks)}/{Task.Identifier}:{Task.Type}";
+            return $"{string.Join('/', ParentTasks.Append(Task.Identifier))}:{Task.Type}";
         }
     }
 
@@ -145,21 +145,36 @@ namespace SharpInit.Tasks
             }
         }
 
+        long last_served_id = 0;
+        static readonly bool RandomTaskIdentifiers = false;
+        static readonly bool KeepTasks = false;
+
         public long GetNewIdentifier()
         {
             lock (served_ids)
             {
-                var id_bytes = new byte[8];
+                long id = 0;
 
-                while (served_ids.Contains(BitConverter.ToInt64(id_bytes)))
+                if (RandomTaskIdentifiers)
                 {
-                    random.NextBytes(id_bytes);
+                    var id_bytes = new byte[8];
+
+                    while (served_ids.Contains(BitConverter.ToInt64(id_bytes)))
+                    {
+                        random.NextBytes(id_bytes);
+                        
+                        for (int i = 0; i < 6; i++)
+                            id_bytes[7 - i] = 0;
+                    }
                     
-                    for (int i = 0; i < 6; i++)
-                        id_bytes[7 - i] = 0;
+                    id = BitConverter.ToInt64(id_bytes);
                 }
-                
-                var id = BitConverter.ToInt64(id_bytes);
+                else
+                {
+                    while (served_ids.Contains(id))
+                        id = last_served_id++;
+                }
+
                 served_ids.Add(id);
                 return id;
             }
@@ -210,6 +225,11 @@ namespace SharpInit.Tasks
                 Log.Error(ex);
                 execution.State = TaskExecutionState.Aborted;
                 execution.SignalDone();
+            }
+
+            if (!KeepTasks && Tasks.ContainsKey(execution.Task.Identifier))
+            {
+                Tasks.Remove(execution.Task.Identifier);
             }
 
             return execution.Result;

@@ -37,8 +37,12 @@ namespace SharpInit.Tasks
             
         }
 
+        public static readonly string LastProcessKey = "proc.unregistered.last_process";
+
         public async override System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskContext context)
         {
+            context.Unset(LastProcessKey);
+
             if (ProcessStartInfo == null)
                 return new TaskResult(this, ResultType.Failure, "No ProcessStartInfo supplied.");
 
@@ -50,6 +54,7 @@ namespace SharpInit.Tasks
                 }
 
                 Process = await ProcessHandler.StartAsync(ProcessStartInfo);
+                context[LastProcessKey] = Process;
 
                 if (ExecutionTime == TimeSpan.Zero)
                     return new TaskResult(this, ResultType.Success);

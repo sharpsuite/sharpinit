@@ -111,6 +111,7 @@ namespace SharpInit.Units
         internal override Transaction GetActivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
+            transaction.Precheck = this.StopIf(UnitState.Active);
 
             transaction.Add(new CheckUnitConditionsTask(this));
             transaction.Add(new RecordUnitStartupAttemptTask(this));
@@ -143,8 +144,9 @@ namespace SharpInit.Units
         internal override Transaction GetDeactivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
+            transaction.Precheck = this.StopIf(UnitState.Inactive);
 
-            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating, UnitState.Active));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Deactivating));
 
             if (Descriptor.ExecStopPre.Any())
             {

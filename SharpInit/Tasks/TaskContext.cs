@@ -20,7 +20,15 @@ namespace SharpInit.Tasks
         public bool Has(string key) => Values.ContainsKey(key);
 
         public bool Has<T>(string key) => Values.ContainsKey(key) && Values[key].GetType() == typeof(T);
+        public bool Unset(string key) => Values.Remove(key);
+
+        public static TaskContext With<T>(string key, T value) => new TaskContext().With(key, value);
 
         public TaskContext() { Values = new Dictionary<string, object>(); }
+    }
+
+    public static class TaskContextExtensions
+    {
+        public static TaskContext With<T>(this TaskContext ctx, string key, T value) { ctx[key] = value; return ctx; }
     }
 }
