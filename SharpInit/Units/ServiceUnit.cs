@@ -65,15 +65,22 @@ namespace SharpInit.Units
             }
         }
 
-        public void HandleNotifyMessage(string message)
+        public void HandleNotifyMessage(NotifyMessage message)
         {
-            var parts = message.Split('=');
+            var contents = message.Contents;
+            var parts = contents.Split('=');
             var key = parts[0].ToUpperInvariant();
             var value = string.Join('=', parts.Skip(1));
+
+            Log.Debug($"Received sd_notify message for {UnitName} from pid {message.Credentials.pid}: {message}");
 
             switch (key)
             {
                 case "READY":
+                    if (CurrentState == UnitState.Reloading)
+                    {
+                        SetState(UnitState.Active, "Unit is ready (sd_notify)");
+                    }
                     break;
                 case "MAINPID":
                     if (int.TryParse(value, out int pid))
@@ -86,7 +93,6 @@ namespace SharpInit.Units
                     SetState(UnitState.Reloading, "Unit is reloading (sd_notify)");
                     break;
                 case "STOPPING":
-                    //SetState(UnitState.Deactivating, "Unit is reloading (sd_notify)");
                     Log.Info($"Unit {this.UnitName} is stopping (sd_notify)");
                     break;
                 case "ERRNO":

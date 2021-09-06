@@ -43,7 +43,7 @@ namespace SharpInit.Tasks
                     if (!await Unit.NotifyClient.WaitOneAsync(end - Program.ElapsedSinceStartup()))
                         break;
                     
-                    var message = Unit.NotifyClient.DequeueMessage().Trim();
+                    var message = Unit.NotifyClient.DequeueMessage().Contents.Trim();
                     if (message == "READY=1")
                         return new TaskResult(this, ResultType.Success);
                 }

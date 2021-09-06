@@ -15,11 +15,21 @@ namespace SharpInit.Platform.Unix
         public uint uid;
         public uint gid;
     }
+
+    public class NotifyMessage
+    {
+        public ucred Credentials { get; set; }
+        public string Contents { get; set; }
+        public DateTime Received { get; set; }
+        
+        public NotifyMessage() {}
+        public override string ToString() => Contents;
+    }
     
     public class NotifyClient : EpollClient
     {
         public ServiceUnit Unit { get; set; }
-        public ConcurrentQueue<string> MessageQueue { get; set; } = new();
+        public ConcurrentQueue<NotifyMessage> MessageQueue { get; set; } = new();
 
         public CancellationTokenSource DataRead { get; set; } = new();
 
@@ -47,16 +57,22 @@ namespace SharpInit.Platform.Unix
             }
         }
 
-        public string DequeueMessage()
+        public NotifyMessage DequeueMessage()
         {
-            if (MessageQueue.TryDequeue(out string ret))
+            if (MessageQueue.TryDequeue(out NotifyMessage ret))
                 return ret;
             return null;
         }
 
-        private void EnqueueMessage(string message)
+        private void EnqueueMessage(string contents, ucred credentials)
         {
-            Log.Debug($"{Name} incoming message: {message}");
+            var message = new NotifyMessage()
+            {
+                Contents = contents,
+                Credentials = credentials,
+                Received = DateTime.UtcNow
+            };
+            
             MessageQueue.Enqueue(message);
             Unit.HandleNotifyMessage(message);
         }
@@ -66,6 +82,8 @@ namespace SharpInit.Platform.Unix
             int read_buffer_size = 1024;
             var buf = new byte[read_buffer_size];
             long read = 0;
+
+            var credentials = new ucred();
             
             var cmsg = new byte[1024];
             var msghdr = new Msghdr {
@@ -120,11 +138,9 @@ namespace SharpInit.Platform.Unix
                     int pid;
                     uint uid, gid;
 
-                    pid = BitConverter.ToInt32(msghdr.msg_control, recvDataOffset + 0);
-                    uid = BitConverter.ToUInt32(msghdr.msg_control, recvDataOffset + 4);
-                    gid = BitConverter.ToUInt32(msghdr.msg_control, recvDataOffset + 8);
-                    
-                    Log.Debug($"Caller has pid {pid}, uid {uid}, gid {gid}");
+                    credentials.pid = BitConverter.ToInt32(msghdr.msg_control, recvDataOffset + 0);
+                    credentials.uid = BitConverter.ToUInt32(msghdr.msg_control, recvDataOffset + 4);
+                    credentials.gid = BitConverter.ToUInt32(msghdr.msg_control, recvDataOffset + 8);
                     
                     // TODO: Verify that caller is authorized
                 }
@@ -143,7 +159,7 @@ namespace SharpInit.Platform.Unix
 
                     if (c == '\n')
                     {
-                        EnqueueMessage(currentString.ToString());
+                        EnqueueMessage(currentString.ToString(), credentials);
                         currentString.Clear();
                     }
                     else
@@ -154,7 +170,7 @@ namespace SharpInit.Platform.Unix
 
                 if (currentString.Length > 0)
                 {
-                    EnqueueMessage(currentString.ToString());
+                    EnqueueMessage(currentString.ToString(), credentials);
                 }
             }
         }
