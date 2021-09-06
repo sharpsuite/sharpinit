@@ -14,9 +14,9 @@ namespace SharpInit
     public class SocketWrapper
     {
         public Socket Socket { get; set; }
-        public SocketUnit Unit { get; set; }
+        public Unit Unit { get; set; }
 
-        public SocketWrapper(Socket socket, SocketUnit unit)
+        public SocketWrapper(Socket socket, Unit unit)
         {
             Socket = socket;
             Unit = unit;

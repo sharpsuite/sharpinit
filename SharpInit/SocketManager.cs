@@ -231,7 +231,8 @@ namespace SharpInit
             {
                 if (list.Contains(socket.Socket))
                 {
-                    socket.Unit.RaiseSocketActivated(socket);
+                    if (socket.Unit is SocketUnit socketUnit)
+                        socketUnit.RaiseSocketActivated(socket);
                 }
             }
         }
