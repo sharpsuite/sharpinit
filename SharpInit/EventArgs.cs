@@ -6,6 +6,20 @@ using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
+    public delegate void OnEpollDataReceived(object sender, EpollDataReceivedEventArgs e);
+
+    public class EpollDataReceivedEventArgs : EventArgs
+    {
+        public EpollClient Client { get; set; }
+        public byte[] Data { get; set; }
+
+        public EpollDataReceivedEventArgs(EpollClient client, byte[] data)
+        {
+            Client = client;
+            Data = data;
+        }
+    }
+    
     public delegate void OnBusNameReleased(object sender, BusNameReleasedEventArgs e);
     public class BusNameReleasedEventArgs : EventArgs
     {

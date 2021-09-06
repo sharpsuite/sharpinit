@@ -96,7 +96,7 @@ namespace SharpInitControl
         static void GetJournal(string verb, string[] args)
         {
             var count = int.Parse(args.FirstOrDefault(a => int.TryParse(a, out int _)) ?? "10000");
-            var journal = args.FirstOrDefault(a => a != count.ToString());
+            var journal = args.FirstOrDefault(a => a != count.ToString()) ?? "main";
 
             var lines = Context.GetJournal(journal, count);
 

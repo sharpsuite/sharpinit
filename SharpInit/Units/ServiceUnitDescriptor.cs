@@ -20,6 +20,9 @@ namespace SharpInit.Units
 
         [UnitProperty("Service/BusName", UnitPropertyType.String)]
         public string BusName { get; set; }
+        
+        [UnitProperty("@/@", UnitPropertyType.Enum, Units.NotifyAccess.None, typeof(NotifyAccess))]
+        public NotifyAccess NotifyAccess { get; set; }
 
         #region Restart behavior
         [UnitProperty("Service/Restart", UnitPropertyType.Enum, RestartBehavior.No, typeof(RestartBehavior))]
@@ -90,5 +93,13 @@ namespace SharpInit.Units
         Dbus,
         Notify,
         Idle
+    }
+
+    public enum NotifyAccess
+    {
+        None,
+        Main,
+        Exec,
+        All
     }
 }

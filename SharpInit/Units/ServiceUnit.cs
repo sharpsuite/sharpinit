@@ -5,8 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using SharpInit.Platform.Unix;
 
 namespace SharpInit.Units
 {
@@ -16,6 +18,9 @@ namespace SharpInit.Units
 
         public override Dictionary<(string, UnitStateChangeType), (string, string)> StatusMessages => CustomStatusMessages;
         Logger Log = LogManager.GetCurrentClassLogger();
+        
+        public Socket NotifySocket { get; set; }
+        public NotifyClient NotifyClient { get; set; }
 
         public new ServiceUnitDescriptor Descriptor { get; set; }
 
@@ -57,6 +62,55 @@ namespace SharpInit.Units
                 yield return new RequirementDependency(left: UnitName, right: "sysinit.target", from: UnitName, type: RequirementDependencyType.Requires);
                 yield return new RequirementDependency(left: UnitName, right: "basic.target", from: UnitName, type: RequirementDependencyType.Requires);
                 yield return new RequirementDependency(left: UnitName, right: "shutdown.target", from: UnitName, type: RequirementDependencyType.Conflicts);
+            }
+        }
+
+        public void HandleNotifyMessage(string message)
+        {
+            var parts = message.Split('=');
+            var key = parts[0].ToUpperInvariant();
+            var value = string.Join('=', parts.Skip(1));
+
+            switch (key)
+            {
+                case "READY":
+                    break;
+                case "MAINPID":
+                    if (int.TryParse(value, out int pid))
+                        MainProcessId = pid;
+                    break;
+                case "STATUS":
+                    Status = value;
+                    break;
+                case "RELOADING":
+                    SetState(UnitState.Reloading, "Unit is reloading (sd_notify)");
+                    break;
+                case "STOPPING":
+                    //SetState(UnitState.Deactivating, "Unit is reloading (sd_notify)");
+                    Log.Info($"Unit {this.UnitName} is stopping (sd_notify)");
+                    break;
+                case "ERRNO":
+                    break;
+                case "BUSERROR":
+                    break;
+                case "WATCHDOG":
+                    break;
+                case "WATCHDOG_USEC":
+                    break;
+                case "FDSTORE":
+                    break;
+                case "FDSTOREREMOVE":
+                    break;
+                case "FDNAME":
+                    break;
+                case "FDPOLL":
+                    break;
+                case "BARRIER":
+                    break;
+                default:
+                    if (!key.StartsWith("X-"))
+                        Log.Warn($"Received unrecognized sd_notify message {message}");
+                    break;
             }
         }
 
@@ -225,6 +279,11 @@ namespace SharpInit.Units
             
             transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new AllocateSliceTask(this));
+
+            if (Descriptor.NotifyAccess != NotifyAccess.None)
+            {
+                transaction.Add(new CreateNotifySocketTask(this));   
+            }
             
             foreach (var line in Descriptor.ExecCondition)
             {
@@ -278,6 +337,13 @@ namespace SharpInit.Units
                     forking_psi.WaitUntilExec = true;
 
                     transaction.Add(new RunRegisteredProcessTask(forking_psi, this, true, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
+                    break;
+                case ServiceType.Notify:
+                    var notify_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
+                    notify_psi.WaitUntilExec = true;
+
+                    transaction.Add(new RunRegisteredProcessTask(notify_psi, this, false, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
+                    transaction.Add(new WaitForNotifySocketTask(this, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
                     break;
                 case ServiceType.Dbus:
                     var dbus_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);

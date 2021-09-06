@@ -57,6 +57,13 @@ namespace SharpInit.Tasks
                     ProcessStartInfo.Environment["LISTEN_FDNUMS"] = string.Join(':', fds.Select(fd => fd.Number));
                 }
 
+                if (Unit is ServiceUnit serviceUnit && serviceUnit.NotifySocket != null)
+                {
+                    ProcessStartInfo.Environment["NOTIFY_SOCKET"] = serviceUnit.NotifySocket.LocalEndPoint.ToString();
+                }
+
+                ProcessStartInfo.Environment["MANAGERPID"] = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
+
                 if (Unit.CGroup?.Exists == true)
                 {
                     ProcessStartInfo.CGroup = Unit.CGroup;

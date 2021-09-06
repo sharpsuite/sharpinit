@@ -63,7 +63,7 @@ namespace SharpInit.Units
         internal override Transaction GetActivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation);
-            transaction.Add(this.FailUnless(UnitState.Active, TimeSpan.FromSeconds(5)));
+            transaction.Add(this.FailUnless(UnitState.Active, TimeSpan.Zero));
 
             return transaction;
         }
@@ -71,7 +71,7 @@ namespace SharpInit.Units
         internal override Transaction GetDeactivationTransaction()
         {
             var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Deactivation);
-            transaction.Add(this.FailUnless(UnitState.Inactive, TimeSpan.FromSeconds(5)));
+            transaction.Add(this.FailUnless(UnitState.Inactive, TimeSpan.Zero));
 
             return transaction;
         }

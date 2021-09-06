@@ -53,6 +53,7 @@ namespace SharpInit.Units
         public Task ActingTask { get; set; }
 
         public int MainProcessId { get; set; }
+        public string Status { get; set; }
 
         protected Unit(string name, UnitDescriptor descriptor)
             : this()

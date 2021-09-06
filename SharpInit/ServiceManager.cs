@@ -39,6 +39,7 @@ namespace SharpInit
 
         public CGroupManager CGroupManager { get; private set; }
         public DBusManager DBusManager { get; private set; }
+        public UnixEpollManager NotifySocketManager { get; private set; }
         
         public ServiceManager() :
             this(PlatformUtilities.GetImplementation<IProcessHandler>())
@@ -70,6 +71,7 @@ namespace SharpInit
             if (PlatformUtilities.CurrentlyOn("linux"))
             {
                 CGroupManager = new CGroupManager(this);
+                NotifySocketManager = new UnixEpollManager("notify");
             }
             else
                 CGroupManager.Supported = false;

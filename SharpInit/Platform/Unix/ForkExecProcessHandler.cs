@@ -53,10 +53,10 @@ namespace SharpInit.Platform.Unix
                     return;
 
                 _service_manager = value;
-                JournalManager = new UnixJournalManager(_service_manager.Journal);
+                JournalManager = new UnixEpollManager("journal");
             }
         }
-        public UnixJournalManager JournalManager { get; set; }
+        public UnixEpollManager JournalManager { get; set; }
 
         private List<int> Processes = new List<int>();
         private Dictionary<int, ProcessInfo> ProcessInfos = new Dictionary<int, ProcessInfo>();
@@ -77,9 +77,13 @@ namespace SharpInit.Platform.Unix
                     write = Syscall.open("/dev/null", OpenFlags.O_RDWR);
                     break;
                 case "journal":
-                    var journal_client = JournalManager.CreateClient(psi.Unit?.UnitName ?? Path.GetFileName(psi.Path));
+                    var journal_client = new JournalClient(psi.Unit?.UnitName ?? Path.GetFileName(psi.Path));
+                    journal_client.AllocateDescriptors();
+                    
                     read = journal_client.ReadFd.Number;
                     write = journal_client.WriteFd.Number;
+
+                    JournalManager.AddClient(journal_client);
                     break;
                 case "socket":
                     if (psi.Environment.ContainsKey("LISTEN_FDNUMS"))

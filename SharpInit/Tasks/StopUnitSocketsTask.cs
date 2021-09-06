@@ -29,7 +29,13 @@ namespace SharpInit.Tasks
             try 
             {
                 var sockets = Unit.SocketManager.GetSocketsByUnit(Unit).ToList();
-
+                
+                if (Unit is ServiceUnit serviceUnit && serviceUnit.NotifySocket?.IsBound == true)
+                {
+                    sockets.Add(new SocketWrapper(serviceUnit.NotifySocket, Unit));
+                    Runner.ServiceManager.NotifySocketManager.RemoveClient(serviceUnit.NotifyClient);
+                }
+                
                 foreach (var socket in sockets) 
                 {
                     //socket.Socket.Disconnect(false);

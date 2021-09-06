@@ -17,9 +17,9 @@ namespace SharpInit
         public ServiceManager ServiceManager { get; set; }
         public Connection Connection { get; set; }
 
-        public List<string> AcquiredNames { get; set; }
+        public List<string> AcquiredNames { get; set; } = new();
 
-        public Dictionary<string, Unit> AssociatedUnits { get; set; }
+        public Dictionary<string, Unit> AssociatedUnits { get; set; } = new();
 
         IDBus DBusProxy { get; set; }
         IDisposable NameWatcher { get; set; }
@@ -27,7 +27,6 @@ namespace SharpInit
         public DBusManager(ServiceManager manager)
         {
             ServiceManager = manager;
-            AcquiredNames = new List<string>();
             NameAcquiredCts = new CancellationTokenSource();
         }
 
