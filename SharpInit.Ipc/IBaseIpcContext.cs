@@ -60,5 +60,8 @@ namespace SharpInit.Ipc
 
         [IpcFunction("get-unit-properties")]
         Dictionary<string, List<string>> GetUnitProperties(string name);
+
+        [IpcFunction("list-seats")]
+        Dictionary<string, List<string>> ListSeats();
     }
 }

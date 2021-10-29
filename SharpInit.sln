@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpInit.Tests", "SharpIni
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpInit.Coverage", "SharpInit.Coverage\SharpInit.Coverage.csproj", "{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpInit.LoginManager", "SharpInit.LoginManager\SharpInit.LoginManager.csproj", "{169B0A0C-CADA-457E-9300-BF5122B9DAF5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D395BFA4-1002-4DC4-B8C5-C8D3BFF7D324}.Release|Any CPU.Build.0 = Release|Any CPU
+		{169B0A0C-CADA-457E-9300-BF5122B9DAF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{169B0A0C-CADA-457E-9300-BF5122B9DAF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{169B0A0C-CADA-457E-9300-BF5122B9DAF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{169B0A0C-CADA-457E-9300-BF5122B9DAF5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -36,6 +36,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SharpInit.Ipc\SharpInit.Ipc.csproj" />
+    <ProjectReference Include="..\SharpInit.LoginManager\SharpInit.LoginManager.csproj" />
     <ProjectReference Include="..\Tmds.DBus\src\Tmds.DBus\Tmds.DBus.csproj" />
   </ItemGroup>
 

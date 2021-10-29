@@ -6,6 +6,7 @@ using Tmds.DBus;
 using NLog;
 using DBus.DBus;
 using System;
+using System.IO;
 using SharpInit.Units;
 
 namespace SharpInit
@@ -16,6 +17,7 @@ namespace SharpInit
 
         public ServiceManager ServiceManager { get; set; }
         public Connection Connection { get; set; }
+        public Connection LoginManagerConnection { get; set; }
 
         public List<string> AcquiredNames { get; set; } = new();
 
@@ -23,6 +25,7 @@ namespace SharpInit
 
         IDBus DBusProxy { get; set; }
         IDisposable NameWatcher { get; set; }
+        private string ConnectionAddress => Program.IsUserManager ? Address.Session : Address.System;
 
         public DBusManager(ServiceManager manager)
         {
@@ -40,29 +43,75 @@ namespace SharpInit
             if (Connection != null)
                 return;
 
-            Log.Info($"Connecting to dbus...");
-            Connection = new Connection(Address.System);
-
-            await Connection.ConnectAsync();
-
-            Log.Info($"Connected to dbus.");
-            await Connection.RegisterServiceAsync("org.sharpinit.sharpinit", options: ServiceRegistrationOptions.AllowReplacement | ServiceRegistrationOptions.ReplaceExisting | ServiceRegistrationOptions.Default);
-            
-            DBusProxy = Connection.CreateProxy<DBus.DBus.IDBus>("org.freedesktop.DBus", "/org/freedesktop/DBus");
-            var rule = new Tmds.DBus.SignalMatchRule()
+            try
             {
-                Path = "/org/freedesktop/DBus",
-                Interface = "org.freedesktop.DBus",
-                Member = "NameOwnerChanged"
-            };
+                var dbus_socket_path = "/run/dbus/system_bus_socket";
 
-            NameWatcher = await Connection.WatchSignalAsync<(string, string, string)>(rule, p => { OnNameAcquired(p.args); });
+                if (!File.Exists(dbus_socket_path))
+                {
+                    Log.Info("Waiting for dbus system socket");
 
-            var services = await Connection.ListServicesAsync();
-            foreach (var name in services)
+                    while (!File.Exists(dbus_socket_path))
+                        await Task.Delay(500);
+                }
+
+                Log.Info($"Connecting to dbus...");
+                Connection = new Connection(ConnectionAddress);
+
+                await Connection.ConnectAsync();
+
+                Log.Info($"Connected to dbus.");
+                await Connection.RegisterServiceAsync("org.sharpinit.sharpinit",
+                    options: ServiceRegistrationOptions.AllowReplacement | ServiceRegistrationOptions.ReplaceExisting |
+                             ServiceRegistrationOptions.Default);
+
+                DBusProxy = Connection.CreateProxy<DBus.DBus.IDBus>("org.freedesktop.DBus", "/org/freedesktop/DBus");
+                var rule = new Tmds.DBus.SignalMatchRule()
+                {
+                    Path = "/org/freedesktop/DBus",
+                    Interface = "org.freedesktop.DBus",
+                    Member = "NameOwnerChanged"
+                };
+
+                if (Program.LoginManager != null)
+                {
+                    await SetupLoginService();
+                }
+
+                NameWatcher =
+                    await Connection.WatchSignalAsync<(string, string, string)>(rule, p => { OnNameAcquired(p.args); });
+
+                var services = await Connection.ListServicesAsync();
+                foreach (var name in services)
+                {
+                    Log.Debug($"Discovered dbus service {name}");
+                    AcquiredNames.Add(name);
+                }
+            }
+            catch (Exception ex)
             {
-                Log.Debug($"Discovered dbus service {name}");
-                AcquiredNames.Add(name);
+                Log.Error($"Exception thrown while connecting to D-Bus", ex);
+            }
+        }
+
+        public async Task SetupLoginService()
+        {
+            if (LoginManagerConnection != null)
+                return;
+
+            try
+            {
+                LoginManagerConnection = new Connection(ConnectionAddress);
+                await LoginManagerConnection.ConnectAsync();
+                await LoginManagerConnection.RegisterServiceAsync("org.freedesktop.login1",
+                    ServiceRegistrationOptions.ReplaceExisting);
+                await LoginManagerConnection.RegisterObjectAsync(Program.LoginManager);
+
+                Log.Debug($"Registered logind on DBus");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Exception thrown while registering login daemon on D-Bus", ex);
             }
         }
 
