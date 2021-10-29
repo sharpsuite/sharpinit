@@ -17,33 +17,6 @@ namespace SharpInit.Platform.Unix
         {
         }
 
-        public void AllocateDescriptors()
-        {
-            if (ReadFd != null || WriteFd != null)
-            {
-                throw new Exception("File descriptors already allocated");
-            }
-
-            Syscall.pipe(out int read, out int write);
-
-            ReadFd = new FileDescriptor(read, $"journal-{Name}-read", -1);
-            WriteFd = new FileDescriptor(write, $"journal-{Name}-write", -1);
-
-            IsOpen = true;
-            Opened = DateTime.UtcNow;
-        }
-
-        public void Deallocate()
-        {
-            IsOpen = false;
-
-            if (ReadFd != null) 
-                Syscall.close(ReadFd.Number);
-            
-            if (WriteFd != null)
-                Syscall.close(WriteFd.Number);
-        }
-
         public override void ClientDataReceived()
         {
             int read_buffer_size = 256;

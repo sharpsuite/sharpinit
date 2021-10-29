@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using SharpInit.Units;
 
 using NLog;
+using NLog.Fluent;
 
 namespace SharpInit.Platform.Unix
 {
@@ -30,6 +31,72 @@ namespace SharpInit.Platform.Unix
         public byte** argv;
     }
 
+    public class FileDescriptorRepository
+    {
+        public static Random Random { get; set; } = new Random();
+        public static Dictionary<int, FileDescriptor> Descriptors { get; set; } = new Dictionary<int, FileDescriptor>();
+        public static int LowerBound = 1000;
+        public static int UpperBound = 2500;
+        public static Logger Log = LogManager.GetCurrentClassLogger();
+
+        public static (int, int) Commit(ValueTuple<int, int> fds) => (Commit(fds.Item1), Commit(fds.Item2));
+
+        public static int Commit(int fd)
+        {
+            lock (Descriptors)
+            {
+                if (Descriptors.ContainsKey(fd))
+                    return fd;
+                
+                var new_fd = Random.Next(LowerBound, UpperBound);
+
+                while (new_fd < LowerBound || new_fd > UpperBound || new_fd == fd || Descriptors.ContainsKey(new_fd))
+                    new_fd = Random.Next(LowerBound, UpperBound);
+
+                var is_cloexec = Syscall.fcntl(fd, FcntlCommand.F_GETFD);
+
+                Log.Debug($"fcntl({fd}, F_GETFD) = {is_cloexec}");
+                
+                var r = Syscall.dup2(fd, new_fd);
+
+                while (r == -1 && Syscall.GetLastError() == Errno.EINTR)
+                    r = Syscall.dup2(fd, new_fd);
+
+                if (r < 0)
+                {
+                    Log.Error($"Couldn't dup2 fd {fd} to {new_fd}: {r} ({Syscall.GetLastError()})");
+                    return -1;
+                }
+
+                Syscall.close(fd);
+
+                Descriptors[new_fd] = new FileDescriptor(new_fd, "fd", -1);
+                return new_fd;
+            }
+        }
+
+        public static void Release(int fd)
+        {
+            lock (Descriptors)
+            {
+                if (!Descriptors.ContainsKey(fd))
+                {
+                    Log.Warn($"Asked to release unrecognized fd {fd}");
+                    return;
+                }
+
+                var r = Syscall.close(fd);
+
+                if (r < 0)
+                {
+                    Log.Info($"close({fd}) returned {r}, errno: {Syscall.GetLastError()}");
+                }
+
+                Descriptors.Remove(fd);
+            }
+        }
+    }
+    
     /// <summary>
     /// An IProcessHandler that uses the fork() and exec() syscalls.
     /// </summary>
@@ -165,10 +232,10 @@ namespace SharpInit.Platform.Unix
         public async System.Threading.Tasks.Task<ProcessInfo> StartAsync(ProcessStartInfo psi)
         {
             HashSet<int> opened_fds = new HashSet<int>();
-            Action<int> register_fd = (Action<int>)(fd => { if (fd > 0) { opened_fds.Add(fd); } });
+            Action<int> register_fd = (Action<int>)(fd => { Log.Info($"registered fd {fd}");if (fd > 0) { opened_fds.Add(fd); } });
             Action<int, int> register_fd_pair = (Action<int, int>)((a, b) => { register_fd(a); register_fd(b); });
             Action<IEnumerable<int>> register_fds = (Action<IEnumerable<int>>)(fds => { foreach (var fd in fds) { register_fd(fd); } });
-            Func<int, bool> close_inner = (Func<int, bool>)(fd => { if (fd >= 0) { var close_ret = Syscall.close(fd); if(close_ret == 0) { return true; } Log.Warn($"close returned {close_ret} for {fd}, errno: {Syscall.GetLastError()}"); return true; } else { return false; } });
+            Func<int, bool> close_inner = (Func<int, bool>)(fd => { FileDescriptorRepository.Release(fd); return true; });
             Action<int> close_if_open = (Action<int>)(fd => { if (close_inner(fd)) { opened_fds.Remove(fd); } });
             Action clear_fds = (Action)(delegate { foreach (var fd in opened_fds) { close_if_open(fd); } });
 
@@ -209,7 +276,7 @@ namespace SharpInit.Platform.Unix
                         if (in_path == out_path) 
                         {
                             (stdin_read, stdout_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "both");
-                            register_fd_pair(stdin_read, stdout_write);
+                            (stdin_read, stdout_write) = FileDescriptorRepository.Commit((stdin_read, stdout_write));
                         }
                     }
                     else if (file_prefixes.Any(psi.StandardErrorTarget.StartsWith))
@@ -220,31 +287,47 @@ namespace SharpInit.Platform.Unix
                         if (in_path == err_path)
                         {
                             (stdin_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "both");
-                            register_fd_pair(stdin_read, stderr_write);
+                            (stdin_read, stderr_write) = FileDescriptorRepository.Commit((stdin_read, stderr_write));
                         }
                     }
                 }
-                
+
                 if (stdin_read == -1 && stdin_write == -1)
-                    (stdin_read, stdin_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "input");
-                
+                {
+                    (stdin_read, stdin_write) =
+                        CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardInputTarget, "input");
+                    (stdin_read, stdin_write) = FileDescriptorRepository.Commit((stdin_read, stdin_write));
+                }
+
                 register_fd_pair(stdin_read, stdin_write);
-                
+
                 if (stdout_read == -1 && stdout_write == -1)
-                    (stdout_read, stdout_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardOutputTarget, "output");
-                
+                {
+                    (stdout_read, stdout_write) =
+                        CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardOutputTarget, "output");
+                    (stdout_read, stdout_write) = FileDescriptorRepository.Commit((stdout_read, stdout_write));
+                }
+
                 if (psi.StandardOutputTarget != "journal")
+                {
                     register_fd_pair(stdout_read, stdout_write);
-                
+                }
+
                 if (stderr_read == -1 && stderr_write == -1)
-                    (stderr_read, stderr_write) = CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardErrorTarget, "error");
-                
+                {
+                    (stderr_read, stderr_write) =
+                        CreateFileDescriptorsForStandardStreamTarget(psi, psi.StandardErrorTarget, "error");
+                    (stderr_read, stderr_write) = FileDescriptorRepository.Commit((stderr_read, stderr_write));
+                }
+
                 if (psi.StandardErrorTarget != "journal")
                     register_fd_pair(stderr_read, stderr_write);
 
                 Syscall.pipe(out int control_read, out int control_write); // used to communicate errors during process creation back to parent
+                (control_read, control_write) = FileDescriptorRepository.Commit((control_read, control_write));
                 register_fd_pair(control_read, control_write);
                 Syscall.pipe(out int semaphore_read, out int semaphore_write); // used to synchronize process startup
+                (semaphore_read, semaphore_write) = FileDescriptorRepository.Commit((semaphore_read, semaphore_write));
                 register_fd_pair(semaphore_read, semaphore_write);
 
                 var stdout_w_ptr = new IntPtr(stdout_write);
@@ -318,8 +401,6 @@ namespace SharpInit.Platform.Unix
                 ProcessInfos[fork_ret] = process_info;
 
                 var control_stream = new Mono.Unix.UnixStream(control_read, false);
-                var control_sr = new StreamReader(control_stream);
-
                 var timeout = (int)Math.Min(int.MaxValue, psi.Timeout.TotalMilliseconds);
 
                 if (timeout == int.MaxValue || timeout == 0)
@@ -332,9 +413,7 @@ namespace SharpInit.Platform.Unix
 
                 for (int i = 0; i < semaphore_start_chars; i++)
                     System.Runtime.InteropServices.Marshal.WriteByte(buf + i, 0);
-                
                 Log.Debug($"wrote {Syscall.write(semaphore_write, buf, (ulong)semaphore_start_chars)} bytes");
-
                 Log.Debug($"sent sync signal for pid {fork_ret} startup");
 
                 byte[] control_buf = new byte[1];
@@ -349,33 +428,80 @@ namespace SharpInit.Platform.Unix
 
                 Log.Debug($"pid {fork_ret} startup synchronized");
 
-                var starting_line = await control_sr.ReadLineAsync();
-                if(starting_line != "starting")
-                    throw new Exception($"pid {fork_ret} expected \"starting\" message from control pipe, received \"{starting_line}\"");
+                //var starting_line = await control_sr.ReadLineAsync();
+                //if(starting_line != "starting")
+//                    throw new Exception($"pid {fork_ret} expected \"starting\" message from control pipe, received \"{starting_line}\"");
 
-                Log.Debug($"read {starting_line} for pid {fork_ret} startup");
+//                Log.Debug($"read {starting_line} for pid {fork_ret} startup");
+                
+                control_buf = new byte[32];
 
                 if (!psi.WaitUntilExec)
                 {
                     return process_info;
                 }
                 
-                while (!control_sr.EndOfStream)
-                    Log.Debug($"next line: {await control_sr.ReadLineAsync()}");
+                /*while (true)
+                {
+                    cancellation_token = new CancellationTokenSource(timeout);
+                    var r = await control_stream.ReadAsync(control_buf, 0, control_buf.Length, cancellation_token.Token);
 
-                /*var control_data = new StringBuilder();
+                    if (r > 0)
+                    {
+                        Log.Debug($"read {r} bytes: {Encoding.UTF8.GetString(control_buf, 0, r)}");
+                    }
+                    else
+                    {
+                        var e = Syscall.fstat(control_read, out Stat stat);
+                        var errno = Syscall.GetLastError();
+
+                        if (e >= 0)
+                        {
+                            Log.Debug($"pipe still open, fstat returned {e}, {Syscall.GetLastError()}");
+                        }
+                        else
+                        {
+                            Log.Debug($"pipe closed, fstat returned {e}, {Syscall.GetLastError()}");
+                            break;
+                        }
+                    }
+                }*/
+
+                /*while (!control_sr.EndOfStream)
+                {
+                    Log.Debug($"next line: {await control_sr.ReadLineAsync()}");
+//                    var poll_ret = Syscall.poll(poll_fds, 1, 1000);
+
+//                    Log.Debug($"poll ret: {poll_fds[0].revents}, {poll_ret}");
+                    
+//                    poll_fds[0].revents = (PollEvents) 0;
+                    //await control_sr
+
+                }*/
+
+                var control_data = new StringBuilder();
+                var lines = new List<string>();
                 
                 while ((poll_fds[0].revents & PollEvents.POLLHUP) == 0)
                 {
-                    var read = control_stream.ReadByte();
-                    if (read == -1)
+                    var r = control_stream.ReadByte();
+                    if (r == -1)
                     {
                         poll_fds[0].revents = PollEvents.POLLHUP; // kinda hacky
                         break;
                     }
 
-                    control_data.Append((char)read);
+                    control_data.Append((char)r);
                     poll_fds[0].revents = 0;
+
+                    if (r == '\n')
+                    {
+                        var line = control_data.ToString().Trim();
+                        lines.Add(line);
+                        Log.Debug(line);
+                        
+                        control_data.Clear();
+                    }
                 }
 
                 if (poll_fds[0].revents == PollEvents.POLLHUP) // exec() worked, or child died
@@ -387,14 +513,15 @@ namespace SharpInit.Platform.Unix
                     else 
                     {
                         Syscall.kill(fork_ret, Signum.SIGKILL);
-                        throw new Exception($"Unexpected control data: {control_data.ToString()}");
+                        throw new Exception($"Unexpected control data: \"{control_data.ToString()}\"");
                     }
-                }*/
+                }
 
                 return process_info;
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Error(ex);
                 clear_fds();
                 throw;
             }

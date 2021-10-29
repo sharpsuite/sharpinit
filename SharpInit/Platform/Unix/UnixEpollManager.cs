@@ -39,6 +39,8 @@ namespace SharpInit.Platform.Unix
 
             Syscall.pipe(out int read, out int write);
 
+            (read, write) = FileDescriptorRepository.Commit((read, write));
+
             ReadFd = new FileDescriptor(read, $"{Name}-read", -1);
             WriteFd = new FileDescriptor(write, $"{Name}-write", -1);
 
@@ -51,10 +53,10 @@ namespace SharpInit.Platform.Unix
             IsOpen = false;
 
             if (ReadFd != null) 
-                Syscall.close(ReadFd.Number);
+                FileDescriptorRepository.Release(ReadFd.Number);
             
             if (WriteFd != null)
-                Syscall.close(WriteFd.Number);
+                FileDescriptorRepository.Release(WriteFd.Number);
         }
 
         public virtual void ClientDataReceived()
@@ -83,6 +85,7 @@ namespace SharpInit.Platform.Unix
         {
             lock (Clients)
             {
+                Log.Debug($"Adding client {client} fd {client.ReadFd.Number}");
                 Clients.Add(client);
                 ClientsByReadFd[client.ReadFd.Number] = client;
 
@@ -100,18 +103,23 @@ namespace SharpInit.Platform.Unix
 
         public void RemoveClient(EpollClient client)
         {
-            var ctl_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_DEL, client.ReadFd?.Number ?? -1,
-                EpollEvents.EPOLLIN);
-            client.Deallocate();
-            Clients.Remove(client);
-            ClientsByReadFd.TryRemove(new KeyValuePair<int, EpollClient>(client.ReadFd.Number, client));
+            lock (Clients)
+            {
+                Log.Debug($"Removing client {client} fd {client.ReadFd.Number}");
 
-            if (ctl_resp != 0)
-                Log.Error($"epoll_ctl remove failed with errno: {Syscall.GetLastError()}");
+                var ctl_resp = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_DEL, client.ReadFd.Number,
+                    EpollEvents.EPOLLIN);
+                client.Deallocate();
+                Clients.Remove(client);
+                ClientsByReadFd.TryRemove(new KeyValuePair<int, EpollClient>(client.ReadFd.Number, client));
+
+                if (ctl_resp != 0)
+                    Log.Error($"epoll_ctl remove failed with errno: {Syscall.GetLastError()}");
+            }
         }
 
 
-        public void Loop()
+        public unsafe void Loop()
         {
             int event_size = 128;
             int read_buffer_size = 256;
@@ -123,11 +131,11 @@ namespace SharpInit.Platform.Unix
             {
                 var wait_ret = Syscall.epoll_wait(EpollFd.Number, event_arr, event_arr.Length, 1000);
                 
-                Log.Debug($"{wait_ret} events raised from epoll {EpollFd.Number} {Name}");
-
                 for (int i = 0; i < wait_ret; i++)
                 {
-                    var client_found = ClientsByReadFd.TryGetValue(event_arr[i].fd, out EpollClient client);
+                    var event_fd = event_arr[i].fd;
+                    
+                    var client_found = ClientsByReadFd.TryGetValue(event_fd, out EpollClient client);
                     if (!client_found)
                         client = null;
 
@@ -136,7 +144,17 @@ namespace SharpInit.Platform.Unix
 
                     if (client == default)
                     {
-                        Log.Warn($"Read from unrecognized {Name} fd {event_arr[i].fd}");
+                        Log.Warn($"Read from unrecognized {Name} fd {event_fd}");
+                        ClientsByReadFd.TryRemove(event_fd, out EpollClient _);
+                        var epoll_ctl_result = Syscall.epoll_ctl(EpollFd.Number, EpollOp.EPOLL_CTL_DEL, event_fd,
+                            EpollEvents.EPOLLIN);
+
+                        Syscall.close(event_arr[i].fd);
+                        FileDescriptorRepository.Release(event_arr[i].fd);
+
+                        event_arr[i] = new EpollEvent();
+                        
+                        continue;
                     }
 
                     if ((event_arr[i].events & (EpollEvents.EPOLLERR | EpollEvents.EPOLLHUP)) > 0)
