@@ -42,7 +42,13 @@ namespace SharpInit.Tasks
 
             try
             {
-                var fds = context.Get<List<FileDescriptor>>("socket.fds");
+                var socket_fds = context.Get<List<FileDescriptor>>("socket.fds") ?? new List<FileDescriptor>();
+                var stored_fds = context.Get<List<FileDescriptor>>("fdstore.fds") ?? new List<FileDescriptor>();
+
+                var fds = new List<FileDescriptor>();
+                
+                fds.AddRange(socket_fds);
+                fds.AddRange(stored_fds);
 
                 if (fds?.Count > 0)
                 {
@@ -64,6 +70,12 @@ namespace SharpInit.Tasks
 
                 ProcessStartInfo.Environment["MANAGERPID"] = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
 
+                if (Unit.Descriptor is ServiceUnitDescriptor serviceUnitDescriptor && serviceUnitDescriptor.Delegate)
+                {
+                    ProcessStartInfo.Environment["DELEGATED_CGROUP"] = Unit.CGroup.Path;
+                    ProcessStartInfo.DelegateCGroupAfterLaunch = true;
+                }
+                
                 if (Unit.CGroup?.Exists == true)
                 {
                     ProcessStartInfo.CGroup = Unit.CGroup;
