@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Mono.Unix.Native;
 
 namespace SharpInit.Units
 {
@@ -14,12 +15,7 @@ namespace SharpInit.Units
         public static Dictionary<string, Type> UnitTypes = new Dictionary<string, Type>();
         public static Dictionary<Type, Type> UnitDescriptorTypes = new Dictionary<Type, Type>();
         
-        public static List<string> DefaultScanDirectories = new List<string>()
-        {
-            "./units",
-            "/etc/sharpinit/units",
-            "/usr/local/sharpinit/units"
-        };
+        public static List<string> DefaultScanDirectories { get; set; }
 
         public event OnUnitAdded UnitAdded;
 
@@ -41,6 +37,31 @@ namespace SharpInit.Units
         internal UnitRegistry(ServiceManager manager)
         {
             ServiceManager = manager;
+            BuildDefaultScanDirectories();
+        }
+
+        private void BuildDefaultScanDirectories()
+        {
+            // TODO: Consider platform.
+
+            if (Program.IsUserManager)
+            {
+                var home_dir = new Mono.Unix.UnixUserInfo(Syscall.getuid()).HomeDirectory;
+                DefaultScanDirectories = new List<string>()
+                {
+                    $"{home_dir}/.config/sharpinit/units"
+                };
+            }
+            else
+            {
+                DefaultScanDirectories = new List<string>()
+                {
+                    "/etc/sharpinit/units",
+                    "/usr/local/sharpinit/units"
+                };
+            }
+            
+            Log.Debug($"Default scan directories: {string.Join("; ", DefaultScanDirectories)}");
         }
 
         public bool InstallUnit(string unit_name, int cycle = 0) 
@@ -230,7 +251,7 @@ namespace SharpInit.Units
                         IndexUnitByPath(target);
                     }
                     
-                    if (!Units.Any(u => u.Key == symlinked_name) && !Aliases.ContainsKey(symlinked_name))
+                    //if (/*Units.Any(u => u.Key == symlinked_name) && !Aliases.ContainsKey(symlinked_name))
                     {
                         // detect .wants, .requires
                         var directory_maps = new Dictionary<string, string>()
@@ -256,7 +277,6 @@ namespace SharpInit.Units
                                 IndexUnitFile(temp_unit_file);
                             }
                         }
-
                         if (!in_mapped_dir)
                         {
                             Log.Info($"{symlinked_name} is aliased to {target_unit_name}");
