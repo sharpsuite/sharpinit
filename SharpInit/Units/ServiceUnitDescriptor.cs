@@ -23,6 +23,9 @@ namespace SharpInit.Units
         
         [UnitProperty("@/@", UnitPropertyType.Enum, Units.NotifyAccess.None, typeof(NotifyAccess))]
         public NotifyAccess NotifyAccess { get; set; }
+        
+        [UnitProperty("@/@", UnitPropertyType.Bool, default_value: false)]
+        public bool Delegate { get; set; }
 
         #region Restart behavior
         [UnitProperty("Service/Restart", UnitPropertyType.Enum, RestartBehavior.No, typeof(RestartBehavior))]

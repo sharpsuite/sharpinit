@@ -127,9 +127,17 @@ namespace SharpInit
                 return;
             }
 
+            var delegated_cgroup = Environment.GetEnvironmentVariable("DELEGATED_CGROUP");
+
+            if (delegated_cgroup != null)
+            {
+                CGroupManager.MarkCGroupWritable(delegated_cgroup);
+                Log.Info($"We have a delegated cgroup: {delegated_cgroup}. Can create CGroups? {CGroupManager.CanCreateCGroups()}");
+            }
+
             if (UnixPlatformInitialization.UnderSystemd)
             {
-                if (UnixPlatformInitialization.IsPrivileged)
+                if (UnixPlatformInitialization.IsPrivileged && !CGroupManager.CanCreateCGroups())
                 {
                     Log.Info($"Running under systemd with root privileges. Allocating Delegate=yes cgroup...");
 

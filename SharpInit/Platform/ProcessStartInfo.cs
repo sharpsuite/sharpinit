@@ -62,6 +62,7 @@ namespace SharpInit.Platform
         public bool WaitUntilExec { get; set; }
 
         public CGroup CGroup { get; set; }
+        public bool DelegateCGroupAfterLaunch { get; set; }
 
         public ProcessStartInfo()
         {

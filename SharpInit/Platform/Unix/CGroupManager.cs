@@ -58,13 +58,13 @@ namespace SharpInit.Platform.Unix
                 RootCGroup = cgroup;
             
             RootCGroup.Update();
+            Log.Info($"Root cgroup is: {RootCGroup.Path}");
         } 
 
         public bool CanCreateCGroups() => RootCGroup?.Exists == true && WritableCGroups.Contains(RootCGroup);
 
         public void MarkCGroupWritable(string cgroup) => MarkCGroupWritable(GetCGroup(cgroup));
         public void MarkCGroupWritable(CGroup cgroup) { WritableCGroups.Add(cgroup); cgroup.MarkWriteable(); }
-
         private CGroup CreateCGroup(string relative_path, bool path_is_relative = true)
         {
             if (Supported == false)
@@ -193,11 +193,29 @@ namespace SharpInit.Platform.Unix
         public bool Exists => Directory.Exists(FileSystemPath);
 
         private bool _managed_by_us = false;
+        private bool _delegated_away = false;
 
-        public bool ManagedByUs => _managed_by_us || 
-            (this != Manager?.RootCGroup ? (((Manager?.RootCGroup?.ManagedByUs ?? false) == false) ? false : Path.StartsWith(Manager.RootCGroup.Path))
-                                         : _managed_by_us);
+        public bool Delegated => _delegated_away;
 
+        public bool ManagedByUs
+        {
+            get
+            {
+                if (_delegated_away)
+                    return false;
+                
+                if (_managed_by_us)
+                    return true;
+
+                if (this != Manager?.RootCGroup)
+                {
+                    return (Manager?.RootCGroup?.ManagedByUs ?? false) && Path.StartsWith(Manager.RootCGroup.Path);
+                }
+
+                return _managed_by_us;
+            }
+        }
+        
         public List<string> Children { get; private set; }
         public List<int> ChildProcesses { get; private set; }
         public List<string> ChildCGroups { get; private set; }
@@ -370,6 +388,7 @@ namespace SharpInit.Platform.Unix
         public int Write(string file, string text) => Manager.Write(this, file, text);
 
         internal void MarkWriteable() => _managed_by_us = true;
+        internal void MarkDelegated() => _delegated_away = true;
 
         public override int GetHashCode() => Path.GetHashCode();
         public bool Equals(CGroup cgroup) => Path.Equals(cgroup?.Path);

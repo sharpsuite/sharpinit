@@ -383,6 +383,9 @@ namespace SharpInit.Platform.Unix
                         {
                             throw new Exception($"Failed to join pid {fork_ret} to cgroup {psi.CGroup}");
                         }
+                        
+                        if (psi.DelegateCGroupAfterLaunch)
+                            psi.CGroup.MarkDelegated();
                     }
                 }
 
