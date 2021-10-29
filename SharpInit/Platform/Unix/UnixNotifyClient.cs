@@ -21,6 +21,7 @@ namespace SharpInit.Platform.Unix
         public ucred Credentials { get; set; }
         public string Contents { get; set; }
         public DateTime Received { get; set; }
+        public FileDescriptor[] FileDescriptors { get; set; }
         
         public NotifyMessage() {}
         public override string ToString() => Contents;
@@ -64,13 +65,14 @@ namespace SharpInit.Platform.Unix
             return null;
         }
 
-        private void EnqueueMessage(string contents, ucred credentials)
+        private void EnqueueMessage(string contents, ucred credentials, List<FileDescriptor> fds)
         {
             var message = new NotifyMessage()
             {
                 Contents = contents,
                 Credentials = credentials,
-                Received = DateTime.UtcNow
+                Received = DateTime.UtcNow,
+                FileDescriptors = fds.ToArray()
             };
             
             MessageQueue.Enqueue(message);
@@ -84,7 +86,8 @@ namespace SharpInit.Platform.Unix
             long read = 0;
 
             var credentials = new ucred();
-            
+            var fds = new List<FileDescriptor>();
+
             var cmsg = new byte[1024];
             var msghdr = new Msghdr {
                 msg_control = cmsg,
@@ -121,27 +124,20 @@ namespace SharpInit.Platform.Unix
 
                 if (recvHdr.cmsg_type == UnixSocketControlMessage.SCM_RIGHTS)
                 {
-                    var fds = new List<int>();
-                    
                     var fdCount = bytes / sizeof (int);
                     fixed (byte* ptr = msghdr.msg_control)
                         for (int i = 0; i < fdCount; i++)
-                            fds.Add (((int*) (ptr + recvDataOffset))[i]);
-
-                    foreach (var fd in fds)
-                    {
-                        Log.Debug($"Received synchronization fd {fd}, closing it: {Syscall.close(fd)}");
-                    }
+                            fds.Add (new FileDescriptor(((int*) (ptr + recvDataOffset))[i], "", -1));
                 }
                 else if (recvHdr.cmsg_type == UnixSocketControlMessage.SCM_CREDENTIALS)
                 {
-                    int pid;
-                    uint uid, gid;
-
                     credentials.pid = BitConverter.ToInt32(msghdr.msg_control, recvDataOffset + 0);
                     credentials.uid = BitConverter.ToUInt32(msghdr.msg_control, recvDataOffset + 4);
                     credentials.gid = BitConverter.ToUInt32(msghdr.msg_control, recvDataOffset + 8);
-                    
+
+                    foreach (var fd in fds)
+                        fd.ProcessId = credentials.pid;
+
                     // TODO: Verify that caller is authorized
                 }
             }
@@ -159,7 +155,7 @@ namespace SharpInit.Platform.Unix
 
                     if (c == '\n')
                     {
-                        EnqueueMessage(currentString.ToString(), credentials);
+                        EnqueueMessage(currentString.ToString(), credentials, fds);
                         currentString.Clear();
                     }
                     else
@@ -170,7 +166,7 @@ namespace SharpInit.Platform.Unix
 
                 if (currentString.Length > 0)
                 {
-                    EnqueueMessage(currentString.ToString(), credentials);
+                    EnqueueMessage(currentString.ToString(), credentials, fds);
                 }
             }
         }

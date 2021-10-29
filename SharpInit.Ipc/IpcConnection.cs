@@ -25,7 +25,6 @@ namespace SharpInit.Ipc
 
         public void Connect()
         {
-            InitializeSocket();
             Socket.Connect(SocketEndPoint);
             Tunnel = new JsonSocketTunnel(Socket);
 

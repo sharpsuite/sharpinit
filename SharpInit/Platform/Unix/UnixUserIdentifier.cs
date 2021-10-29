@@ -41,8 +41,16 @@ namespace SharpInit.Platform.Unix
                 var user_info = new UnixUserInfo(username);
                 UserId = (uint)user_info.UserId;
 
-                var group_info = new UnixGroupInfo(group);
-                GroupId = (uint)group_info.GroupId;
+                if (string.IsNullOrWhiteSpace(group))
+                {
+                    GroupId = (uint)user_info.GroupId;
+                    Group = user_info.GroupName;
+                }
+                else
+                {
+                    var group_info = new UnixGroupInfo(group);
+                    GroupId = (uint) group_info.GroupId;
+                }
             }
             catch { }
         }

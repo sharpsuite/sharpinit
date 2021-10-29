@@ -25,8 +25,6 @@ namespace SharpInit.Ipc
 
         public void StartListening()
         {
-            InitializeSocket();
-
             if(SocketEndPoint.AddressFamily == AddressFamily.Unix) // remove the socket file if it already exists
             {
                 var unix_endpoint = SocketEndPoint as UnixEndPoint;

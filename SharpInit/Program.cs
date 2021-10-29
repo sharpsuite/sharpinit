@@ -26,6 +26,10 @@ namespace SharpInit
         static Logger Log = LogManager.GetCurrentClassLogger();
         static IpcListener IpcListener { get; set; }
         public static ServiceManager ServiceManager { get; private set; }
+        public static Platform.Unix.LoginManager LoginManager { get; internal set; }
+        
+        public static bool IsUserManager { get; set; }
+        
         public static async System.Threading.Tasks.Task Main(string[] args)
         {
             var done = new ManualResetEventSlim(false);
@@ -35,6 +39,10 @@ namespace SharpInit
                 {
                     AttachCtrlcSigtermShutdown(shutdownCts, done);
                     Log.Info("SharpInit starting");
+
+                    IsUserManager = args.Any(a => a == "--user");
+                    
+                    Log.Info($"SharpInit is the {(IsUserManager ? "user" : "system")} manager");
 
                     PlatformUtilities.RegisterImplementations();
                     var platform_init = PlatformUtilities.GetImplementation<IPlatformInitialization>();
@@ -64,12 +72,10 @@ namespace SharpInit
                     if (PlatformUtilities.CurrentlyOn("linux"))
                     {
                         UdevEnumerator.ServiceManager = ServiceManager;
-                        System.Threading.Tasks.Task.Run(UdevEnumerator.WaitForUdevAndInitialize);
+                        new Thread((ThreadStart) delegate { UdevEnumerator.WaitForUdevAndInitialize(); }).Start();
                     }
 
-                    System.Threading.Tasks.Task.Run(ServiceManager.DBusManager.Connect);
-
-                    if (PlatformUtilities.CurrentlyOn("linux") && SharpInit.Platform.Unix.UnixPlatformInitialization.IsSystemManager)
+                    if (PlatformUtilities.CurrentlyOn("linux") && UnixPlatformInitialization.IsSystemManager)
                     {
                         var journal_fd = SharpInit.Platform.Unix.UnixPlatformInitialization.JournalOutputFd;
 
@@ -114,6 +120,22 @@ namespace SharpInit
                     Log.Info("Starting IPC listener...");
 
                     IpcListener = new IpcListener();
+                    IpcListener.InitializeSocket();
+
+                    if (Program.IsUserManager)
+                    {
+                        var runtime_path = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+                        var socket_path = $"{runtime_path}/sharpinit.sock";
+
+                        if (!Directory.Exists(runtime_path))
+                        {
+                            socket_path = $"/tmp/sharpinit.{Process.GetCurrentProcess().Id}.sock";
+                            Log.Warn($"XDG_RUNTIME_DIR invalid, will listen at {runtime_path}");
+                        }
+
+                        IpcListener.SocketEndPoint = new UnixEndPoint(socket_path);
+                    }
+                    
                     IpcListener.StartListening();
 
                     Log.Info($"Listening on {IpcListener.SocketEndPoint}");
@@ -128,6 +150,8 @@ namespace SharpInit
                     Log.Info("Starting late platform initialization...");
                     platform_init.LateInitialize();
                     Log.Info("Late platform initialization complete");
+                    
+                    await ServiceManager.DBusManager.Connect();
                     
                     try 
                     {

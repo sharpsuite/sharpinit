@@ -18,8 +18,12 @@ namespace SharpInit.Tasks
                 if (!System.IO.Directory.Exists("/run/udev"))
                     return new TaskResult(this, ResultType.Failure, "/run/udev does not exist.");
                 
+                UdevEnumerator.ScanDevicesByTag("seat");
+                UdevEnumerator.ScanDevicesByTag("master-of-seat");
                 UdevEnumerator.ScanDevicesByTag("systemd");
                 UdevEnumerator.ScanDevicesByTag("sharpinit");
+
+                UdevEnumerator.LastUdevScan = DateTime.UtcNow;
 
                 return new TaskResult(this, ResultType.Success);
             }

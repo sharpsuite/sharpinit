@@ -124,7 +124,6 @@ namespace SharpInit
 
             var rendered = this.Layout.Render(log_event);
             Journal.RaiseJournalData(unit_source, rendered, log_event.Level.Ordinal);
-
             for (int i = sources.Length - 1; i >= 0; i--)
                 NLog.NestedDiagnosticsLogicalContext.PushObject(sources[i]);
         }

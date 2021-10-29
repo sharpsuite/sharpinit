@@ -12,6 +12,7 @@ namespace SharpInit.Tasks
         public Task Task { get; set; }
         public ResultType Type { get; set; }
         public string Message { get; set; }
+        public Exception Exception { get; set; }
 
         /// <summary>
         /// Represents the execution result of a task.
@@ -24,6 +25,14 @@ namespace SharpInit.Tasks
             Task = task;
             Type = result;
             Message = msg;
+        }
+
+        public TaskResult(Task task, ResultType result, Exception ex)
+        {
+            Task = task;
+            Type = result;
+            Exception = ex;
+            Message = ex.Message;
         }
 
         public override string ToString()

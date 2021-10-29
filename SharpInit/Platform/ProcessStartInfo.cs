@@ -243,8 +243,20 @@ namespace SharpInit.Platform
                 var descriptor = unit.Descriptor as ServiceUnitDescriptor;
 
                 psi.WorkingDirectory = descriptor.WorkingDirectory;
-                psi.User = (descriptor.Group == null && descriptor.User == null ? null : 
-                    PlatformUtilities.GetImplementation<IUserIdentifier>(descriptor.Group, descriptor.User));
+
+                if (!string.IsNullOrWhiteSpace(descriptor.User) && !string.IsNullOrWhiteSpace(descriptor.Group))
+                {
+                    psi.User = PlatformUtilities.GetImplementation<IUserIdentifier>(descriptor.User, descriptor.Group);
+                }
+                else if (!string.IsNullOrWhiteSpace(descriptor.User))
+                {
+                    psi.User = PlatformUtilities.GetImplementation<IUserIdentifier>(descriptor.User);
+                }
+                else if (!string.IsNullOrWhiteSpace(descriptor.Group))
+                {
+                    psi.User = PlatformUtilities.GetImplementation<IUserIdentifier>(null, descriptor.Group);
+                }
+                
                 psi.StandardInputTarget = descriptor.StandardInput;
                 psi.StandardOutputTarget = descriptor.StandardOutput;
                 psi.StandardErrorTarget = descriptor.StandardError;

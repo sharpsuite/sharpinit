@@ -1,14 +1,15 @@
 ﻿using NLog;
+
 using SharpInit.Platform;
+using SharpInit.Platform.Unix;
 using SharpInit.Tasks;
+
+using Mono.Unix.Native;
+
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using SharpInit.Platform.Unix;
 
 namespace SharpInit.Units
 {
@@ -23,6 +24,8 @@ namespace SharpInit.Units
         public NotifyClient NotifyClient { get; set; }
 
         public new ServiceUnitDescriptor Descriptor { get; set; }
+
+        public List<FileDescriptor> StoredFileDescriptors { get; set; } = new();
 
         public int COMMAND_TIMEOUT = 5000;
 
@@ -104,6 +107,9 @@ namespace SharpInit.Units
                 case "WATCHDOG_USEC":
                     break;
                 case "FDSTORE":
+                    // unset message.FileDescriptors to prevent later closure
+                    StoredFileDescriptors.AddRange(message.FileDescriptors);
+                    message.FileDescriptors = new FileDescriptor[0];
                     break;
                 case "FDSTOREREMOVE":
                     break;
@@ -118,6 +124,10 @@ namespace SharpInit.Units
                         Log.Warn($"Received unrecognized sd_notify message {message}");
                     break;
             }
+            
+            if (message.FileDescriptors != null)
+                foreach (var fd in message.FileDescriptors)
+                    Syscall.close(fd.Number);
         }
 
         public bool CanRestartNow()
@@ -291,6 +301,8 @@ namespace SharpInit.Units
                 transaction.Add(new CreateNotifySocketTask(this));   
             }
             
+            transaction.Add(new RetrieveStoredFileDescriptorsTask(this));
+            
             foreach (var line in Descriptor.ExecCondition)
             {
                 transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, ProcessStartInfo.FromCommandLine(line, this, Descriptor.TimeoutStartSec), Descriptor.TimeoutStartSec));
@@ -363,6 +375,8 @@ namespace SharpInit.Units
                     SetState(UnitState.Failed, $"Unsupported service type \"{Descriptor.ServiceType}\"");
                     break;
             }
+            
+            transaction.Add(new ForgetStoredFileDescriptorsTask(this));
 
             foreach (var line in Descriptor.ExecStartPost)
                 transaction.Add(new RunUnregisteredProcessTask(ServiceManager.ProcessHandler, 

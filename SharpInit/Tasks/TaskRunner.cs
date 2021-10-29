@@ -118,8 +118,6 @@ namespace SharpInit.Tasks
         {
             while (true)
             {
-                Log.Debug($"{TaskQueue.Count} tasks in queue, {executed} executed");
-
                 TaskExecution execution;
                 while (!TaskQueue.TryDequeue(out execution))
                 {
@@ -194,13 +192,11 @@ namespace SharpInit.Tasks
             try 
             {
                 execution.State = TaskExecutionState.Executing;
-                Log.Debug($"{execution} starting...");
 
                 try 
                 {
                     if (execution.Task is AsyncTask async_task)
                     {
-                        Log.Info($"{execution} is async");
                         execution.Result = await async_task.ExecuteAsync(execution.Context);
                     }
                     else
@@ -217,7 +213,6 @@ namespace SharpInit.Tasks
                     execution.SignalDone();
                 }
 
-                Log.Debug($"{execution} done");
                 execution.SignalDone();
             }
             catch (Exception ex)
@@ -249,14 +244,18 @@ namespace SharpInit.Tasks
 
             if (task.Identifier == 0)
                 task.Identifier = GetNewIdentifier();
-
-            lock(Tasks)
+            
+            lock (Tasks)
             {
                 Tasks[task.Identifier] = task;
             }
 
             var exec = new TaskExecution(this, task, context);
             exec.State = TaskExecutionState.Registered;
+
+            if (exec.Context == null)
+                exec.Context = new TaskContext();
+            
             task.Execution = exec;
             return exec;
         }

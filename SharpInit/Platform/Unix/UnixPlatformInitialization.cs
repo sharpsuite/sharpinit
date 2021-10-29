@@ -18,6 +18,8 @@ namespace SharpInit.Platform.Unix
     [SupportedOn("unix")]
     public class UnixPlatformInitialization : GenericPlatformInitialization
     {
+        public static readonly bool ReopenKmsg = false;
+    
         public static bool IsSystemManager = false;
         public static bool UnderSystemd = false;
         public static bool IsPrivileged = false;
@@ -40,7 +42,7 @@ namespace SharpInit.Platform.Unix
             var sid = Syscall.setsid();
             Log.Debug($"New session id is {sid}");
 
-            if (IsSystemManager)
+            if (IsSystemManager && ReopenKmsg)
             {
                 var devnull = Syscall.open("/dev/null", OpenFlags.O_RDWR | OpenFlags.O_CLOEXEC);
 
@@ -71,6 +73,12 @@ namespace SharpInit.Platform.Unix
             UnixMountWatcher.MountChanged += UnixMountWatcher.SynchronizeMountUnit;
             UnixMountWatcher.ParseFstab();
             UnixMountWatcher.StartWatching();
+
+            if (!Program.IsUserManager)
+            {
+                Program.LoginManager = new LoginManager();
+                Program.LoginManager.ProcessDeviceTree();
+            }
         }
     }
 }

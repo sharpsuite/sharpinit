@@ -1,8 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-
+using System.Threading;
 using Mono.Unix;
 using Mono.Unix.Native;
 
@@ -19,17 +20,22 @@ namespace SharpInit.Platform.Unix
 
         public static event OnDeviceAdded DeviceAdded;
         public static event OnDeviceRemoved DeviceRemoved;
+        public static event OnDeviceUpdated DeviceUpdated;
         
-        public static Dictionary<string, UdevDevice> Devices = new Dictionary<string, UdevDevice>();
+        public static ConcurrentDictionary<string, UdevDevice> Devices = new ConcurrentDictionary<string, UdevDevice>();
         public static Dictionary<string, DeviceUnit> Units = new Dictionary<string, DeviceUnit>();
 
         public static UnixSymlinkTools SymlinkTools = new UnixSymlinkTools(null);
         public static ServiceManager ServiceManager { get; set; }
-
+        public static DateTime LastUdevScan { get; set; }
+        public static bool Rescanning { get; set; }
+        public static bool ScanNeeded { get; set; }
+        
         public static void InitializeHandlers()
         {
             DeviceAdded += HandleNewDevice;
             DeviceRemoved += HandleDeviceRemoved;
+            DeviceUpdated += HandleDeviceUpdated;
 
             var watcher = new FileSystemWatcher("/run/udev");
             watcher.NotifyFilter = NotifyFilters.Attributes
@@ -45,6 +51,22 @@ namespace SharpInit.Platform.Unix
             watcher.Changed += HandleUdevDirectoryInotify;
             watcher.IncludeSubdirectories = true;
             watcher.EnableRaisingEvents = true;
+
+            new Thread((ThreadStart) delegate
+            {
+                while (ServiceManager == null)
+                    Thread.Sleep(500);
+                
+                while (true)
+                {
+                    while (!ScanNeeded)
+                        Thread.Sleep(500);
+
+                    ServiceManager.Runner.Register(new ScanUdevDevicesTask()).Enqueue().Wait();
+                    ScanNeeded = false;
+                    Thread.Sleep(500);
+                }
+            }).Start();
         }
 
         public static void WaitForUdevAndInitialize()
@@ -75,13 +97,7 @@ namespace SharpInit.Platform.Unix
 
         private static void HandleUdevDirectoryInotify(object sender, FileSystemEventArgs e)
         {
-            Log.Debug($"change at {e.FullPath}: {e.ChangeType}");
-
-            if (ServiceManager?.Runner != null)
-            {
-                var task = new SharpInit.Tasks.ScanUdevDevicesTask();
-                ServiceManager.Runner.Register(task).Enqueue().Wait();
-            }
+            ScanNeeded = true;
         }
 
         private static void HandleNewDevice(object sender, DeviceAddedEventArgs e)
@@ -246,8 +262,9 @@ namespace SharpInit.Platform.Unix
 
                     if (Devices.ContainsKey(dev.SysPath))
                     {
-                        Log.Debug($"Reparsing {dev.SysPath}");
+                        //Log.Debug($"Reparsing {dev.SysPath}");
                         Devices[dev.SysPath].ParseDatabaseIfExists();
+                        DeviceUpdated?.Invoke(null, new DeviceUpdatedEventArgs(dev.SysPath));
                         continue;
                     }
 
@@ -269,7 +286,7 @@ namespace SharpInit.Platform.Unix
                     }
                 }
 
-                devices_to_remove.ForEach(dev => Devices.Remove(dev));
+                devices_to_remove.ForEach(dev => Devices.TryRemove(dev, out UdevDevice _));
             }
         }
     }
