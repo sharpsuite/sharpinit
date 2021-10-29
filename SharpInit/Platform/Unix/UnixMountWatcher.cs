@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-
+using System.Threading;
 using Mono.Unix;
 using Mono.Unix.Native;
 
@@ -61,31 +61,16 @@ namespace SharpInit.Platform.Unix
 
         public static void StartWatching()
         {
-            ParseMounts();
-
-            /* This seems to be broken.
-
-            var mount_fd = Syscall.open("/proc/self/mountinfo", OpenFlags.O_RDONLY);
-            var poll_fd = new Pollfd();
-
-            poll_fd.fd = mount_fd;
-            poll_fd.events = PollEvents.POLLIN | PollEvents.POLLERR;
-
-            var poll_fd_arr = new [] { poll_fd };
-
-            int poll_ret = 0;
-
-            while ((poll_ret = Syscall.poll(poll_fd_arr, 1, 5)) >= 0)
+            new Thread((ThreadStart) delegate
             {
-                if ((poll_fd.revents & poll_fd.events) > 0)
-                    ParseMounts();
-            } */
-
-            while (true)
-            {
-                System.Threading.Thread.Sleep(10000);
                 ParseMounts();
-            }
+
+                while (true)
+                {
+                    Thread.Sleep(10000);
+                    ParseMounts();
+                }
+            }).Start();
         }
 
         public static void ParseFstab(string path = "/etc/fstab")

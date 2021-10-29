@@ -118,16 +118,12 @@ namespace SharpInit.Tasks
             Context = context ?? new TaskContext();
             var lock_obj = Lock ?? new object();
 
-            Log.Debug($"{Execution} is {this}");
-
             IEnumerable<IEnumerable<Task>> sub_transactions = null;
 
             if (TransactionSynchronizationMode == TransactionSynchronizationMode.Implicit)
                 sub_transactions = Tasks.Select(t => new [] {t});
             else if (TransactionSynchronizationMode == TransactionSynchronizationMode.Explicit)
                 sub_transactions = Tasks.Partition(t => t is SynchronizationTask);
-
-            Log.Debug($"{TransactionSynchronizationMode} synchronization, {sub_transactions.Count()} execution groups, {sub_transactions.Sum(subset => subset.Count())} total tasks");
 
             foreach (var task_group in sub_transactions)
             {
