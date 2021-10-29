@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Runtime.InteropServices;
+using Mono.Unix;
 
 namespace SharpInitControl
 {
@@ -30,7 +31,8 @@ namespace SharpInitControl
             {"disable", UninstallUnits},
             {"join-manager-to-current-cgroup", JoinCGroup},
             {"service-manager-pid", PrintServiceManagerPid},
-            {"show", ShowUnit}
+            {"show", ShowUnit},
+            {"list-seats", ListSeats}
         };
 
         static IpcConnection Connection { get; set; }
@@ -39,6 +41,24 @@ namespace SharpInitControl
         static void Main(string[] args)
         {
             Connection = new IpcConnection();
+            Connection.InitializeSocket();
+            
+            if (args[0] == "--user")
+            {
+                var runtime_path = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+                var socket_path = $"{runtime_path}/sharpinit.sock";
+
+                if (!Directory.Exists(runtime_path))
+                {
+                    Console.WriteLine($"XDG_RUNTIME_DIR invalid, cannot guess location of user service manager.");
+                    return;
+                }
+
+                Connection.SocketEndPoint = new UnixEndPoint(socket_path);
+
+                args = args.Skip(1).ToArray();
+            }
+            
             Connection.Connect();
             Context = new ClientIpcContext(Connection, "sharpinitctl");
 
@@ -54,6 +74,23 @@ namespace SharpInitControl
             Commands[verb](verb, args.Skip(1).ToArray());
             
             Environment.Exit(0);
+        }
+
+        static void ListSeats(string verb, string[] args)
+        {
+            var seats = Context.ListSeats();
+
+            foreach (var pair in seats)
+            {
+                Console.WriteLine($"Seat {pair.Key}: ");
+
+                foreach (var device in pair.Value)
+                {
+                    Console.WriteLine($" - {device}");
+                }
+                
+                Console.WriteLine();
+            }
         }
 
         static void PrintServiceManagerPid(string verb, string[] args) => Console.WriteLine(Context.GetServiceManagerProcessId());

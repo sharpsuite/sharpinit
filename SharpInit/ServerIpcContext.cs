@@ -37,6 +37,12 @@ namespace SharpInit
             if (result.Type != ResultType.Success)
             {
                 Log.Info($"Activation transaction failed. Result type: {result.Type}, message: {result.Message}");
+
+                if (result.Exception != null)
+                {
+                    Log.Error(result.Exception);
+                }
+                
                 Log.Info("Transaction failed at highlighted task: ");
 
                 var tree = transaction.GeneratedTransaction?.GenerateTree(0, result.Task) ?? "(failed to generate late-bound tx)";
@@ -172,6 +178,14 @@ namespace SharpInit
                 return null;
             
             return unit.Descriptor.GetProperties();
+        }
+
+        public Dictionary<string, List<string>> ListSeats()
+        {
+            if (Program.LoginManager == null)
+                return null;
+            
+            return Program.LoginManager.Seats.ToDictionary(s => s.Key, s => s.Value.Devices);
         }
 
         public List<string> GetJournal(string journal, int lines)
