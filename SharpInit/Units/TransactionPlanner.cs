@@ -199,7 +199,7 @@ namespace SharpInit.Units
                 }
 
                 if (!satisfied)
-                    throw new Exception($"Unsatisfiable set of ordering rules encountered when building the activation transaction for unit {unit.UnitName}.");
+                    throw new Exception($"Unsatisfiable set of ordering rules encountered when building the activation transaction for unit {unit.UnitName}: [{string.Join(", ", breaking.Select(b => b.ToString()))}].");
             }
 
             unit_list = new_order;

@@ -1,5 +1,7 @@
 ﻿using System;
-using SharpInit.Units;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
@@ -7,12 +9,11 @@ using SharpInit.Ipc;
 using NLog;
 
 using Mono.Unix;
-using Mono.Unix.Native;
 using SharpInit.Platform;
 using SharpInit.Tasks;
 
-using Tmds.DBus;
 using SharpInit.Platform.Unix;
+using SharpInit.Units;
 
 namespace SharpInit
 {
@@ -26,7 +27,7 @@ namespace SharpInit
         static Logger Log = LogManager.GetCurrentClassLogger();
         static IpcListener IpcListener { get; set; }
         public static ServiceManager ServiceManager { get; private set; }
-        public static Platform.Unix.LoginManager LoginManager { get; internal set; }
+        public static Platform.Unix.LoginManagement.LoginManager LoginManager { get; internal set; }
         
         public static bool IsUserManager { get; set; }
         
@@ -37,7 +38,7 @@ namespace SharpInit
             {
                 try
                 {
-                    AttachCtrlcSigtermShutdown(shutdownCts, done);
+                    //AttachCtrlcSigtermShutdown(shutdownCts, done);
                     Log.Info("SharpInit starting");
 
                     IsUserManager = args.Any(a => a == "--user");
@@ -57,7 +58,7 @@ namespace SharpInit
                         Log.Error(ex);
                         Log.Error($"Continuing with startup anyway.");
                     }
-
+                    
                     Log.Info("Platform initialization complete");
                     Log.Info("Starting service manager...");
                     ServiceManager = new ServiceManager();
@@ -139,7 +140,7 @@ namespace SharpInit
                     IpcListener.StartListening();
 
                     Log.Info($"Listening on {IpcListener.SocketEndPoint}");
-
+                    
                     ServiceManager.InitializeCGroups();
 
                     if (!args.Any(a => a == "--no-activate-default")) 
@@ -171,11 +172,15 @@ namespace SharpInit
 
         public static void Shutdown()
         {
+            Log.Info("Initiating shutdown...");
             DeactivateUnitIfExists("sockets.target");
             DeactivateUnitIfExists("default.target");
 
             foreach (var unit in ServiceManager.Registry.Units)
             {
+                if (unit.Value is DeviceUnit)
+                    continue;
+                
                 if (unit.Value.CurrentState.HasFlag(SharpInit.Units.UnitState.Activating) || 
                     unit.Value.CurrentState.HasFlag(SharpInit.Units.UnitState.Active))
                 {
@@ -200,12 +205,12 @@ namespace SharpInit
 
                 if (tx.GeneratedTransaction != null)
                 {
-                    Log.Debug($"This is the transaction:");
-                    Log.Debug(tx.GeneratedTransaction.GenerateTree());
+                    // Log.Debug($"This is the transaction:");
+                    // Log.Debug(tx.GeneratedTransaction.GenerateTree());
                 }
                 else
                 {
-                    Log.Warn($"Failed to generate late-bound transaction.");
+                    Log.Warn($"Failed to generate late-bound activation transaction for {name}.");
                 }
 
                 var result = exec.Result;
@@ -229,12 +234,12 @@ namespace SharpInit
 
                 if (tx.GeneratedTransaction != null)
                 {
-                    Log.Debug($"This is the transaction:");
-                    Log.Debug(tx.GeneratedTransaction.GenerateTree());
+                    //Log.Debug($"This is the transaction:");
+                    //Log.Debug(tx.GeneratedTransaction.GenerateTree());
                 }
                 else
                 {
-                    Log.Warn($"Failed to generate late-bound transaction.");
+                    Log.Warn($"Failed to generate late-bound deactivation transaction for {name}.");
                 }
                 var result = exec.Result;
 

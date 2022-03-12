@@ -20,6 +20,15 @@ namespace SharpInit.Platform.Unix
         public UnixUserIdentifier(string username)
         {
             Username = username;
+            if (uint.TryParse(username, out uint uid))
+            {
+                try
+                {
+                    var user_info_from_uid = new UnixUserInfo(uid);
+                    Username = username = user_info_from_uid.UserName;
+                }
+                catch { }
+            }
 
             try
             {
@@ -35,6 +44,26 @@ namespace SharpInit.Platform.Unix
         {
             Username = username;
             Group = group;
+
+            Username = username;
+            if (uint.TryParse(username, out uint uid))
+            {
+                try
+                {
+                    var user_info_from_uid = new UnixUserInfo(uid);
+                    Username = username = user_info_from_uid.UserName;
+                }
+                catch { }
+            }
+            if (uint.TryParse(group, out uint gid))
+            {
+                try
+                {
+                    var user_info_from_uid = new UnixGroupInfo(gid);
+                    Group = group = user_info_from_uid.GroupName;
+                }
+                catch { }
+            }
 
             try
             {

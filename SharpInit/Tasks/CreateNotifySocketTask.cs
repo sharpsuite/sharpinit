@@ -52,7 +52,7 @@ namespace SharpInit.Tasks
             }
             catch (Exception e)
             {
-                return new TaskResult(this, ResultType.Failure, e.Message);
+                return new TaskResult(this, ResultType.Failure, e);
             }
         }
     }

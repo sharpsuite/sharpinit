@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using SharpInit.Platform;
 
 namespace SharpInit.Units
 {
@@ -16,6 +17,8 @@ namespace SharpInit.Units
 
     public static class UnitConditions
     {
+        public static Dictionary<string, List<string>> KernelCommandLine = new Dictionary<string, List<string>>();
+
         public static Dictionary<string, Func<string, bool>> ConditionCache = new Dictionary<string, Func<string, bool>>();
         static Dictionary<string, bool> ConditionNegatable = new Dictionary<string, bool>();
         public static void BuildConditionCache()
@@ -44,6 +47,8 @@ namespace SharpInit.Units
                     ConditionNegatable[condition_name] = function.GetCustomAttribute(typeof(ConditionNegatableAttribute)) != null;
                 }
             }
+            
+            ParseCommandLine();
         }
 
         public static bool CheckCondition(string condition_name, string value)
@@ -74,7 +79,64 @@ namespace SharpInit.Units
             return ConditionCache[condition_name](value);
         }
 
+        private static void ParseCommandLine()
+        {
+            if (!PlatformUtilities.CurrentlyOn("unix"))
+            {
+                return;
+            }
+
+            KernelCommandLine.Clear();
+            
+            var cmdline = File.ReadAllText("/proc/cmdline");
+            var split = UnitParser.SplitSpaceSeparatedValues(cmdline);
+
+            foreach (var part in split)
+            {
+                var key = "";
+                string value = null; 
+                if (part.Contains('='))
+                {
+                    key = part.Split('=')[0];
+                    value = string.Join('=', part.Split('=').Skip(1));
+                }
+                else
+                {
+                    key = part;
+                }
+
+                if (!KernelCommandLine.ContainsKey(key))
+                    KernelCommandLine[key] = new List<string>();
+                KernelCommandLine[key].Add(value);
+            }
+        }
+
         [ConditionNegatable]
-        public static bool ConditionPathExists(string path) => System.IO.File.Exists(path) || System.IO.Directory.Exists(path);        
+        public static bool ConditionPathExists(string path) => System.IO.File.Exists(path) || System.IO.Directory.Exists(path);
+
+        [ConditionNegatable]
+        public static bool ConditionKernelCommandLine(string keyword)
+        {
+            var key_to_search = "";
+            string value_to_search = null;
+
+            if (keyword.Contains('='))
+            {
+                key_to_search = keyword.Split('=')[0];
+                value_to_search = string.Join('=', keyword.Split('=').Skip(1));
+            }
+            else
+            {
+                key_to_search = keyword;
+            }
+
+            if (value_to_search == null)
+            {
+                return KernelCommandLine.ContainsKey(key_to_search);
+            }
+
+            return KernelCommandLine.ContainsKey(key_to_search) &&
+                   KernelCommandLine[key_to_search].Contains(value_to_search);
+        }
     }
 }

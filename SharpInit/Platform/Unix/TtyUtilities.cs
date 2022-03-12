@@ -41,7 +41,7 @@ namespace SharpInit.Platform.Unix
         internal static extern int TcSetAttr(int handle, int opt_actions, ref Termios t);
         [DllImport("libc", EntryPoint = "tcflush", SetLastError = true)]
         internal static extern int TcFlush(int handle, int queue_selector);
-
+        
         static readonly uint KDSETMODE = 0x4b3a;
         static readonly uint KD_TEXT = 0;
 
@@ -50,6 +50,7 @@ namespace SharpInit.Platform.Unix
         static readonly uint TIOCVHANGUP = 0x5437;
         static readonly uint TIOCNOTTY = 0x5422;
         static readonly uint VT_DISALLOCATE = 0x5608;
+        public static readonly uint VT_RELDISP = 0x5605;
 
         public static Tty OpenTty(string name, OpenFlags mode = (OpenFlags.O_RDWR | OpenFlags.O_NOCTTY | OpenFlags.O_CLOEXEC | OpenFlags.O_NONBLOCK))
         {

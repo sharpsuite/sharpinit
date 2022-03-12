@@ -184,6 +184,7 @@ namespace SharpInit.Platform.Unix
         private static Transaction GenerateActivation(DeviceUnit unit)
         {
             var tx1 = unit.GetExternalActivationTransaction();
+            return tx1;
             var tx2 = LateBoundUnitActivationTask.CreateActivationTransaction(unit);
 
             return new Transaction(tx1, tx2);
@@ -192,6 +193,7 @@ namespace SharpInit.Platform.Unix
         private static Transaction GenerateDeactivation(DeviceUnit unit)
         {
             var tx1 = unit.GetExternalDeactivationTransaction();
+            return tx1;
             var tx2 = LateBoundUnitActivationTask.CreateDeactivationTransaction(unit);
 
             return new Transaction(tx1, tx2);
@@ -293,6 +295,8 @@ namespace SharpInit.Platform.Unix
 
     public class UdevDevice
     {
+        static Logger Log = LogManager.GetCurrentClassLogger();
+        
         public string Name { get; set; }
         public string DeviceId { get; set; }
         public string SysPath { get; private set; }
@@ -348,12 +352,17 @@ namespace SharpInit.Platform.Unix
 
             if (UdevEnumerator.SymlinkTools.IsSymlink($"{sys_path}/subsystem"))
             {
-                var target = UdevEnumerator.SymlinkTools.GetTarget($"{sys_path}/subsystem");
+                var target = UdevEnumerator.SymlinkTools.ResolveSymlink($"{sys_path}/subsystem");
+                Log.Debug($"device with syspath {sys_path} has subsystem symlink to {target}");
 
                 if (!string.IsNullOrWhiteSpace(target) && target.StartsWith("/sys/class/"))
                 {
                     Subsystem = target.Substring("/sys/class/".Length);
                 }
+            }
+            else
+            {
+                Log.Debug($"device with syspath {sys_path} has no subsystem symlink");
             }
 
             SysPath = sys_path;
@@ -604,10 +613,20 @@ namespace SharpInit.Platform.Unix
             
             if (DatabaseEntries.ContainsKey('I'))
                 InitializedUsec = long.Parse(DatabaseEntries['I'].First());
-            
+
             if (DatabaseEntries.ContainsKey('S'))
-                DevPaths.AddRange(DatabaseEntries['S']);
-            
+            {
+                var dev_paths = DatabaseEntries['S'];
+
+                foreach (var dev_path in dev_paths)
+                {
+                    var patched_dev_path = dev_path;
+                    if (!dev_path.StartsWith("/dev"))
+                        patched_dev_path = "/dev/" + (dev_path.TrimStart('/'));
+                    DevPaths.Add(patched_dev_path);
+                }
+            }
+
             if (DatabaseEntries.ContainsKey('E'))
             {
                 foreach (var str in DatabaseEntries['E'])

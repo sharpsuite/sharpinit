@@ -22,9 +22,11 @@ namespace SharpInit.Units
         public Logger Log = LogManager.GetCurrentClassLogger();
 
         public Dictionary<string, List<UnitFile>> UnitFiles = new Dictionary<string, List<UnitFile>>();
-
         public Dictionary<string, Unit> Units = new Dictionary<string, Unit>();
         public Dictionary<string, List<string>> Aliases = new Dictionary<string, List<string>>();
+
+        // service.d // test-first-@.service
+        public Dictionary<string, List<UnitFile>> DropInUnitFiles = new Dictionary<string, List<UnitFile>>();
 
         public DependencyGraph<OrderingDependency> OrderingDependencies = new DependencyGraph<OrderingDependency>();
         public DependencyGraph<RequirementDependency> RequirementDependencies = new DependencyGraph<RequirementDependency>();
@@ -215,6 +217,8 @@ namespace SharpInit.Units
 
         public int ScanDirectory(string path, bool recursive = true)
         {
+            var directory_name = path.TrimEnd('/');
+        
             var directories = recursive ? Directory.GetDirectories(path) : new string[0];
             var files = Directory.GetFiles(path);
 
@@ -222,6 +226,12 @@ namespace SharpInit.Units
 
             foreach (var file in files)
             {
+                if (file.EndsWith(".conf") && directory_name.EndsWith(".d"))
+                {
+                    IndexDropInFileByPath(file);
+                    continue;
+                }
+                
                 if (!UnitTypes.Any(type => file.EndsWith(type.Key))) 
                 {
                     continue;
@@ -233,7 +243,7 @@ namespace SharpInit.Units
                     var target_unit_name = UnitParser.GetUnitName(target, with_parameter: true);
                     var symlinked_name = UnitParser.GetUnitName(file, with_parameter: true);
 
-                    Log.Debug($"Symlink detected from {file} to {target}");
+                    Log.Debug($"!Symlink detected from {file} to {target}");
 
                     var fileinfo = new FileInfo(file);
 
@@ -260,7 +270,7 @@ namespace SharpInit.Units
                             {".requires", "Unit/Requires" },
                         };
 
-                        var directory_name = Path.GetDirectoryName(file);
+                        //var directory_name = Path.GetDirectoryName(file);
                         bool in_mapped_dir = false;
 
                         foreach (var directory_mapping in directory_maps) 
@@ -275,6 +285,7 @@ namespace SharpInit.Units
                                 unit_name = unit_name.Substring(0, unit_name.Length - directory_mapping.Key.Length);
                                 var temp_unit_file = new GeneratedUnitFile(unit_name, destroy_on_reload: true).WithProperty(directory_mapping.Value, UnitParser.GetUnitName(file, with_parameter: true));
                                 IndexUnitFile(temp_unit_file);
+                                Log.Info($"{symlinked_name} has a directory-mapped dependency on {unit_name}");
                             }
                         }
                         if (!in_mapped_dir)
@@ -322,6 +333,24 @@ namespace SharpInit.Units
             return null;
         }
 
+        public bool IndexDropInFile(UnitFile file)
+        {
+            var drop_in_scope = Path.GetFileName(Path.GetDirectoryName(file.Path));
+            drop_in_scope = drop_in_scope;
+
+            if (!DropInUnitFiles.ContainsKey(drop_in_scope))
+                DropInUnitFiles[drop_in_scope] = new List<UnitFile>();
+            
+            if (file is OnDiskUnitFile)
+                DropInUnitFiles[drop_in_scope].RemoveAll(u => 
+                    u is OnDiskUnitFile && 
+                    (u as OnDiskUnitFile).Path == (file as OnDiskUnitFile).Path);
+
+            DropInUnitFiles[drop_in_scope].Add(file);
+
+            return true;
+        }
+
         public bool IndexUnitFile(UnitFile file, bool create_unit = true)
         {
             var name = file.UnitName;
@@ -348,6 +377,19 @@ namespace SharpInit.Units
             }
 
             return true;
+        }
+
+        public bool IndexDropInFileByPath(string path)
+        {
+            path = Path.GetFullPath(path);
+            path = SymlinkTools.ResolveSymlink(path);
+
+            var unit_file = UnitParser.ParseFile(path);
+
+            if (unit_file == null)
+                return false;
+            
+            return IndexDropInFile(unit_file);            
         }
 
         public bool IndexUnitByPath(string path)
@@ -405,6 +447,60 @@ namespace SharpInit.Units
             return name;
         }
 
+        private UnitFile[] GetRelevantDropIns(string unit_name)
+        {
+            /*
+             * unit name has dashes: enumerate all possible prefixes
+             * unit name is instantiated: enumerate un-instantiated version
+             * enumerate unit type drop in scope
+             * 
+             */
+
+            var drop_in_scopes_to_search = new List<string>();
+            var unparametrized_unit_name = UnitParser.GetUnitName(unit_name, with_parameter: false);
+            var parametrized_unit_name = UnitParser.GetUnitName(unit_name, with_parameter: true);
+            var unparametrized_unit_name_without_ext = Path.GetFileNameWithoutExtension(unparametrized_unit_name);
+            var parametrized_unit_name_without_ext = Path.GetFileNameWithoutExtension(parametrized_unit_name);
+            var extension = Path.GetExtension(unit_name);
+
+            drop_in_scopes_to_search.Add(parametrized_unit_name);
+            if (parametrized_unit_name != unparametrized_unit_name)
+                drop_in_scopes_to_search.Add(unparametrized_unit_name);
+            
+            if (unit_name.Contains('-'))
+            {
+                var parts = unparametrized_unit_name_without_ext.Split('-');
+
+                for (int i = parts.Length - 1; i > 0; i--)
+                {
+                    var name = string.Join('-', parts.Take(i)) + '-';
+                    if (unit_name.Contains('@'))
+                        name += '@';
+                    
+                    name += extension;
+                    drop_in_scopes_to_search.Add(name);
+                }
+            }
+
+            if (unit_name.Contains('@') && !string.IsNullOrWhiteSpace(UnitParser.GetUnitParameter(unit_name)))
+            {
+                var parameter = UnitParser.GetUnitParameter(unit_name);
+                drop_in_scopes_to_search.AddRange(
+                    drop_in_scopes_to_search.Select(scope => 
+                        scope.Replace("@", $"@{parameter}")));
+            }
+            
+            drop_in_scopes_to_search.Add(extension.Substring(1));
+            drop_in_scopes_to_search = drop_in_scopes_to_search.Select(scope => scope + ".d").ToList();
+
+            var files = new List<UnitFile>();
+            foreach (var scope in drop_in_scopes_to_search)
+                if (DropInUnitFiles.ContainsKey(scope))
+                    files.AddRange(DropInUnitFiles[scope]);
+
+            return files.ToArray();
+        }
+
         public UnitDescriptor GetUnitDescriptor(string name)
         {
             string unit_name = name;
@@ -413,6 +509,7 @@ namespace SharpInit.Units
 
             Type type;
             UnitFile[] files;
+            UnitFile[] drop_ins;
 
             lock (UnitFiles)
             {
@@ -434,6 +531,9 @@ namespace SharpInit.Units
                 type = UnitTypes[ext];
                 files = UnitFiles[unit_name].ToArray();
                 Array.Sort(files, CompareUnitFiles);
+                
+                drop_ins = GetRelevantDropIns(unit_name);
+                files = files.Concat(drop_ins).ToArray();
             }
 
             var descriptor = UnitParser.FromFiles(UnitDescriptorTypes[type], files);
@@ -476,6 +576,42 @@ namespace SharpInit.Units
                     return 0;
             }
 
+            bool IsDropInFile(UnitFile a) => Path.GetDirectoryName(a.Path).EndsWith(".d");
+
+            if (IsDropInFile(a) && !IsDropInFile(b))
+                return 1;
+            if (!IsDropInFile(a) && IsDropInFile(b))
+                return -1;
+            
+            if (IsDropInFile(a) && IsDropInFile(b))
+            {
+                /*
+                 * Each drop-in file must contain appropriate section headers. For instantiated units, this logic will first
+                 * look for the instance ".d/" subdirectory (e.g. "foo@bar.service.d/") and read its ".conf" files, followed
+                 * by the template ".d/" subdirectory (e.g. "foo@.service.d/") and the ".conf" files there. Moreover for unit
+                 * names containing dashes ("-"), the set of directories generated by repeatedly truncating the unit name
+                 * after all dashes is searched too. Specifically, for a unit name foo-bar-baz.service not only the regular
+                 * drop-in directory foo-bar-baz.service.d/ is searched but also both foo-bar-.service.d/ and foo-.service.d/.
+                 * This is useful for defining common drop-ins for a set of related units, whose names begin with a common
+                 * prefix. This scheme is particularly useful for mount, automount and slice units, whose systematic naming
+                 * structure is built around dashes as component separators. Note that equally named drop-in files further
+                 * down the prefix hierarchy override those further up, i.e. foo-bar-.service.d/10-override.conf overrides
+                 * foo-.service.d/10-override.conf.
+                 *
+                 * test-first-second@full.service
+                 * test-first-second@full.service.d/10-override.conf
+                 * test-first-second@.service.d/10-override.conf
+                 * test-first-second.service.d/10-override.conf
+                 * test-first-.service.d/10-override.conf
+                 * service.d/10-override.conf
+                 */
+
+                var directory_level = 0;
+                
+                
+            }
+
+            // Does not apply to drop-in files
             if (a.FileName != b.FileName)
                 return string.Compare(a.FileName, b.FileName);
 

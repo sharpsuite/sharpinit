@@ -361,7 +361,7 @@ namespace SharpInit.Platform.Unix
                     argv_c = argv.Length;
                 }
 
-                Log.Info($"Starting process with path: {psi.Path}, args: [{string.Join(',', psi.Arguments.Select(arg => $"\"{arg}\""))}]");
+                Log.Info($"Starting process with uid {helper.uid} gid {helper.gid} path: {psi.Path}, args: [{string.Join(',', psi.Arguments.Select(arg => $"\"{arg}\""))}]");
 
                 var fork_ret = augmented_fork(helper);
                 if(fork_ret < 0)

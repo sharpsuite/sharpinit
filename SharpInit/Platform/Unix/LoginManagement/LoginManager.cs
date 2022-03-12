@@ -3,20 +3,17 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Win32.SafeHandles;
 using Mono.Unix;
 using Mono.Unix.Native;
 using Newtonsoft.Json;
 using NLog;
-using NLog.Fluent;
 using SharpInit.LoginManager;
 using SharpInit.Units;
 using Tmds.DBus;
 
-namespace SharpInit.Platform.Unix
+namespace SharpInit.Platform.Unix.LoginManagement
 {
     public class LoginManager : ILoginDaemon
     {
@@ -57,10 +54,10 @@ namespace SharpInit.Platform.Unix
 
         private void CheckDeviceSeat(UdevDevice device)
         {
-            Log.Debug($"Considering {device.SysPath} for inclusion in a seat");
+            //Log.Debug($"Considering {device.SysPath} for inclusion in a seat");
             if (!device.Tags.Contains("seat"))
             {
-                Log.Debug($"Device {device.SysPath} not eligible for inclusion in a seat, not tagged with \"seat\"");
+//                Log.Debug($"Device {device.SysPath} not eligible for inclusion in a seat, not tagged with \"seat\"");
                 return;
             }
 
@@ -71,7 +68,7 @@ namespace SharpInit.Platform.Unix
 
             if (seat == null && !master)
             {
-                Log.Debug($"Device {device.SysPath} not eligible for inclusion in a seat, no valid seat ID and not master-of-seat");
+//                Log.Debug($"Device {device.SysPath} not eligible for inclusion in a seat, no valid seat ID and not master-of-seat");
                 return;
             }
 
@@ -83,7 +80,7 @@ namespace SharpInit.Platform.Unix
 
             if (seat.Devices.Contains(device.SysPath))
             {
-                Log.Debug($"Device {device.SysPath} already assigned to seat {seat_id}");
+//                Log.Debug($"Device {device.SysPath} already assigned to seat {seat_id}");
             }
             else
             {
@@ -115,15 +112,15 @@ namespace SharpInit.Platform.Unix
             return fd;
         }
 
-        private User GetUser(int uid)
+        private async Task<User> GetUser(int uid)
         {
             if (Users.ContainsKey(uid))
                 return Users[uid];
 
-            return Users[uid] = CreateUser(uid);
+            return Users[uid] = await CreateUser(uid);
         }
 
-        private User CreateUser(int uid)
+        private async Task<User> CreateUser(int uid)
         {
             var identifier = new UnixUserIdentifier(uid);
             var user = new User(uid);
@@ -161,6 +158,8 @@ namespace SharpInit.Platform.Unix
 
             if (!Directory.Exists(Path.GetDirectoryName(user.StateFile)))
                 Directory.CreateDirectory(Path.GetDirectoryName(user.StateFile));
+            
+            await Program.ServiceManager.DBusManager.LoginManagerConnection.RegisterObjectAsync(user);
             
             File.WriteAllText(user.StateFile, $"NAME={user.UserName}");
             
@@ -206,9 +205,9 @@ namespace SharpInit.Platform.Unix
 
                 Log.Debug(JsonConvert.SerializeObject(request));
                 //var requesting_user = new UnixUserIdentifier((int) request.uid);
-                var user = GetUser((int) request.uid);
+                var user = await GetUser((int) request.uid);
 
-                var session = new Session(Sessions.Count.ToString());
+                var session = new Session(this, Sessions.Count.ToString());
                 session.UserId = user.UserId;
                 session.UserName = user.UserName;
                 session.VTNumber = (int) request.vtnr;
@@ -251,10 +250,11 @@ namespace SharpInit.Platform.Unix
                 if (Program.ServiceManager.DBusManager != null)
                 {
                     Log.Info($"Registering session {session.SessionId} with dbus service");
-                    await Program.ServiceManager.DBusManager.Connection.RegisterObjectAsync(session);
+                    await Program.ServiceManager.DBusManager.LoginManagerConnection.RegisterObjectAsync(session);
                     Log.Info($"Registered session {session.SessionId} with dbus service");
                 }
 
+                Sessions[session.SessionId] = session;
                 user.Sessions.Add(session.SessionId);
 
                 var reply = new SessionData();
@@ -266,6 +266,21 @@ namespace SharpInit.Platform.Unix
                 reply.existing = false;
                 reply.object_path = session.ObjectPath;
                 reply.runtime_path = user.RuntimePath;
+
+                var session_file_contents = new StringBuilder();
+                session_file_contents.AppendLine($"ACTIVE=1");
+                session_file_contents.AppendLine($"IS_DISPLAY=1");
+                session_file_contents.AppendLine($"STATE=active");
+                session_file_contents.AppendLine($"TTY={session.TTYPath}");
+                session_file_contents.AppendLine($"LEADER={session.LeaderPid}");
+                session_file_contents.AppendLine($"TYPE={session.Type.ToString().ToLowerInvariant()}");
+                session_file_contents.AppendLine($"SEAT={session.ActiveSeat}");
+                session_file_contents.AppendLine($"UID={session.UserId}");
+                session_file_contents.AppendLine($"USER={session.UserName}");
+                session_file_contents.AppendLine($"VTNR={session.VTNumber}");
+
+                Directory.CreateDirectory(Path.GetDirectoryName(session.StateFile));
+                File.WriteAllText(session.StateFile, session_file_contents.ToString());
 
                 //new CloseSafeHandle((IntPtr) CreateFifoForSession(session), false);
                 reply.fifo_fd = new CloseSafeHandle((IntPtr)CreateFifoForSession(session), false);
@@ -281,6 +296,16 @@ namespace SharpInit.Platform.Unix
                 Log.Error(e);
                 throw;
             }
+        }
+
+        public async Task<ObjectPath> GetSessionAsync(string session_id)
+        {
+            if (!Sessions.ContainsKey(session_id))
+            {
+                return null;
+            }
+
+            return Sessions[session_id].ObjectPath;
         }
 
         public async
@@ -315,5 +340,6 @@ namespace SharpInit.Platform.Unix
         {
             Log.Debug($"Asked to release session {session_id}");
         }
+        
     }
 }

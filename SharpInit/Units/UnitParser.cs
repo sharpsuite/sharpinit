@@ -48,17 +48,21 @@ namespace SharpInit.Units
             descriptor.Files = files;
 
             var properties_touched = new List<PropertyInfo>();
-
+            string ext = null;
+            
             foreach (var file in files)
             {
-                var ext = file.Extension;
-                ext = ext.TrimStart('.');
+                if (string.IsNullOrWhiteSpace(ext))
+                {
+                    ext = file.Extension;
+                    ext = ext.TrimStart('.');
 
-                // normalize capitalization
-                ext = ext.ToLower();
+                    // normalize capitalization
+                    ext = ext.ToLower();
 
-                if (ext.Length > 1)
-                    ext = char.ToUpper(ext[0]) + ext.Substring(1);
+                    if (ext.Length > 1)
+                        ext = char.ToUpper(ext[0]) + ext.Substring(1);
+                }
 
                 var properties = file.Properties.ToDictionary(p => p.Key, p => p.Value);
 
@@ -199,6 +203,11 @@ namespace SharpInit.Units
                     continue;
 
                 var attribute = (UnitPropertyAttribute)unit_property_attributes.FirstOrDefault();
+
+                if (attribute.PropertyPath == "@/Slice" && Program.IsUserManager)
+                {
+                    attribute.DefaultValue = "app.slice";
+                }
 
                 if (!properties_touched.Contains(prop))
                 {

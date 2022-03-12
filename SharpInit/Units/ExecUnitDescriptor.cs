@@ -93,7 +93,7 @@ namespace SharpInit.Units
         public bool TtyVtDisallocate { get; set; }
         
         
-        [UnitProperty("@/@", UnitPropertyType.String, "system.slice")]
+        [UnitProperty("@/Slice", UnitPropertyType.String, "system.slice")]
         public string Slice { get; set; }
 
         [UnitProperty("@/@", UnitPropertyType.Enum, KillMode.ControlGroup, typeof(KillMode))]

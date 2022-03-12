@@ -41,7 +41,7 @@ namespace SharpInit.Platform
 
             if (!target.StartsWith("/"))
             {
-                target = Path.GetFullPath(target, path);
+                target = Path.GetFullPath(target, Path.GetDirectoryName(path));
             }
             
             return ResolveSymlink(target);

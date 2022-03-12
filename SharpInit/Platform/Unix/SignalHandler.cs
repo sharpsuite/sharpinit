@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -31,7 +32,11 @@ namespace SharpInit.Platform.Unix
             AddSignalHandler(new UnixSignal(Signum.SIGCHLD), ReapChildren);
             AddSignalHandler(new UnixSignal(Signum.SIGALRM), ReapChildren);
             AddSignalHandler(new UnixSignal(Signum.SIGTERM), Program.Shutdown);
+            AddSignalHandler(new UnixSignal(Signum.SIGINT), Program.Shutdown);
             AddSignalHandler(new UnixSignal(Signum.SIGHUP), Program.Shutdown);
+            // hack
+            AddSignalHandler(new UnixSignal(Signum.SIGUSR1),
+                delegate { TtyUtilities.Ioctl(Program.LoginManager.Sessions["0"].VTFd, TtyUtilities.VT_RELDISP, 1); });
             new Thread((ThreadStart)HandlerLoop).Start();
         }
 
