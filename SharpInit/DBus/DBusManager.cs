@@ -45,17 +45,18 @@ namespace SharpInit
 
             try
             {
-                var dbus_socket_path = "/run/dbus/system_bus_socket";
+                //var dbus_socket_path = "/run/dbus/system_bus_socket";
+                var dbus_socket_path = ConnectionAddress.Split("path=")[1];
 
                 if (!File.Exists(dbus_socket_path))
                 {
-                    Log.Info("Waiting for dbus system socket");
+                    Log.Info($"Waiting for dbus socket at {dbus_socket_path}");
 
                     while (!File.Exists(dbus_socket_path))
                         await Task.Delay(500);
                 }
 
-                Log.Info($"Connecting to dbus...");
+                Log.Info($"Connecting to dbus at at {dbus_socket_path}...");
                 Connection = new Connection(ConnectionAddress);
 
                 await Connection.ConnectAsync();
@@ -91,7 +92,27 @@ namespace SharpInit
             catch (Exception ex)
             {
                 Log.Error($"Exception thrown while connecting to D-Bus", ex);
+                throw;
             }
+        }
+
+        public async Task<IDictionary<string, object>> GetCredentialsByDBusName(string sender)
+        {
+            var result = await DBusProxy.GetConnectionCredentialsAsync(sender);
+            return result;
+        }
+
+        public async Task<int> GetProcessIdByDBusName(string sender)
+        {
+            var result = await GetCredentialsByDBusName(sender);
+
+            if (result == null)
+                return -1;
+            
+            if (!result.ContainsKey("ProcessID"))
+                return -1;
+
+            return Convert.ToInt32((uint) result["ProcessID"]);
         }
 
         public async Task SetupLoginService()

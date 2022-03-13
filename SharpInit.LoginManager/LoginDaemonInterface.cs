@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
 using Tmds.DBus;
+using Tmds.DBus.Protocol;
 
 namespace SharpInit.LoginManager
 {
@@ -49,11 +50,11 @@ namespace SharpInit.LoginManager
     [DBusInterface("org.freedesktop.login1.Manager")]
     public interface ILoginDaemon : IDBusObject
     {
-        Task<ObjectPath> GetSessionAsync(string session_id);
+        Task<ObjectPath> GetSessionAsync(string session_id, Tmds.DBus.Protocol.Message message);
         
         Task<(string sessionId, ObjectPath objectPath, string runtimePath, CloseSafeHandle fifoFd, uint uid, string seatId, uint vtnr, bool existing)> CreateSessionAsync(uint Uid, uint Pid
             , string Service, string Type, string Class, string Desktop, string SeatId, uint Vtnr, string 
-                Tty, string Display, bool Remote, string RemoteUser, string RemoteHost, (string, object)[] Properties);
+                Tty, string Display, bool Remote, string RemoteUser, string RemoteHost, (string, object)[] Properties, Message message);
         public Task ReleaseSessionAsync(string session_id);
     }
 }

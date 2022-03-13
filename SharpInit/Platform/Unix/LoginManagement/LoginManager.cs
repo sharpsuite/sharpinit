@@ -12,6 +12,7 @@ using NLog;
 using SharpInit.LoginManager;
 using SharpInit.Units;
 using Tmds.DBus;
+using Tmds.DBus.Protocol;
 
 namespace SharpInit.Platform.Unix.LoginManagement
 {
@@ -149,7 +150,7 @@ namespace SharpInit.Platform.Unix.LoginManagement
                     .WithProperty("Mount/Options", $"uid={user.UserId},gid={user.GroupId},mode=700,rw,nosuid,nodev,relatime,seclabel")
                     .WithProperty("Mount/What", "tmpfs");
                 
-                Log.Info(JsonConvert.SerializeObject(mount_unit_file));
+                //Log.Info(JsonConvert.SerializeObject(mount_unit_file));
 
                 Program.ServiceManager.Registry.IndexUnitFile(mount_unit_file);
                 var tx = Program.ServiceManager.Planner.CreateActivationTransaction(mount_unit_file.UnitName, "User starting");
@@ -225,27 +226,30 @@ namespace SharpInit.Platform.Unix.LoginManagement
                 
                 session.State = SessionState.Online;
 
-                if (!Seats.ContainsKey(request.seat_id))
+                if (request.seat_id == null || !Seats.ContainsKey(request.seat_id))
                 {
                     Log.Error($"CreateSession called with seat_id=\"{request.seat_id}\" which does not exist!");
-                    throw new Exception("Oopsie!");
+                    session.ActiveSeat = "";
+//                    throw new Exception("Oopsie!");
                 }
-
-                session.ActiveSeat = request.seat_id;
-                var seat = Seats[request.seat_id];
-                seat.ActiveSession = session.SessionId;
+                else
+                {
+                    session.ActiveSeat = request.seat_id;
+                    var seat = Seats[request.seat_id];
+                    seat.ActiveSession = session.SessionId;
+                }
                 
-                Log.Info($"PID is: {Syscall.getpid()}");
+                // Log.Info($"PID is: {Syscall.getpid()}");
 
-                Syscall.SetSignalAction(Signum.SIGSEGV, SignalAction.Default);
+                // Syscall.SetSignalAction(Signum.SIGSEGV, SignalAction.Default);
 
-                var threads = JsonConvert.SerializeObject(Process.GetCurrentProcess().Threads.OfType<ProcessThread>()
-                    .Select(thr =>
-                        new
-                        {
-                            thr.Id, thr.StartAddress, thr.ThreadState, Name = thr.ToString()
-                        }));
-                Log.Debug($"Threads: {threads}");
+                // var threads = JsonConvert.SerializeObject(Process.GetCurrentProcess().Threads.OfType<ProcessThread>()
+                //     .Select(thr =>
+                //         new
+                //         {
+                //             thr.Id, thr.StartAddress, thr.ThreadState, Name = thr.ToString()
+                //         }));
+                // Log.Debug($"Threads: {threads}");
                 
                 if (Program.ServiceManager.DBusManager != null)
                 {
@@ -287,6 +291,22 @@ namespace SharpInit.Platform.Unix.LoginManagement
 
                 Log.Debug($"fifo fd: {reply.fifo_fd.DangerousGetHandle()}");
                 
+                // Create scope for session.
+                var scope_name = $"session-{session.SessionId}.scope";
+
+                var scope_unit_file = new GeneratedUnitFile(scope_name)
+                    .WithProperty("Description", $"Session {session.SessionId} of user {session.UserName}")
+                    .WithProperty("Scope/Slice", $"user-{session.UserId}.slice");
+
+                Program.ServiceManager.Registry.IndexUnitFile(scope_unit_file);
+                var scope_unit = Program.ServiceManager.Registry.GetUnit<ScopeUnit>(scope_name);
+                var tx = Program.ServiceManager.Planner.CreateActivationTransaction(scope_unit, "Session starting");
+                Program.ServiceManager.Runner.Register(tx).Enqueue().Wait();
+
+                scope_unit.CGroup.Join(session.LeaderPid);
+                scope_unit.CGroup.Update();
+            
+                Program.ServiceManager.CGroupManager.RootCGroup.Update();
                 Log.Debug($"CreateSession response: {JsonConvert.SerializeObject(reply)}");
 
                 return reply;
@@ -298,8 +318,10 @@ namespace SharpInit.Platform.Unix.LoginManagement
             }
         }
 
-        public async Task<ObjectPath> GetSessionAsync(string session_id)
+        public async Task<ObjectPath> GetSessionAsync(string session_id, Tmds.DBus.Protocol.Message message)
         {
+            var pid_of_sender = await Program.ServiceManager.DBusManager.GetProcessIdByDBusName(message.Header.Sender);
+            Log.Info($"Fetching session {session_id}, source pid {pid_of_sender}");
             if (!Sessions.ContainsKey(session_id))
             {
                 return null;
@@ -312,12 +334,21 @@ namespace SharpInit.Platform.Unix.LoginManagement
             Task<(string sessionId, ObjectPath objectPath, string runtimePath, CloseSafeHandle fifoFd, uint uid, string
                 seatId, uint vtnr, bool existing)> CreateSessionAsync(uint Uid, uint Pid, string Service, string Type,
                 string Class, string Desktop, string SeatId, uint Vtnr, string Tty, string Display, bool Remote,
-                string RemoteUser, string RemoteHost, (string, object)[] Properties)
+                string RemoteUser, string RemoteHost, (string, object)[] Properties, Message message)
         {
+            var correct_pid = Pid;
+
+            if (correct_pid <= 0)
+            {
+                var pid_of_dbus_sender = await Program.ServiceManager.DBusManager.GetProcessIdByDBusName(message.Header.Sender);
+                if (pid_of_dbus_sender > 0)
+                    correct_pid = (uint)pid_of_dbus_sender;
+            }
+
             var resp = await CreateSession(new SessionRequest()
             {
                 uid = Uid,
-                pid = Pid,
+                pid = correct_pid,
                 service = Service,
                 type =  Type,
                 @class = Class,
