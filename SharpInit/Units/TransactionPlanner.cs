@@ -1,6 +1,9 @@
+// #define DEBUG_TRANSACTION_PLANNER // emit extremely detailed transaction planner decisions
+
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using SharpInit.Tasks;
@@ -32,7 +35,7 @@ namespace SharpInit.Units
             if (reason != null)
                 transaction.Add(new AlterTransactionContextTask("state_change_reason", reason));
 
-            var unit_list = new List<Unit>() { unit };
+            var units_to_start = new List<Unit>() { unit };
 
             var ignore_conflict_deactivation_failure = new Dictionary<string, bool>();
             var fail_if_unstarted = new Dictionary<string, bool>();
@@ -66,8 +69,8 @@ namespace SharpInit.Units
                     if (target_unit == null)
                         continue;
 
-                    if (!unit_list.Contains(target_unit))
-                        unit_list.Add(target_unit);
+                    if (!units_to_start.Contains(target_unit))
+                        units_to_start.Add(target_unit);
                     
                     if (!transaction.Reasoning.ContainsKey(target_unit))
                     {
@@ -79,6 +82,9 @@ namespace SharpInit.Units
 
                 copy_of_req_deps = Registry.RequirementDependencies.Clone();
             }
+            
+            copy_of_req_deps = Registry.RequirementDependencies.Clone();
+            copy_of_ord_deps = Registry.OrderingDependencies.Clone();
 
             // determine whether the failure of each unit activation makes the entire transaction fail
             string current_unit = unit.UnitName;
@@ -109,103 +115,11 @@ namespace SharpInit.Units
             }
 
             // determine whether each unit is actually to be started or not (Requisite only checks whether the unit is active)
-            fail_if_unstarted = unit_list.ToDictionary(u => u.UnitName, u => copy_of_req_deps.GetDependencies(u.UnitName).All(dep => dep.RequirementType == RequirementDependencyType.Requisite));
+            fail_if_unstarted = units_to_start.ToDictionary(u => u.UnitName, u => copy_of_req_deps.GetDependencies(u.UnitName).All(dep => dep.RequirementType == RequirementDependencyType.Requisite));
             fail_if_unstarted[unit.UnitName] = false; // the unit we're set out to start isn't subject to this
-
-            // create unit ordering according to ordering dependencies
-            var order_graph = copy_of_ord_deps.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
             
-            var new_order = new List<Unit>();
-            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit));
-            var initial_nodes_filtered = initial_nodes.Where(dependency => unit_list.Any(u => dependency.LeftUnit == u.UnitName || dependency.RightUnit == u.UnitName));
-            var selected_nodes = new List<List<string>>() { initial_nodes_filtered.Select(t => t.LeftUnit).Distinct().ToList() }; // find the "first" nodes
-
-            if (!initial_nodes_filtered.Any() && !initial_nodes.Any() && order_graph.Any())
-            {
-                // possible dependency loop
-                throw new Exception($"Failed to order dependent units while preparing the activation transaction for {unit.UnitName}.");
-            }
-            else if (!initial_nodes_filtered.Any())
-                new_order = unit_list;
-            else
-            {
-                var processed_vertices = new List<string>();
-
-                while(selected_nodes.Any())
-                {
-                    var node_list = selected_nodes[0];
-                    selected_nodes.RemoveAt(0);
-
-                    var edges_to_add = new List<string>();
-
-                    foreach (var dep in node_list)
-                    {
-                        processed_vertices.Add(dep);
-                        var dep_unit = Registry.GetUnit(dep);
-
-                        if (dep_unit == null)
-                        {
-                            if (!ignore_failure.ContainsKey(dep) || ignore_failure[dep])
-                                continue;
-                            else
-                                throw new Exception($"Couldn't find required unit {dep}");
-                        }
-                        
-                        if (unit_list.Contains(dep_unit) && !new_order.Contains(dep_unit))
-                        {
-                            new_order.Add(dep_unit);
-                        }
-
-                        var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
-                        other_edges.ForEach(edge => order_graph.Remove(edge));
-                        edges_to_add.AddRange(other_edges.Where(edge => { var m = edge.RightUnit; return !order_graph.Any(e => e.RightUnit == m && !processed_vertices.Contains(e.LeftUnit)); }).Select(t => t.RightUnit));
-
-                    }
-
-                    new_order.Add(null);
-                    edges_to_add = edges_to_add.Distinct().ToList();
-
-                    if (edges_to_add.Any())
-                        selected_nodes.Add(edges_to_add);
-                }
-
-                new_order = new_order.Concat(unit_list.Where(u => !new_order.Contains(u)).ToList()).ToList();
-                new_order.Reverse();
-
-                // check the new order against the rules
-                bool satisfied = true;
-                var breaking = new List<OrderingDependency>();
-
-                foreach (var order_rule in order_graph)
-                {
-                    var index_1 = new_order.FindIndex(u => u?.UnitName == order_rule.LeftUnit);
-                    var index_2 = new_order.FindIndex(u => u?.UnitName == order_rule.RightUnit);
-
-                    if (index_1 == -1 || index_2 == -1)
-                        continue;
-
-                    if (index_1 < index_2)
-                    {
-                        if (Registry.GetUnit(order_rule.LeftUnit) == null)
-                        {
-                            Log.Warn($"Ignoring ordering dependency against missing unit {order_rule.LeftUnit}");
-                            continue;
-                        }
-
-                        satisfied = false;
-                        breaking.Add(order_rule);
-                        break;
-                    }
-                }
-
-                if (!satisfied)
-                    throw new Exception($"Unsatisfiable set of ordering rules encountered when building the activation transaction for unit {unit.UnitName}: [{string.Join(", ", breaking.Select(b => b.ToString()))}].");
-            }
-
-            unit_list = new_order;
-
             // get a list of units to stop
-            var conflicts = unit_list.Where(u => u != null).SelectMany(u => copy_of_req_deps.GetDependencies(u.UnitName).Where(d => d.RequirementType == RequirementDependencyType.Conflicts));
+            var conflicts = units_to_start.Where(u => u != null).SelectMany(u => copy_of_req_deps.GetDependencies(u.UnitName).Where(d => d.RequirementType == RequirementDependencyType.Conflicts));
             var units_to_stop = new List<Unit>();
 
             foreach(var conflicting_dep in conflicts)
@@ -218,7 +132,7 @@ namespace SharpInit.Units
 
                 Unit unit_to_stop = null;
 
-                if (unit_list.Contains(left) && unit_list.Contains(right)) // conflict inside transaction
+                if (units_to_start.Contains(left) && units_to_start.Contains(right)) // conflict inside transaction
                 {
                     var left_ignorable = !ignore_failure.ContainsKey(left.UnitName) || ignore_failure[left.UnitName];
                     var right_ignorable = !ignore_failure.ContainsKey(right.UnitName) || ignore_failure[right.UnitName];
@@ -236,11 +150,11 @@ namespace SharpInit.Units
                         unit_to_stop = right;
                     }
                 }
-                else if (unit_list.Contains(left) && !units_to_stop.Contains(right))
+                else if (units_to_start.Contains(left) && !units_to_stop.Contains(right))
                 {
                     unit_to_stop = right;
                 }
-                else if (unit_list.Contains(right) && !units_to_stop.Contains(left))
+                else if (units_to_start.Contains(right) && !units_to_stop.Contains(left))
                 {
                     unit_to_stop = left;
                 }
@@ -267,21 +181,190 @@ namespace SharpInit.Units
                     return !ignore_failure.ContainsKey(requesting_end) || ignore_failure[requesting_end];
                 }));
 
-            // actually create the transaction
-
-            foreach (var sub_unit in units_to_stop)
+            // units we are either starting or stopping
+            var units_being_touched = units_to_start.Concat(units_to_stop).Distinct().ToList();
+            var unit_names_being_touched = units_being_touched.Select(u => u.UnitName).ToImmutableHashSet();
+            
+            // create unit ordering according to ordering dependencies
+            var order_graph = copy_of_ord_deps.TraverseDependencyGraph(unit.UnitName, t => true, true).ToList();
+            var order_graph_dup = order_graph.ToList();
+            
+            // prune our local copy of the ordering graph
+            // iteratively remove all orphaned edges that reference a unit that is not being touched by this transaction
+            while (true)
             {
-                transaction.AffectedUnits.Add(sub_unit);
-                var deactivation_transaction = CreateDeactivationTransaction(sub_unit, $"{unit.UnitName} is being activated, which conflicts with {sub_unit.UnitName}");
+                var orphaned_edges = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit));
+                var irrelevant_orphaned_edges = orphaned_edges.Where(dependency =>
+                    !unit_names_being_touched.Contains(dependency.LeftUnit) || !unit_names_being_touched.Contains(dependency.RightUnit)).ToList();
 
-                deactivation_transaction.Prepend(sub_unit.StopIf(UnitState.Inactive));
-                deactivation_transaction.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
+                if (!irrelevant_orphaned_edges.Any())
+                    break;
 
-                transaction.Add(deactivation_transaction);
-                transaction.Add(new SynchronizationTask());
+                foreach (var edge in irrelevant_orphaned_edges)
+                    order_graph.Remove(edge);
             }
 
-            foreach(var sub_unit in unit_list)
+            var pruned_order_graph = order_graph.ToList();
+            
+            var new_order = new List<Unit>();
+            // initial_nodes is "orphaned" dependencies; nothing comes _before_ them
+            var initial_nodes = order_graph.Where(dependency => !order_graph.Any(d => dependency.LeftUnit == d.RightUnit)).ToList();
+            // initial_nodes_filtered is the above but filtered to only include units we are starting or stopping
+            var initial_nodes_filtered = initial_nodes.Where(dependency => 
+                units_being_touched.Any(u => dependency.LeftUnit == u.UnitName || dependency.RightUnit == u.UnitName)).ToList();
+
+            // selected_nodes extracts node names from the dependencies above
+            var selected_nodes = new List<List<string>>();
+            //{ initial_nodes_filtered
+            //  .SelectMany(t => new [] { t.LeftUnit }).Distinct().Where(u => unit_list.Any(u_ => u_.UnitName == u)).ToList() }; // find the "first" nodes
+            foreach (var d in initial_nodes_filtered)
+            {
+                if (units_being_touched.Any(u => u.UnitName == d.LeftUnit))
+                {
+                    selected_nodes.Add(new() { d.LeftUnit });
+                }
+                else if (units_being_touched.Any(u => u.UnitName == d.RightUnit))
+                {
+                    selected_nodes.Add(new() { d.RightUnit });
+                }
+            }
+
+            selected_nodes = selected_nodes.Distinct().ToList();
+            var selected_nodes_copy = selected_nodes.ToList();
+
+            if (!initial_nodes_filtered.Any() && !initial_nodes.Any() && order_graph.Any())
+            {
+                // possible dependency loop
+                throw new Exception($"Failed to order dependent units while preparing the activation transaction for {unit.UnitName}.");
+            }
+            else if (!initial_nodes_filtered.Any())
+                new_order = units_being_touched;
+            else
+            {
+                var processed_vertices = new List<string>();
+
+                while(selected_nodes.Any())
+                {
+                    var node_list = selected_nodes[0];
+                    selected_nodes.RemoveAt(0);
+
+                    var edges_to_add = new List<string>();
+
+                    foreach (var dep in node_list)
+                    {
+                        processed_vertices.Add(dep);
+                        var dep_unit = Registry.GetUnit(dep);
+
+                        if (dep_unit == null)
+                        {
+                            if (!ignore_failure.ContainsKey(dep) || ignore_failure[dep])
+                            {
+#if DEBUG_TRANSACTION_PLANNER
+                                Log.Info($"Skipping failable nonexistent unit {dep}");
+#endif
+                                continue;
+                            }
+                            else
+                                throw new Exception($"Couldn't find required unit {dep}");
+                        }
+                        
+                        if (units_being_touched.Contains(dep_unit) && !new_order.Contains(dep_unit))
+                        {
+                            new_order.Add(dep_unit);
+                        }
+                        
+#if DEBUG_TRANSACTION_PLANNER
+                        Log.Debug($"At vertex {dep}");
+#endif
+
+                        var other_edges = order_graph.Where(d => d.LeftUnit == dep).ToList();
+                        other_edges.ForEach(edge => order_graph.Remove(edge));
+                        var local_edges_to_add = other_edges
+                            .Where(edge =>
+                            {
+                                var m = edge.RightUnit;
+                                return !order_graph
+                                    .Any(e => e.RightUnit == m/* && !processed_vertices.Contains(e.LeftUnit)*/);
+                            }).ToList();
+                        var local_vertices_to_add = local_edges_to_add.Select(t => t.RightUnit).ToList();
+                        edges_to_add.AddRange(local_vertices_to_add);
+
+#if DEBUG_TRANSACTION_PLANNER
+                        foreach (var e in other_edges)
+                        {
+                            if (local_edges_to_add.Contains(e))
+                            {
+                                Log.Debug($"Adding edge {e}");
+                            }
+                            else
+                            {
+                                Log.Debug(
+                                    $"Not adding edge {e} (disqualified by edges [{string.Join(", ", order_graph.Where(edge => edge.RightUnit == e.RightUnit).ToList())}])");
+                            }
+                        }
+#endif
+                    }
+
+                    new_order.Add(null);
+                    edges_to_add = edges_to_add.Distinct().ToList();
+
+                    if (edges_to_add.Any())
+                        selected_nodes.Insert(0, edges_to_add);
+                }
+
+                var ordered_copy = new_order.ToList();
+
+                new_order = new_order.Concat(units_being_touched.Where(u => !new_order.Contains(u)).ToList()).ToList();
+                new_order.Reverse();
+
+                // check the new order against the rules
+                bool satisfied = true;
+                var breaking = new List<OrderingDependency>();
+
+                foreach (var order_rule in order_graph)
+                {
+                    var index_1 = new_order.FindIndex(u => u?.UnitName == order_rule.LeftUnit);
+                    var index_2 = new_order.FindIndex(u => u?.UnitName == order_rule.RightUnit);
+
+                    if (index_1 == -1 || index_2 == -1)
+                        continue;
+
+                    if (index_1 < index_2)
+                    {
+                        if (Registry.GetUnit(order_rule.LeftUnit) == null)
+                        {
+                            Log.Warn($"Ignoring ordering dependency against missing unit {order_rule.LeftUnit}");
+                            continue;
+                        }
+
+                        satisfied = false;
+                        breaking.Add(order_rule);
+                        //break;
+                    }
+                }
+
+#if DEBUG_TRANSACTION_PLANNER
+                if (!satisfied)
+                    throw new Exception($"Unsatisfiable set of ordering rules encountered when building the " +
+                                        $"activation transaction for unit {unit.UnitName}: [\n    {string.Join("\n    ", breaking.Select(b => b.ToString()))}\n]. " +
+                                        $"Achieved ordering: [\n    {string.Join("\n    ", new_order.Where(u => u != null).Select(u => u.UnitName))}\n]. " +
+                                        $"Actually ordered: [\n    {string.Join("\n    ", ordered_copy.Where(u => u != null).Select(u => u.UnitName).Reverse())}\n]." +
+                                        $"Units requested for startup: [\n    {string.Join("\n    ", units_being_touched.Where(u => u != null).Select(u => u.UnitName).Reverse())}\n]." +
+                                        $"selected_nodes: [\n    {string.Join("\n    ", selected_nodes_copy.SelectMany(u => u))}\n]." +
+                                        $"initial_nodes: [\n    {string.Join("\n    ", initial_nodes)}\n]." +
+                                        $"All ordering rules: [\n    {string.Join("\n    ", order_graph_dup)}\n]." +
+                                        $"Pruned ordering rules: [\n    {string.Join("\n    ", pruned_order_graph)}\n].");
+#else
+                if (!satisfied)
+                    throw new Exception($"Unsatisfiable set of ordering rules encountered when building the activation"+
+                                        $"transaction for unit {unit.UnitName}: [{string.Join(", ", breaking)}]");
+#endif
+            }
+
+            units_being_touched = new_order;
+
+            // actually create the transaction
+            foreach(var sub_unit in units_being_touched)
             {
                 if (sub_unit == null)
                 {
@@ -289,18 +372,37 @@ namespace SharpInit.Units
                     continue;
                 }
 
-                transaction.AffectedUnits.Add(sub_unit);
-                var activation_transaction = sub_unit.GetActivationTransaction();
+                if (units_to_stop.Contains(sub_unit))
+                {
+                    transaction.AffectedUnits.Add(sub_unit);
+                    var deactivation_transaction = CreateDeactivationTransaction(sub_unit, $"{unit.UnitName} is being activated, which conflicts with {sub_unit.UnitName}");
 
-                if (fail_if_unstarted.ContainsKey(sub_unit.UnitName) && fail_if_unstarted[sub_unit.UnitName])
-                    activation_transaction.Prepend(sub_unit.StopIf(UnitState.Active));
+                    deactivation_transaction.Prepend(sub_unit.StopIf(UnitState.Inactive));
+                    deactivation_transaction.ErrorHandlingMode = ignore_conflict_deactivation_failure[sub_unit.UnitName] ? TransactionErrorHandlingMode.Ignore : TransactionErrorHandlingMode.Fail;
 
-                if (ignore_failure.ContainsKey(sub_unit.UnitName) && !ignore_failure[sub_unit.UnitName])
-                    activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
+                    transaction.Add(deactivation_transaction);
+                    transaction.Add(new SynchronizationTask());
+                }
+                else if (units_to_start.Contains(sub_unit))
+                {
+                    transaction.AffectedUnits.Add(sub_unit);
+                    var activation_transaction = sub_unit.GetActivationTransaction();
+
+                    if (fail_if_unstarted.ContainsKey(sub_unit.UnitName) && fail_if_unstarted[sub_unit.UnitName])
+                        activation_transaction.Prepend(sub_unit.StopIf(UnitState.Active));
+
+                    if (ignore_failure.ContainsKey(sub_unit.UnitName) && !ignore_failure[sub_unit.UnitName])
+                        activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Fail;
+                    else
+                        activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
+
+                    transaction.Add(activation_transaction);
+                }
                 else
-                    activation_transaction.ErrorHandlingMode = TransactionErrorHandlingMode.Ignore;
-
-                transaction.Add(activation_transaction);
+                {
+                    throw new Exception(
+                        $"Unit {sub_unit.UnitName} is neither being starter nor stopped but is included in ordering");
+                }
             }
 
             return transaction;

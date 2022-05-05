@@ -55,7 +55,7 @@ namespace SharpInit.Platform.Unix
 
                 var is_cloexec = Syscall.fcntl(fd, FcntlCommand.F_GETFD);
 
-                Log.Debug($"fcntl({fd}, F_GETFD) = {is_cloexec}");
+                //Log.Debug($"fcntl({fd}, F_GETFD) = {is_cloexec}");
                 
                 var r = Syscall.dup2(fd, new_fd);
 
@@ -232,7 +232,7 @@ namespace SharpInit.Platform.Unix
         public async System.Threading.Tasks.Task<ProcessInfo> StartAsync(ProcessStartInfo psi)
         {
             HashSet<int> opened_fds = new HashSet<int>();
-            Action<int> register_fd = (Action<int>)(fd => { Log.Info($"registered fd {fd}");if (fd > 0) { opened_fds.Add(fd); } });
+            Action<int> register_fd = (Action<int>)(fd => { if (fd > 0) { opened_fds.Add(fd); } });
             Action<int, int> register_fd_pair = (Action<int, int>)((a, b) => { register_fd(a); register_fd(b); });
             Action<IEnumerable<int>> register_fds = (Action<IEnumerable<int>>)(fds => { foreach (var fd in fds) { register_fd(fd); } });
             Func<int, bool> close_inner = (Func<int, bool>)(fd => { FileDescriptorRepository.Release(fd); return true; });

@@ -14,6 +14,11 @@ namespace SharpInit.Units
         private static List<string> TrueAliases = new List<string>() { "true", "yes", "1", "on" };
         private static List<string> FalseAliases = new List<string>() { "false", "no", "0", "off" };
 
+        public static bool UnitIsTemplate(string name)
+        {
+            return GetUnitName(name, with_parameter: false).Contains('@') && string.IsNullOrEmpty(GetUnitParameter(name));
+        }
+        
         public static string GetUnitName(string path, bool with_parameter = false)
         {
             if (path[1] == ':' && path[2] == '\\') // detect windows paths

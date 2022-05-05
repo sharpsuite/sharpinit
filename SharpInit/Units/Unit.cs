@@ -174,8 +174,16 @@ namespace SharpInit.Units
                 var after_deps = Descriptor.After.Select(after => new OrderingDependency(UnitName, after, UnitName, OrderingDependencyType.After));
                 var before_deps = Descriptor.Before.Select(before => new OrderingDependency(before, UnitName, UnitName, OrderingDependencyType.After));
 
-                OrderingDependencyGraph.AddDependencies(after_deps, before_deps);
-                OrderingDependencyGraph.AddDependencies(base_deps.OfType<OrderingDependency>());
+                IEnumerable<OrderingDependency> FilterTemplateUnits(IEnumerable<OrderingDependency> deps)
+                {
+                    // Filter out ordering dependencies involving uninstantiated template units. These cannot be started
+                    // anyway, and their inclusion into the dependency graph breaks other things.
+                    return deps.Where(d =>
+                        !UnitParser.UnitIsTemplate(d.LeftUnit) && !UnitParser.UnitIsTemplate(d.RightUnit));
+                }
+                
+                OrderingDependencyGraph.AddDependencies(FilterTemplateUnits(after_deps), FilterTemplateUnits(before_deps));
+                OrderingDependencyGraph.AddDependencies(FilterTemplateUnits(base_deps.OfType<OrderingDependency>()));
             }
 
             if(RequirementDependencyGraph != null)

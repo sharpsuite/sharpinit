@@ -57,9 +57,10 @@ namespace SharpInit.Tasks
                 
                 return await Runner.ExecuteAsync(tx, context);
             }
-            catch
+            catch (Exception ex)
             {
-                return new TaskResult(this, ResultType.SoftFailure, $"Late bound unit {(StateChangeType == UnitStateChangeType.Deactivation ? "de" : "")}activation failed for {UnitName}");
+                // $"Late bound unit {(StateChangeType == UnitStateChangeType.Deactivation ? "de" : "")}activation failed for {UnitName}", 
+                return new TaskResult(this, ResultType.SoftFailure, ex);
             }
         }
     }

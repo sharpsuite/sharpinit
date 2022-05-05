@@ -147,6 +147,11 @@ namespace SharpInit
                     {
                         ActivateUnitIfExists("default.target");
                     }
+                    else
+                    {
+                        Log.Debug($"--no-active-default passed, this would be the activation transaction:");
+                        Log.Debug(ServiceManager.Planner.CreateActivationTransaction("default.target").GenerateTree());
+                    }
 
                     Log.Info("Starting late platform initialization...");
                     platform_init.LateInitialize();
@@ -210,7 +215,7 @@ namespace SharpInit
                 }
                 else
                 {
-                    Log.Warn($"Failed to generate late-bound activation transaction for {name}.");
+                    Log.Warn($"Failed to generate late-bound activation transaction for {name}: {tx.Execution.Result}.");
                 }
 
                 var result = exec.Result;

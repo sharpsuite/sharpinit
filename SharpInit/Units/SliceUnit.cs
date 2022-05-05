@@ -85,6 +85,14 @@ namespace SharpInit.Units
                 yield return new OrderingDependency(left: "shutdown.target", right: UnitName, from: UnitName, type: OrderingDependencyType.After);
                 yield return new RequirementDependency(left: UnitName, right: "shutdown.target", from: UnitName, type: RequirementDependencyType.Conflicts);
             }
+
+            if (!string.IsNullOrWhiteSpace(ParentSlice) && ParentSlice != UnitName)
+            {
+                yield return new OrderingDependency(left: UnitName, right: ParentSlice, from: UnitName,
+                    OrderingDependencyType.After);
+                yield return new RequirementDependency(left: UnitName, right: ParentSlice, from: UnitName,
+                    type: RequirementDependencyType.Requires);
+            }
         }
 
         internal override Transaction GetActivationTransaction()
