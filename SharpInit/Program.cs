@@ -178,24 +178,34 @@ namespace SharpInit
         public static void Shutdown()
         {
             Log.Info("Initiating shutdown...");
-            DeactivateUnitIfExists("sockets.target");
-            DeactivateUnitIfExists("default.target");
-
-            foreach (var unit in ServiceManager.Registry.Units)
+            try
             {
-                if (unit.Value is DeviceUnit)
-                    continue;
-                
-                if (unit.Value.CurrentState.HasFlag(SharpInit.Units.UnitState.Activating) || 
-                    unit.Value.CurrentState.HasFlag(SharpInit.Units.UnitState.Active))
-                {
-                    DeactivateUnitIfExists(unit.Value.UnitName);
-                }
-            }
+                DeactivateUnitIfExists("sockets.target");
+                DeactivateUnitIfExists("default.target");
 
-            IpcListener.Stop();
-            Log.Info("Goodbye!");
-            Environment.FailFast(null);
+                foreach (var unit in ServiceManager.Registry.Units)
+                {
+                    if (unit.Value is DeviceUnit)
+                        continue;
+
+                    if (unit.Value.CurrentState.HasFlag(SharpInit.Units.UnitState.Activating) ||
+                        unit.Value.CurrentState.HasFlag(SharpInit.Units.UnitState.Active))
+                    {
+                        DeactivateUnitIfExists(unit.Value.UnitName);
+                    }
+                }
+
+                IpcListener.Stop();
+                Log.Info("Goodbye!");
+            }
+            catch
+            {
+
+            }
+            finally
+            {
+                Environment.FailFast(null);
+            }
         }
 
         private static void ActivateUnitIfExists(string name)

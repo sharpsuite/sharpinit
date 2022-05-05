@@ -20,16 +20,27 @@ namespace SharpInit.Platform.Unix.LoginManagement
         public static Logger Log = LogManager.GetCurrentClassLogger();
         
         [DllImport("libc", EntryPoint = "ioctl", SetLastError = true)]
+        internal static extern int Ioctl(int handle, uint request);
+        [DllImport("libc", EntryPoint = "ioctl", SetLastError = true)]
         internal static extern int Ioctl(int handle, uint request, ref vt_mode mode);
         
         private static readonly uint KDSKBMODE = 0x4B45;
         private static readonly uint K_OFF = 0x04;
+        private static readonly uint K_UNICODE = 0x03;
         private static readonly uint KDSETMODE = 0x4b3a;
+        private static readonly uint KD_TEXT = 0x00;
         private static readonly uint KD_GRAPHICS = 0x01;
+        private static readonly byte VT_AUTO = 0x00;
         private static readonly uint VT_GETMODE = 0x5601;
         private static readonly uint VT_SETMODE = 0x5602;
         internal static readonly uint DRM_IOCTL_SET_MASTER = 25630;
         internal static readonly uint DRM_IOCTL_DROP_MASTER = 25631;
+        internal static readonly uint EVIOCREVOKE = 1074021777;
+
+        internal static int EviocRevoke(int fd)
+        {
+            return TtyUtilities.Ioctl(fd, EVIOCREVOKE, 0);
+        }
         
         internal static bool PrepareVT(Session session)
         {
@@ -67,6 +78,33 @@ namespace SharpInit.Platform.Unix.LoginManagement
             
             Log.Debug($"VT_GETMODE: {JsonConvert.SerializeObject(vt_mode_tmp)}");
             
+            return true;
+        }
+
+        internal static bool RestoreVT(Session session)
+        {
+            var mode = new vt_mode()
+            {
+                mode = VT_AUTO
+            };
+            
+            var r = 0;
+            r = TtyUtilities.Ioctl(session.VTFd, KDSETMODE, KD_TEXT);
+
+            if (r < 0)
+            {
+                Log.Warn($"Failed to set VT to text mode");
+            }
+
+            r = TtyUtilities.Ioctl(session.VTFd, KDSKBMODE, K_UNICODE);
+            if (r != 0) { Log.Error($"KDSKBMODE ioctl call failed with {r}, errno: {Syscall.GetLastError()}"); }
+
+            r = Ioctl(session.VTFd, VT_SETMODE, ref mode); 
+            if (r != 0) { Log.Error($"VT_SETMODE ioctl call failed with {r}, errno: {Syscall.GetLastError()}"); }
+
+            var fi = new Mono.Unix.UnixFileInfo($"/dev/tty{session.VTNumber}");
+            fi.SetOwner(new UnixUserInfo(0));
+            fi.FileAccessPermissions = (FileAccessPermissions)400;
             return true;
         }
     }

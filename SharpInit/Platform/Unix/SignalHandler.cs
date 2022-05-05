@@ -70,7 +70,7 @@ namespace SharpInit.Platform.Unix
                 }
                 catch (Exception ex) 
                 { 
-                    Log.Error(ex, "Exception thrown in signal handler loop");
+                    Log.Error(ex, $"Exception thrown in signal handler loop {ex.Message} {ex.StackTrace}");
                 } // this loop should never exit, swallow all exceptions
             }
         }
@@ -81,7 +81,7 @@ namespace SharpInit.Platform.Unix
 
             int index = UnixSignal.WaitAny(copy_of_signals);
 
-            if (index > 0 && index < copy_of_signals.Length)
+            if (index >= 0 && index < copy_of_signals.Length)
             {
                 var signal = copy_of_signals[index];
 

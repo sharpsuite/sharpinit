@@ -9,7 +9,9 @@ namespace SharpInit.LoginManager
     {
         public Task ActivateAsync();
         public Task TakeControlAsync(bool force);
+        public Task ReleaseControlAsync();
         public Task<(CloseSafeHandle, bool)> TakeDeviceAsync(uint major, uint minor);
+        public Task ReleaseDeviceAsync(uint major, uint minor);
     }
 
     public enum SessionClass
