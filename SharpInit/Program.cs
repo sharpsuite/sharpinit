@@ -145,12 +145,16 @@ namespace SharpInit
 
                     if (!args.Any(a => a == "--no-activate-default")) 
                     {
-                        ActivateUnitIfExists("default.target");
+                        ActivateUnitIfExists("graphical.target");
                     }
                     else
                     {
-                        Log.Debug($"--no-active-default passed, this would be the activation transaction:");
-                        Log.Debug(ServiceManager.Planner.CreateActivationTransaction("default.target").GenerateTree());
+                        if (ServiceManager.Registry.GetUnit("graphical.target") != null)
+                        {
+                            Log.Debug($"--no-active-default passed, this would be the activation transaction:");
+                            Log.Debug(ServiceManager.Planner.CreateActivationTransaction("graphical.target")
+                                .GenerateTree());
+                        }
                     }
 
                     Log.Info("Starting late platform initialization...");

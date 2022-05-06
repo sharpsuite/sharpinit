@@ -6,11 +6,14 @@ using System.Reflection;
 using System.Text;
 
 using Mono.Unix.Native;
+using NLog;
 
 namespace SharpInit.Units
 {
     public static class UnitParser
     {
+        private static Logger Log = LogManager.GetCurrentClassLogger();
+        
         private static List<string> TrueAliases = new List<string>() { "true", "yes", "1", "on" };
         private static List<string> FalseAliases = new List<string>() { "false", "no", "0", "off" };
 
@@ -73,125 +76,146 @@ namespace SharpInit.Units
 
                 foreach (var property in properties)
                 {
-                    var path = property.Key;
-                    var values = property.Value;
-
-                    var name = string.Join("/", path.Split('/').Skip(1));
-
-                    var reaggregate_names = new Dictionary<string, Dictionary<string, List<string>>>()
+                    try
                     {
-                        {"Condition", descriptor.Conditions},
-                        {"Assert", descriptor.Assertions},
-                        {"Listen", descriptor.ListenStatements},
-                    };
 
-                    foreach (var reaggregation_pair in reaggregate_names)
-                    {
-                        if (name.StartsWith(reaggregation_pair.Key))
+                        var path = property.Key;
+                        var values = property.Value;
+
+                        var name = string.Join("/", path.Split('/').Skip(1));
+
+                        var reaggregate_names = new Dictionary<string, Dictionary<string, List<string>>>()
                         {
-                            var trimmed_name = name.Substring(reaggregation_pair.Key.Length);
+                            {"Condition", descriptor.Conditions},
+                            {"Assert", descriptor.Assertions},
+                            {"Listen", descriptor.ListenStatements},
+                        };
 
-                            if (reaggregation_pair.Value.ContainsKey(trimmed_name))
-                                reaggregation_pair.Value[trimmed_name] = reaggregation_pair.Value[trimmed_name].Concat(values).ToList();
-                            else
-                                reaggregation_pair.Value[trimmed_name] = values.ToList();
-                        }
-                    }
-
-                    var prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(descriptor_type, path);
-
-                    if (prop == null)
-                    {
-                        // handle .exec unit paths
-                        // The execution specific configuration options are configured in the [Service], [Socket], [Mount], or [Swap] sections, depending on the unit type.
-                        if (path.StartsWith(ext + "/", StringComparison.InvariantCultureIgnoreCase))
+                        foreach (var reaggregation_pair in reaggregate_names)
                         {
-                            path = "@" + path.Substring(ext.Length);
+                            if (name.StartsWith(reaggregation_pair.Key))
+                            {
+                                var trimmed_name = name.Substring(reaggregation_pair.Key.Length);
+
+                                if (reaggregation_pair.Value.ContainsKey(trimmed_name))
+                                    reaggregation_pair.Value[trimmed_name] = reaggregation_pair.Value[trimmed_name]
+                                        .Concat(values).ToList();
+                                else
+                                    reaggregation_pair.Value[trimmed_name] = values.ToList();
+                            }
                         }
 
-                        prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(descriptor_type, path);
+                        var prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(descriptor_type, path);
 
                         if (prop == null)
-                            continue;
-                    }
-
-                    var attribute = (UnitPropertyAttribute)prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false)[0];
-                    var handler_type = attribute.PropertyType;
-                    var last_value = values.Last();
-
-                    properties_touched.Add(prop);
-
-                    switch (handler_type)
-                    {
-                        case UnitPropertyType.String:
-                            prop.SetValue(descriptor, last_value);
-                            break;
-                        case UnitPropertyType.Int:
-                            if (!int.TryParse(last_value, out int prop_val_int))
-                                break; // for now
-                            prop.SetValue(descriptor, prop_val_int);
-                            break;
-                        case UnitPropertyType.IntOctal:
-                            try 
+                        {
+                            // handle .exec unit paths
+                            // The execution specific configuration options are configured in the [Service], [Socket], [Mount], or [Swap] sections, depending on the unit type.
+                            if (path.StartsWith(ext + "/", StringComparison.InvariantCultureIgnoreCase))
                             {
-                                prop.SetValue(descriptor, Convert.ToInt32(last_value, 8));
+                                path = "@" + path.Substring(ext.Length);
                             }
-                            catch {}
-                            break;
-                        case UnitPropertyType.Bool:
-                            if (TrueAliases.Contains(last_value.ToLower()))
-                                prop.SetValue(descriptor, true);
-                            else if (FalseAliases.Contains(last_value.ToLower()))
-                                prop.SetValue(descriptor, false);
-                            break;
-                        case UnitPropertyType.StringList:
-                            if (prop.GetValue(descriptor) == null)
-                                prop.SetValue(descriptor, new List<string>());
 
-                            (prop.GetValue(descriptor) as List<string>).AddRange(values);
-                            break;
-                        case UnitPropertyType.StringListSpaceSeparated:
-                            if (prop.GetValue(descriptor) == null)
-                                prop.SetValue(descriptor, new List<string>());
-                            
-                            values = values.SelectMany(s => SplitSpaceSeparatedValues(s)).ToList();
-                            (prop.GetValue(descriptor) as List<string>).AddRange(values);
-                            break;
-                        case UnitPropertyType.Time:
-                            prop.SetValue(descriptor, ParseTimeSpan(last_value));
-                            break;
-                        case UnitPropertyType.Enum:
-                            prop.SetValue(descriptor, Enum.Parse(attribute.EnumType, last_value.Replace("-", ""), true));
-                            break;
-                        case UnitPropertyType.Signal:
-                            Mono.Unix.Native.Signum sigval = Mono.Unix.Native.Signum.SIGUNUSED;
-                            var signame = last_value.ToUpperInvariant();
+                            prop = ReflectionHelpers.GetClassPropertyInfoByPropertyPath(descriptor_type, path);
 
-                            if (int.TryParse(signame, out int signum))
-                            {
-                                if (Enum.IsDefined(typeof(Mono.Unix.Native.Signum), signum))
+                            if (prop == null)
+                                continue;
+                        }
+
+                        var attribute =
+                            (UnitPropertyAttribute) prop.GetCustomAttributes(typeof(UnitPropertyAttribute), false)[0];
+                        var handler_type = attribute.PropertyType;
+                        var last_value = values.Last();
+
+                        properties_touched.Add(prop);
+
+                        switch (handler_type)
+                        {
+                            case UnitPropertyType.String:
+                                prop.SetValue(descriptor, last_value);
+                                break;
+                            case UnitPropertyType.Int:
+                                if (!int.TryParse(last_value, out int prop_val_int))
+                                    break; // for now
+                                prop.SetValue(descriptor, prop_val_int);
+                                break;
+                            case UnitPropertyType.IntOctal:
+                                try
                                 {
-                                    sigval = (Mono.Unix.Native.Signum)signum;
+                                    prop.SetValue(descriptor, Convert.ToInt32(last_value, 8));
                                 }
-                            }
+                                catch
+                                {
+                                }
 
-                            if (!signame.StartsWith("SIG"))
-                                signame = "SIG" + signame;
-                            
-                            if (Enum.IsDefined(typeof(Mono.Unix.Native.Signum), signame))
-                            {
-                                sigval = Enum.Parse<Mono.Unix.Native.Signum>(signame);
-                            }
+                                break;
+                            case UnitPropertyType.Bool:
+                                if (TrueAliases.Contains(last_value.ToLower()))
+                                    prop.SetValue(descriptor, true);
+                                else if (FalseAliases.Contains(last_value.ToLower()))
+                                    prop.SetValue(descriptor, false);
+                                break;
+                            case UnitPropertyType.StringList:
+                                foreach (var value in values)
+                                {
+                                    if (prop.GetValue(descriptor) == null || string.IsNullOrWhiteSpace(value))
+                                        prop.SetValue(descriptor, new List<string>());
 
-                            if (sigval != Signum.SIGUNUSED)
-                            {
-                                if (prop.PropertyType == typeof(Signum))
-                                    prop.SetValue(descriptor, sigval);
-                                else if (prop.PropertyType == typeof(int))
-                                    prop.SetValue(descriptor, (int)sigval);
-                            }
+                                    if (!string.IsNullOrWhiteSpace(value))
+                                        (prop.GetValue(descriptor) as List<string>).Add(value);
+                                }
+                                break;
+                            case UnitPropertyType.StringListSpaceSeparated:
+                                foreach (var value in values)
+                                {
+                                    if (prop.GetValue(descriptor) == null || string.IsNullOrWhiteSpace(value))
+                                        prop.SetValue(descriptor, new List<string>());
+                                    
+                                    if (!string.IsNullOrWhiteSpace(value))
+                                        (prop.GetValue(descriptor) as List<string>).AddRange(SplitSpaceSeparatedValues(value));
+                                }
+                                break;
+                            case UnitPropertyType.Time:
+                                prop.SetValue(descriptor, ParseTimeSpan(last_value));
+                                break;
+                            case UnitPropertyType.Enum:
+                                prop.SetValue(descriptor,
+                                    Enum.Parse(attribute.EnumType, last_value.Replace("-", ""), true));
+                                break;
+                            case UnitPropertyType.Signal:
+                                Mono.Unix.Native.Signum sigval = Mono.Unix.Native.Signum.SIGUNUSED;
+                                var signame = last_value.ToUpperInvariant();
 
-                            break;
+                                if (int.TryParse(signame, out int signum))
+                                {
+                                    if (Enum.IsDefined(typeof(Mono.Unix.Native.Signum), signum))
+                                    {
+                                        sigval = (Mono.Unix.Native.Signum) signum;
+                                    }
+                                }
+
+                                if (!signame.StartsWith("SIG"))
+                                    signame = "SIG" + signame;
+
+                                if (Enum.IsDefined(typeof(Mono.Unix.Native.Signum), signame))
+                                {
+                                    sigval = Enum.Parse<Mono.Unix.Native.Signum>(signame);
+                                }
+
+                                if (sigval != Signum.SIGUNUSED)
+                                {
+                                    if (prop.PropertyType == typeof(Signum))
+                                        prop.SetValue(descriptor, sigval);
+                                    else if (prop.PropertyType == typeof(int))
+                                        prop.SetValue(descriptor, (int) sigval);
+                                }
+
+                                break;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e, $"Exception thrown while parsing property {property.Key} in file {file}");
                     }
                 }
             }
@@ -230,107 +254,117 @@ namespace SharpInit.Units
 
         public static TimeSpan ParseTimeSpan(string str)
         {
-            if (double.TryParse(str, out double seconds)) // if the entire string is one number, treat it as the number of seconds
-                return TimeSpan.FromSeconds(seconds);
-            
-            if (string.IsNullOrWhiteSpace(str))
-                return TimeSpan.Zero;
-
-            var span = TimeSpan.Zero;
-
-            var zero = DateTime.MinValue;
-            var base_date = zero;
-            var words = str.Split(' ');
-
-            Dictionary<string, string> mappings = new Dictionary<string, string>()
+            try
             {
-                {"y", "year" },
-                {"m", "minute" },
-                {"s", "second" },
-                {"d", "day" },
-                {"w", "week" },
-                {"h", "hour" },
-                {"ms", "millisecond" }
-            };
+                if (double.TryParse(str,
+                        out double seconds)) // if the entire string is one number, treat it as the number of seconds
+                    return TimeSpan.FromSeconds(seconds);
 
-            for (int i = 0; i < words.Length; i++)
-            {
-                double amount = 0;
-                string unit = "";
-                var word = words[i];
+                if (string.IsNullOrWhiteSpace(str))
+                    return TimeSpan.Zero;
 
-                if (!double.TryParse(word, out amount))
+                var span = TimeSpan.Zero;
+
+                var zero = DateTime.MinValue;
+                var base_date = zero;
+                var words = str.Split(' ');
+
+                Dictionary<string, string> mappings = new Dictionary<string, string>()
                 {
-                    var chopped_off = Enumerable.Range(1, word.Length).Reverse().Select(offset =>
-                        word.Substring(0, offset)).Where(s => double.TryParse(s, out amount));
+                    {"y", "year"},
+                    {"m", "minute"},
+                    {"s", "second"},
+                    {"d", "day"},
+                    {"w", "week"},
+                    {"h", "hour"},
+                    {"ms", "millisecond"}
+                };
 
-                    if (!chopped_off.Any())
-                        continue;
+                for (int i = 0; i < words.Length; i++)
+                {
+                    double amount = 0;
+                    string unit = "";
+                    var word = words[i];
 
-                    bool found = false;
-
-                    foreach (var fragment in chopped_off)
+                    if (!double.TryParse(word, out amount))
                     {
-                        var longest = fragment;
-                        var possible_unit = word.Substring(longest.Length);
+                        var chopped_off = Enumerable.Range(1, word.Length).Reverse().Select(offset =>
+                            word.Substring(0, offset)).Where(s => double.TryParse(s, out amount));
 
-                        if (double.TryParse(longest, out amount) &&
-                            mappings.ContainsKey(possible_unit))
+                        if (!chopped_off.Any())
+                            continue;
+
+                        bool found = false;
+
+                        foreach (var fragment in chopped_off)
                         {
-                            unit = mappings[possible_unit];
-                            found = true;
-                            break;
+                            var longest = fragment;
+                            var possible_unit = word.Substring(longest.Length);
+
+                            if (double.TryParse(longest, out amount) &&
+                                mappings.ContainsKey(possible_unit))
+                            {
+                                unit = mappings[possible_unit];
+                                found = true;
+                                break;
+                            }
+                            else
+                                continue;
                         }
-                        else
+
+                        if (!found)
                             continue;
                     }
 
-                    if (!found)
-                        continue;
+                    switch (unit)
+                    {
+                        case "year":
+                            while (amount >= 1)
+                            {
+                                base_date = base_date.AddYears(1);
+                                amount -= 1;
+                            }
+
+                            base_date = base_date.AddDays(amount * (DateTime.IsLeapYear(base_date.Year) ? 366 : 365));
+                            break;
+                        case "month":
+                            while (amount >= 1)
+                            {
+                                base_date = base_date.AddMonths(1);
+                                amount -= 1;
+                            }
+
+                            base_date = base_date.AddDays(
+                                amount * DateTime.DaysInMonth(base_date.Year, base_date.Month));
+                            break;
+                        case "week":
+                            base_date = base_date.AddDays(amount * 7);
+                            break;
+                        case "day":
+                            base_date = base_date.AddDays(amount);
+                            break;
+                        case "hour":
+                            base_date = base_date.AddHours(amount);
+                            break;
+                        case "minute":
+                            base_date = base_date.AddMinutes(amount);
+                            break;
+                        case "second":
+                            base_date = base_date.AddSeconds(amount);
+                            break;
+                        case "millisecond":
+                            base_date = base_date.AddMilliseconds(amount);
+                            break;
+                    }
                 }
 
-                switch (unit)
-                {
-                    case "year":
-                        while (amount >= 1)
-                        {
-                            base_date = base_date.AddYears(1);
-                            amount -= 1;
-                        }
-
-                        base_date = base_date.AddDays(amount * (DateTime.IsLeapYear(base_date.Year) ? 366 : 365));
-                        break;
-                    case "month":
-                        while (amount >= 1)
-                        {
-                            base_date = base_date.AddMonths(1);
-                            amount -= 1;
-                        }
-
-                        base_date = base_date.AddDays(amount * DateTime.DaysInMonth(base_date.Year, base_date.Month));
-                        break;
-                    case "week":
-                        base_date = base_date.AddDays(amount * 7);
-                        break;
-                    case "day":
-                        base_date = base_date.AddDays(amount);
-                        break;
-                    case "hour":
-                        base_date = base_date.AddHours(amount);
-                        break;
-                    case "minute":
-                        base_date = base_date.AddMinutes(amount);
-                        break;
-                    case "second":
-                        base_date = base_date.AddSeconds(amount);
-                        break;
-                    case "millisecond":
-                        base_date = base_date.AddMilliseconds(amount);
-                        break;
-                }
+                return base_date - zero;
             }
-
-            return base_date - zero;
+            catch (Exception e)
+            {
+                Log.Error(e, $"Exception thrown while parsing timespan {str}");
+                return TimeSpan.Zero;
+            }
         }
 
         public static OnDiskUnitFile ParseFile(string path)

@@ -146,7 +146,8 @@ namespace SharpInit.Tasks
                     }
 
                     if (!result.Type.HasFlag(ResultType.Success) &&
-                        !result.Type.HasFlag(ResultType.Ignorable))
+                        !result.Type.HasFlag(ResultType.Ignorable) &&
+                        !result.Type.HasFlag(ResultType.StopExecution))
                     {
                         Context["failure"] = result;
 
@@ -169,7 +170,7 @@ namespace SharpInit.Tasks
                     {
                         var result_to_propagate = result.Type ^ ResultType.StopExecution;
 
-                        if (result_to_propagate == (ResultType)0)
+                        if (result_to_propagate == (ResultType)0 || result_to_propagate == ResultType.Ignorable)
                             result_to_propagate = ResultType.Success;
 
                         return new TaskResult(this, result_to_propagate);

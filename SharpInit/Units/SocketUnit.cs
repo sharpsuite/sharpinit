@@ -74,7 +74,7 @@ namespace SharpInit.Units
             {
                 if (target_unit.CurrentState == UnitState.Active || target_unit.CurrentState == UnitState.Activating)
                 {
-                    Log.Debug($"Returning for already-active socket target \"{target_unit}\"");
+                    //Log.Debug($"Returning for already-active socket target \"{target_unit}\"");
                     return;
                 }
             }

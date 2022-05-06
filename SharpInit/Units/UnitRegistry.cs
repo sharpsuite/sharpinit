@@ -175,18 +175,22 @@ namespace SharpInit.Units
         public int ScanDefaultDirectories()
         {
             int count = 0;
-            var env_units_parts = (Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
+            var env_units_parts = (Environment.GetEnvironmentVariable("SHARPINIT_UNIT_PATH") ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries);
 
             ScanDirectories.Clear();
             ScanDirectories.AddRange(DefaultScanDirectories);
             ScanDirectories.AddRange(env_units_parts.Where(Directory.Exists));
+            Log.Debug($"Scanning these directories for unit files: {string.Join("; ", ScanDirectories)}");
 
             ReloadPre();
 
             foreach (var dir in ScanDirectories)
             {
                 if (!Directory.Exists(dir))
+                {
+                    Log.Warn($"Asked to scan nonexistent directory {dir}");
                     continue;
+                }
 
                 count += ScanDirectory(dir);
             }
@@ -226,6 +230,7 @@ namespace SharpInit.Units
 
             foreach (var file in files)
             {
+                Log.Debug($"Indexing unit file {file}");
                 if (file.EndsWith(".conf") && directory_name.EndsWith(".d"))
                 {
                     IndexDropInFileByPath(file);
@@ -400,8 +405,11 @@ namespace SharpInit.Units
             var unit_file = UnitParser.ParseFile(path);
 
             if (unit_file == null)
+            {
+                Log.Warn($"Failed to parse unit file at path {path}");
                 return false;
-            
+            }
+
             return IndexUnitFile(unit_file);
         }
 
