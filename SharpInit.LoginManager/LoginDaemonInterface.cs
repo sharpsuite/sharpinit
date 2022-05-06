@@ -50,6 +50,7 @@ namespace SharpInit.LoginManager
     [DBusInterface("org.freedesktop.login1.Manager")]
     public interface ILoginDaemon : IDBusObject
     {
+        Task<ObjectPath> GetSeatAsync(string seat_id);
         Task<ObjectPath> GetSessionAsync(string session_id, Tmds.DBus.Protocol.Message message);
         
         Task<(string sessionId, ObjectPath objectPath, string runtimePath, CloseSafeHandle fifoFd, uint uid, string seatId, uint vtnr, bool existing)> CreateSessionAsync(uint Uid, uint Pid

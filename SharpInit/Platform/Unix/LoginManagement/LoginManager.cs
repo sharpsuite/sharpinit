@@ -30,7 +30,7 @@ namespace SharpInit.Platform.Unix.LoginManagement
             UdevEnumerator.DeviceAdded += OnDeviceAdded;
             UdevEnumerator.DeviceUpdated += OnDeviceUpdated;
 
-            Seats["seat0"] = new Seat("seat0");
+            Seats["seat0"] = new Seat(this, "seat0");
             ObjectPath = new ObjectPath("/org/freedesktop/login1");
 
             if (!Directory.Exists("/run/systemd/seats"))
@@ -76,7 +76,7 @@ namespace SharpInit.Platform.Unix.LoginManagement
             if (seat == null)
             {
                 Log.Debug($"Created new seat {seat_id}");
-                Seats[seat_id] = seat = new Seat(seat_id);
+                Seats[seat_id] = seat = new Seat(this, seat_id);
             }
 
             if (seat.Devices.Contains(device.SysPath))
@@ -318,6 +318,17 @@ namespace SharpInit.Platform.Unix.LoginManagement
             }
         }
 
+        public async Task<ObjectPath> GetSeatAsync(string seat_id)
+        {
+            if (!Seats.ContainsKey(seat_id))
+            {
+                Log.Warn($"Asked for seat {seat_id} which does not exist");
+                return null;
+            }
+
+            return Seats[seat_id].ObjectPath;
+        }
+
         public async Task<ObjectPath> GetSessionAsync(string session_id, Tmds.DBus.Protocol.Message message)
         {
             var pid_of_sender = await Program.ServiceManager.DBusManager.GetProcessIdByDBusName(message.Header.Sender);
@@ -370,6 +381,14 @@ namespace SharpInit.Platform.Unix.LoginManagement
         public async Task ReleaseSessionAsync(string session_id)
         {
             Log.Debug($"Asked to release session {session_id}");
+            
+            if (Program.ServiceManager.DBusManager != null && Sessions.ContainsKey(session_id))
+            {
+                var session = Sessions[session_id];
+                Log.Info($"Unregistering session {session.SessionId} with dbus service");
+                Program.ServiceManager.DBusManager.LoginManagerConnection.UnregisterObject(session);
+                Log.Info($"Unregistered session {session.SessionId} with dbus service");
+            }
         }
         
     }

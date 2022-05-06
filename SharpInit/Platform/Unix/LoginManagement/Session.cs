@@ -43,6 +43,19 @@ namespace SharpInit.Platform.Unix.LoginManagement
             StateFile = $"/run/systemd/sessions/{session_id}";
         }
 
+        public async Task<object> GetAsync(string key)
+        {
+            Log.Debug($"Querying key {key} on session {SessionId}");
+
+            switch (key)
+            {
+                case "Active":
+                    return State == SessionState.Active || State == SessionState.Online;
+            }
+
+            return null;
+        }
+
         public async Task ActivateAsync()
         {
             Log.Debug($"Asked to activate session {SessionId}");
@@ -180,6 +193,19 @@ namespace SharpInit.Platform.Unix.LoginManagement
 
             session_device = SessionDevices[dev.SysPath];
             session_device.StopDevice();
+        }
+
+        public async Task SetTypeAsync(string type)
+        {
+            if (Enum.TryParse(type, true, out SessionType newType))
+            {
+                Type = newType;
+                Log.Info($"Session {SessionId} has new type {newType}");
+            }
+            else
+            {
+                Log.Warn($"Unrecognized session type {type}");
+            }
         }
 
         public async Task<(CloseSafeHandle, bool)> TakeDeviceAsync(uint major, uint minor)
