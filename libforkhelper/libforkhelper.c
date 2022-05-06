@@ -22,8 +22,10 @@ typedef struct {
     int32_t semaphore_fd;
     int32_t uid;
     int32_t gid;
+    int* reopen_fds;
     char* binary;
     char* working_dir;
+    char* env_pid_fill;
     char** envp;
     char** argv;
 } forkhelper_t;
@@ -32,7 +34,7 @@ int interruptible_dup2(int fd1, int fd2)
 {
     while (dup2(fd1, fd2) == -1)
     {
-        if (errno == EINTR)
+        if (errno == EINTR || errno == EBUSY)
             continue;
         
         return errno;
@@ -111,6 +113,26 @@ int augmented_fork(forkhelper_t a)
             }
         }
 
+        int fill_pid = 0;
+        if (args->env_pid_fill != NULL && strnlen(args->env_pid_fill, 50) > 0) {
+            fill_pid = 1;
+            dprintf(args->control_fd, "filling pid to env %s\n", args->env_pid_fill);
+        }
+        
+        if (args->reopen_fds != NULL)
+        {
+            int* fd_to_reopen = args->reopen_fds;
+            int next_fd = 3;
+            while ((*fd_to_reopen) != -1)
+            {
+                dup2_err = interruptible_dup2(*fd_to_reopen, next_fd);
+                if (dup2_err != next_fd) { dprintf(args->control_fd, "dup2-fd:%d\n", dup2_err); exit(208); }
+                dprintf(args->control_fd, "_dup2-fd:%d->%d\n", *fd_to_reopen, next_fd);
+                fd_to_reopen++;
+                next_fd++;
+            }
+        }
+
         if (args->envp)
         {
             char** local_envp = args->envp;
@@ -131,6 +153,12 @@ int augmented_fork(forkhelper_t a)
                 strncpy(env_key, env, key_size);
 
                 env_val++;
+                if (fill_pid == 1 && strcmp(env_key, args->env_pid_fill) == 0)
+                {
+                    env_val = (char*)calloc(100, sizeof(char));
+                    snprintf(env_val, 99, "%d", getpid());
+                }
+
                 dprintf(args->control_fd, "_setenv:%s=%s\n", env_key, env_val);
                 setenv(env_key, env_val, 1);
             }

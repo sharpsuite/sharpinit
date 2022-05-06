@@ -25,8 +25,10 @@ namespace SharpInit.Platform.Unix
         public int semaphore_fd;
         public int uid;
         public int gid;
+        public int* reopen_fds;
         public string binary;
         public string working_dir;
+        public string env_pid_fill;
         public byte** envp;
         public byte** argv;
     }
@@ -343,6 +345,7 @@ namespace SharpInit.Platform.Unix
                     stderr_fd = stderr_write,
                     control_fd = control_write,
                     semaphore_fd = semaphore_read,
+                    env_pid_fill = "",
                     gid = (int)user_identifier.GroupId,
                     uid = (int)user_identifier.UserId
                 };
@@ -351,10 +354,34 @@ namespace SharpInit.Platform.Unix
                 Array.Copy(psi.Arguments, 0, argv, 1, psi.Arguments.Length);
                 argv[0] = psi.Path;
 
-                var envp = psi.Environment.Select(p => $"{p.Key}={p.Value}").ToArray();
+                var envcopy = psi.Environment.ToDictionary(e => e.Key, e => e.Value);
+
+                if (envcopy.ContainsKey("LISTEN_PID") && envcopy["LISTEN_PID"] == "fill")
+                {
+                    helper.env_pid_fill = "LISTEN_PID";
+                }
+
+
+                var envp = envcopy.Select(p => $"{p.Key}={p.Value}").ToArray();
 
                 unsafe
                 {
+                    int* reopen_buf;
+                    
+                    if (envcopy.ContainsKey("LISTEN_FDNUMS"))
+                    {
+                        var reopen_fds = (envcopy["LISTEN_FDNUMS"] + ":-1").Split(":").Select(int.Parse).ToArray();
+                        reopen_buf = (int*) Marshal.AllocHGlobal(reopen_fds.Length * sizeof(int));
+                        Marshal.Copy(reopen_fds, 0, (IntPtr)reopen_buf, reopen_fds.Length);
+                    }
+                    else
+                    {
+                        reopen_buf = (int*)Marshal.AllocHGlobal(1 * sizeof(int));
+                        reopen_buf[0] = -1;
+                    }
+                    
+                    helper.reopen_fds = reopen_buf;
+                    
                     AllocNullTerminatedArray(envp, ref helper.envp);
                     envp_c = envp.Length;
                     AllocNullTerminatedArray(argv, ref helper.argv);
