@@ -37,7 +37,7 @@ namespace SharpInit.Platform.Unix
             Log.Debug($"SharpInit is {(IsSystemManager ? "the" : "not the")} system manager.");
 
             IsPrivileged = Syscall.getuid() == 0;
-            UnderSystemd = Directory.Exists("/var/run/systemd");
+            UnderSystemd = Directory.Exists("/var/run/systemd") && !IsSystemManager;
 
             var sid = Syscall.setsid();
             Log.Debug($"New session id is {sid}");
