@@ -63,6 +63,11 @@ namespace SharpInit.Units
             if (Descriptor.DefaultDependencies) 
             {
                 yield return new RequirementDependency(left: UnitName, right: "sysinit.target", from: UnitName, type: RequirementDependencyType.Requires);
+                yield return new OrderingDependency(left: UnitName, right: "sysinit.target", from: UnitName,
+                    type: OrderingDependencyType.After);
+                yield return new OrderingDependency(left: UnitName, right: "basic.target", from: UnitName,
+                    type: OrderingDependencyType.After);
+
                 yield return new RequirementDependency(left: UnitName, right: "basic.target", from: UnitName, type: RequirementDependencyType.Requires);
                 yield return new RequirementDependency(left: UnitName, right: "shutdown.target", from: UnitName, type: RequirementDependencyType.Conflicts);
             }
@@ -306,9 +311,9 @@ namespace SharpInit.Units
 
             if (Descriptor.ServiceType != ServiceType.Oneshot && Descriptor.ExecStart?.Count != 1)
             {    
-                Log.Error($"Service type \"{Descriptor.ServiceType}\" only supports one ExecStart value, {UnitName} has {Descriptor.ExecStart.Count}");
-                SetState(UnitState.Failed, $"\"{Descriptor.ServiceType}\" service has more than one ExecStart");
-                return null;       
+                Log.Warn($"Service type \"{Descriptor.ServiceType}\" only supports one ExecStart value, {UnitName} has {Descriptor.ExecStart.Count}");
+                //SetState(UnitState.Failed, $"\"{Descriptor.ServiceType}\" service has more than one ExecStart");
+                //return null;       
             }
             
             transaction.Add(new RecordUnitStartupAttemptTask(this));
