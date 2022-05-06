@@ -171,5 +171,10 @@ namespace SharpInit.Tasks
             new UnitStateConditionTask(unit, unmatched: ResultType.Success, (target_mask, ResultType.StopExecution));
         public static UnitStateConditionTask StopIf(this Unit unit, UnitState target_mask, TimeSpan timeout) =>
             new UnitStateConditionTask(unit, timeout: timeout, unmatched: ResultType.Success, (target_mask, ResultType.StopExecution));
+        
+        public static UnitStateConditionTask SkipIf(this Unit unit, UnitState target_mask) =>
+            new UnitStateConditionTask(unit, unmatched: ResultType.Success, (target_mask, ResultType.StopExecution | ResultType.Ignorable));
+        public static UnitStateConditionTask SkipIf(this Unit unit, UnitState target_mask, TimeSpan timeout) =>
+            new UnitStateConditionTask(unit, timeout: timeout, unmatched: ResultType.Success, (target_mask, ResultType.StopExecution | ResultType.Ignorable));
     }
 }
