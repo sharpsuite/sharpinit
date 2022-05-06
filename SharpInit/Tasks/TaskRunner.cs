@@ -204,7 +204,7 @@ namespace SharpInit.Tasks
                 }
                 catch (Exception ex)
                 {
-                    execution.Result = new TaskResult(execution.Task, ResultType.Failure, ex.Message);
+                    execution.Result = new TaskResult(execution.Task, ResultType.Failure, ex);
                     Log.Error(ex);
                 }
                 finally

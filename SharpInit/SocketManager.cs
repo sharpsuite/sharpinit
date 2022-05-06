@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.IO;
 
 using NLog;
+using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
@@ -98,7 +99,43 @@ namespace SharpInit
                     {
                         var concatted = dir + "/" + segment;
                         Directory.CreateDirectory(concatted);
-                        new UnixDirectoryInfo(concatted).FileAccessPermissions = (FileAccessPermissions)(unit as SocketUnit).Descriptor.DirectoryMode;
+                        var di = new UnixDirectoryInfo(concatted);
+                        if (unit is SocketUnit socketUnit)
+                        {
+                            di.FileAccessPermissions =
+                                (FileAccessPermissions) socketUnit.Descriptor.DirectoryMode;
+                        }
+                        else
+                        {
+                            di.FileAccessPermissions =
+                                FileAccessPermissions.UserReadWriteExecute |
+                                FileAccessPermissions.GroupReadWriteExecute |
+                                FileAccessPermissions.OtherRead | FileAccessPermissions.OtherExecute;
+                        }
+
+                        if (unit is ServiceUnit serviceUnit)
+                        {
+                            var descriptor = serviceUnit.Descriptor;
+                            IUserIdentifier userInfo = null;
+                            if (!string.IsNullOrWhiteSpace(descriptor.User) && !string.IsNullOrWhiteSpace(descriptor.Group))
+                            {
+                                userInfo = PlatformUtilities.GetImplementation<IUserIdentifier>(descriptor.User, descriptor.Group);
+                            }
+                            else if (!string.IsNullOrWhiteSpace(descriptor.User))
+                            {
+                                userInfo = PlatformUtilities.GetImplementation<IUserIdentifier>(descriptor.User);
+                            }
+                            else if (!string.IsNullOrWhiteSpace(descriptor.Group))
+                            {
+                                userInfo = PlatformUtilities.GetImplementation<IUserIdentifier>(null, descriptor.Group);
+                            }
+
+                            if (userInfo != null)
+                            {
+                                di.SetOwner(userInfo.Username, userInfo.Group);
+                            }
+                        }
+
                         dir = concatted;
                     }
                 }

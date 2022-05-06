@@ -23,6 +23,8 @@ namespace SharpInit.Units
         
         [UnitProperty("@/@", UnitPropertyType.Enum, Units.NotifyAccess.None, typeof(NotifyAccess))]
         public NotifyAccess NotifyAccess { get; set; }
+        [UnitProperty("@/@", UnitPropertyType.Enum, ExitType.Main, typeof(ExitType))]
+        public ExitType ExitType { get; set; }
         
         [UnitProperty("@/@", UnitPropertyType.Bool, default_value: false)]
         public bool Delegate { get; set; }
@@ -96,6 +98,12 @@ namespace SharpInit.Units
         Dbus,
         Notify,
         Idle
+    }
+
+    public enum ExitType
+    {
+        Main,
+        CGroup
     }
 
     public enum NotifyAccess

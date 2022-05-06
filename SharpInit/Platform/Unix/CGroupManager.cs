@@ -132,6 +132,11 @@ namespace SharpInit.Platform.Unix
             return cgroup;
         }
 
+        // public CGroup GetCGroupByPid(int pid)
+        // {
+        //     
+        // }
+
         public CGroup GetCGroup(string absolute_path, bool create_if_missing = true)
         {
             if (Supported == false)

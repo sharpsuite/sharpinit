@@ -33,6 +33,9 @@ namespace SharpInit.Tasks
             Type = result;
             Exception = ex;
             Message = ex.Message;
+
+            if (!string.IsNullOrWhiteSpace(ex.StackTrace))
+                Message += $" (at {ex.StackTrace.Split('\n')[0]})";
         }
 
         public override string ToString()

@@ -165,10 +165,28 @@ namespace SharpInit.Units
 
         private void HandleProcessExit(object sender, ServiceProcessExitEventArgs e)
         {
+            if (Descriptor.ExitType == ExitType.CGroup)
+            {
+                if (CGroup != null)
+                {
+                    CGroup.Update();
+                    if (CGroup.ChildProcesses.Any())
+                        return;
+                }
+            }
+            else
+            {
+                if (e.Process?.Id == MainProcessId)
+                {
+                    MainProcessId = -1;
+                }
+                else
+                {
+                    return;
+                }
+            }
+            
             SocketManager.UnignoreSocketsByUnit(this);
-
-            if (e.Process?.Id == MainProcessId)
-                MainProcessId = -1;
             
             if (Descriptor.ServiceType == ServiceType.Dbus)
             {
@@ -295,8 +313,8 @@ namespace SharpInit.Units
             
             transaction.Add(new RecordUnitStartupAttemptTask(this));
             transaction.Add(new AllocateSliceTask(this));
-
-            if (Descriptor.NotifyAccess != NotifyAccess.None)
+            
+            if (Descriptor.ServiceType == ServiceType.Notify || Descriptor.NotifyAccess != NotifyAccess.None)
             {
                 transaction.Add(new CreateNotifySocketTask(this));   
             }

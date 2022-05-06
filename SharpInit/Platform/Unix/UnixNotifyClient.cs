@@ -48,7 +48,7 @@ namespace SharpInit.Platform.Unix
             while (true)
             {
                 var token = DataRead.Token;
-                await Task.Delay(timeout, token).ContinueWith(t => {});
+                await Task.Delay(25, token).ContinueWith(t => {});
 
                 if (!MessageQueue.IsEmpty)
                     return true;
