@@ -4,6 +4,7 @@ using SharpInit.Units;
 using SharpInit.Tasks;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -40,7 +41,8 @@ namespace SharpInit
         public CGroupManager CGroupManager { get; private set; }
         public DBusManager DBusManager { get; private set; }
         public UnixEpollManager NotifySocketManager { get; private set; }
-        
+        public ConcurrentDictionary<string, string> DefaultActivationEnvironment { get; private set; } = new();
+
         public ServiceManager() :
             this(PlatformUtilities.GetImplementation<IProcessHandler>())
         {

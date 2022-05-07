@@ -51,15 +51,17 @@ namespace SharpInit.Units
                 var home_dir = new Mono.Unix.UnixUserInfo(Syscall.getuid()).HomeDirectory;
                 DefaultScanDirectories = new List<string>()
                 {
-                    $"{home_dir}/.config/sharpinit/units"
+                    $"{home_dir}/.config/sharpinit/units",
+                    "/etc/sharpinit/user",
+                    "/lib/sharpinit/user"
                 };
             }
             else
             {
                 DefaultScanDirectories = new List<string>()
                 {
-                    "/etc/sharpinit/units",
-                    "/usr/local/sharpinit/units"
+                    "/etc/sharpinit/system",
+                    "/usr/local/sharpinit/system"
                 };
             }
             
@@ -553,6 +555,12 @@ namespace SharpInit.Units
             context.Substitutions["P"] = StringEscaper.Unescape(pure_unit_name);
             context.Substitutions["f"] = StringEscaper.UnescapePath(pure_unit_name);
             context.Substitutions["H"] = Environment.MachineName;
+            context.Substitutions["u"] = Environment.UserName;
+
+            if (PlatformUtilities.CurrentlyOn("unix"))
+            {
+                context.Substitutions["U"] = Syscall.getuid().ToString();
+            }
 
             var unit_parameter = UnitParser.GetUnitParameter(name);
 

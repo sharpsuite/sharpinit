@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Text;
+using SharpInit.Platform.Unix;
 
 namespace SharpInit
 {
@@ -182,6 +183,11 @@ namespace SharpInit
 
         public Dictionary<string, List<string>> ListSeats()
         {
+            foreach (var pair in SignalHandler.Triggered)
+            {
+                Log.Info($"{pair.Key}: {pair.Value}");
+            }
+            
             if (Program.LoginManager == null)
                 return null;
             

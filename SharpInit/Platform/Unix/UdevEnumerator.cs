@@ -353,7 +353,7 @@ namespace SharpInit.Platform.Unix
             if (UdevEnumerator.SymlinkTools.IsSymlink($"{sys_path}/subsystem"))
             {
                 var target = UdevEnumerator.SymlinkTools.ResolveSymlink($"{sys_path}/subsystem");
-                Log.Debug($"device with syspath {sys_path} has subsystem symlink to {target}");
+                //Log.Debug($"device with syspath {sys_path} has subsystem symlink to {target}");
 
                 if (!string.IsNullOrWhiteSpace(target) && target.StartsWith("/sys/class/"))
                 {
@@ -362,7 +362,7 @@ namespace SharpInit.Platform.Unix
             }
             else
             {
-                Log.Debug($"device with syspath {sys_path} has no subsystem symlink");
+                //Log.Debug($"device with syspath {sys_path} has no subsystem symlink");
             }
 
             SysPath = sys_path;

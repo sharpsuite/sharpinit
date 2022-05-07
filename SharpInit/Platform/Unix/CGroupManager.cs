@@ -111,7 +111,8 @@ namespace SharpInit.Platform.Unix
             } 
             catch (Exception ex) 
             { 
-                Log.Info(ex, $"Failed to create cgroup {cgroup}"); 
+                Log.Info($"Failed to create cgroup {cgroup}");
+                Log.Error(ex);
             }
 
             if (!cgroup.Exists)

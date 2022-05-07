@@ -50,7 +50,19 @@ namespace SharpInit.Platform.Unix
         static readonly uint TIOCVHANGUP = 0x5437;
         static readonly uint TIOCNOTTY = 0x5422;
         static readonly uint VT_DISALLOCATE = 0x5608;
+        static readonly uint VT_ACTIVATE = 0x5606;
         public static readonly uint VT_RELDISP = 0x5605;
+
+        public static void Chvt(int next_vt)
+        {
+            using (var tty = OpenTty("/dev/tty0"))
+            {
+                var r = Ioctl(tty.FileDescriptor.Number, VT_ACTIVATE, (uint) next_vt);
+                
+                if (r != 0)
+                    Log.Warn($"VT_ACTIVATE returned {r}");
+            }
+        }
 
         public static Tty OpenTty(string name, OpenFlags mode = (OpenFlags.O_RDWR | OpenFlags.O_NOCTTY | OpenFlags.O_CLOEXEC | OpenFlags.O_NONBLOCK))
         {

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Mono.Unix.Native;
 using NLog;
@@ -16,49 +18,119 @@ namespace SharpInit.Platform.Unix.LoginManagement
         public LoginManager LoginManager { get; set; }
         
         public ObjectPath ObjectPath { get; internal set; }
-        public string SessionId { get; set; }
+        public string SessionId { get; set; } = "";
         public int UserId { get; set; }
-        public string UserName { get; set; }
+        public string UserName { get; set; } = "";
         public SessionClass Class { get; set; }
         public SessionType Type { get; set; }
         public SessionState State { get; set; }
         public int VTNumber { get; set; }
-        public string TTYPath { get; set; }
-        public string Display { get; set; }
+        public string TTYPath { get; set; } = "";
+        public string Display { get; set; } = "";
         public int LeaderPid { get; set; }
-        public string ActiveSeat { get; set; }
+        public string ActiveSeat { get; set; } = "";
         public int ReaderFd { get; set; }
-        public string StateFile { get; set; }
+        public string StateFile { get; set; } = "";
+        public string PAMService { get; set; } = "";
         
         internal int VTFd { get; set; }
 
         public Dictionary<string, SessionDevice> SessionDevices { get; set; } = new();
 
+        private DateTime _sessionCreated;
+
         public Session(LoginManager manager, string session_id)
         {
             LoginManager = manager;
             SessionId = session_id;
-            ObjectPath = new ObjectPath($"/org/freedesktop/login1/Session/{session_id}");
+            ObjectPath = new ObjectPath($"/org/freedesktop/login1/session/_3{session_id}");
             Log.Debug($"Session object path is {ObjectPath}");
             StateFile = $"/run/systemd/sessions/{session_id}";
+            _sessionCreated = DateTime.UtcNow;
         }
 
+        public async Task<IDictionary<string, object>> GetAllAsync()
+        {
+            string scope = "";
+            
+            if (LeaderPid > 0)
+            {
+                try
+                {
+                    var cgroup = File.ReadAllText($"/proc/{LeaderPid}/cgroup").Trim();
+                    var parts = cgroup.Split('/');
+                    
+                    foreach (var part in parts.Reverse())
+                        if (part.EndsWith(".scope"))
+                        {
+                            scope = part;
+                            break;
+                        }
+                }
+                catch (Exception e)
+                {
+                }
+            }
+            
+            return new Dictionary<string, object>()
+            {
+                {"Id", SessionId},
+                {"User", (UserId, (LoginManager.Users.ContainsKey(UserId) ? LoginManager.Users[UserId]?.ObjectPath : new ObjectPath("/")) ?? new ObjectPath("/"))},
+                {"Name", UserName},
+                {"VTNr", VTNumber},
+                {"Seat", (ActiveSeat, LoginManager.Seats.ContainsKey(ActiveSeat) ? LoginManager.Seats[ActiveSeat].ObjectPath : new ObjectPath("/"))},
+                {"TTY", TTYPath},
+                {"Display", Display},
+                {"Remote", false},
+                {"RemoteHost", ""},
+                {"RemoteUser", ""},
+                {"Service", PAMService},
+                {"Scope", scope},
+                {"Leader", LeaderPid},
+                {"Type", Type.ToString().ToLowerInvariant()},
+                {"Class", Class == SessionClass.LockScreen ? "lock-screen" : Class.ToString().ToLowerInvariant()},
+                {"Active", true},
+                {"IdleHint", false},
+                {"State", "active"},
+                {"Timestamp", (long)((_sessionCreated - DateTime.UnixEpoch).TotalMilliseconds * 1000)},
+                {"TimestampMonotonic", (long)((_sessionCreated - DateTime.UnixEpoch).TotalMilliseconds * 1000)},
+            };
+        }
+        
         public async Task<object> GetAsync(string key)
         {
-            Log.Debug($"Querying key {key} on session {SessionId}");
-
-            switch (key)
-            {
-                case "Active":
-                    return State == SessionState.Active || State == SessionState.Online;
-            }
-
-            return null;
+            var dict = await GetAllAsync();
+            if (!dict.ContainsKey(key))
+                return null;
+            return dict[key];
         }
 
         public async Task ActivateAsync()
         {
             Log.Debug($"Asked to activate session {SessionId}");
+            State = SessionState.Active;
+            if (LoginManager.Seats.ContainsKey(ActiveSeat))
+                LoginManager.Seats[ActiveSeat].ActiveSession = SessionId;
+            Save();
+        }
+
+        public void Save()
+        {
+            var session_file_contents = new StringBuilder();
+            session_file_contents.AppendLine($"ACTIVE=1");
+            session_file_contents.AppendLine($"IS_DISPLAY=1");
+            session_file_contents.AppendLine($"STATE={(State.HasFlag(SessionState.Active) ? "active" : State.HasFlag(SessionState.Online) ? "online" : "closing")}");
+            session_file_contents.AppendLine($"TTY={TTYPath}");
+            session_file_contents.AppendLine($"LEADER={LeaderPid}");
+            session_file_contents.AppendLine($"TYPE={Type.ToString().ToLowerInvariant()}");
+            session_file_contents.AppendLine($"SEAT={ActiveSeat}");
+            session_file_contents.AppendLine($"UID={UserId}");
+            session_file_contents.AppendLine($"USER={UserName}");
+            session_file_contents.AppendLine($"VTNR={VTNumber}");
+            session_file_contents.AppendLine($"CLASS={Class.ToString().ToLowerInvariant()}");
+            
+            Directory.CreateDirectory(Path.GetDirectoryName(StateFile));
+            File.WriteAllText(StateFile, session_file_contents.ToString());
         }
 
         public async Task TakeControlAsync(bool force)
@@ -206,6 +278,11 @@ namespace SharpInit.Platform.Unix.LoginManagement
             {
                 Log.Warn($"Unrecognized session type {type}");
             }
+        }
+
+        public async Task SetBrightnessAsync(string subsystem, string name, uint brightness)
+        {
+            Log.Warn($"Asked to set brightness of session {SessionId} device {subsystem}/{name} to {brightness}, not yet implemented");
         }
 
         public async Task<(CloseSafeHandle, bool)> TakeDeviceAsync(uint major, uint minor)

@@ -33,7 +33,12 @@ namespace SharpInit.Platform
         /// <summary>
         /// An array of environment variables to be passed to the executed process.
         /// </summary>
-        public Dictionary<string, string> Environment { get; set; }
+        public Dictionary<string, string> Environment { get; set; } = new();
+
+        /// <summary>
+        /// An array of environment variables to unset before executing the process.
+        /// </summary>
+        public List<string> UnsetEnvironment { get; set; } = new();
 
         /// <summary>
         /// Sets the working directory of the executed process.
@@ -125,6 +130,7 @@ namespace SharpInit.Platform
             psi.Unit = unit;
             psi.Timeout = timeout;
             psi.Environment = new Dictionary<string, string>();
+            psi.UnsetEnvironment = new();
 
             var current_env = System.Environment.GetEnvironmentVariables();
             var descriptor_as_exec = (unit.Descriptor is ExecUnitDescriptor exec) ? exec : null;
@@ -181,6 +187,8 @@ namespace SharpInit.Platform
                     {
                         if (psi.Environment.ContainsKey(env))
                             psi.Environment.Remove(env);
+                        
+                        psi.UnsetEnvironment.Add(env);
                     }
                     else
                     {
@@ -190,6 +198,8 @@ namespace SharpInit.Platform
 
                         if (psi.Environment.ContainsKey(key) && psi.Environment[key] == val)
                             psi.Environment.Remove(key);
+                        
+                        psi.UnsetEnvironment.Add(key);
                     }
                 }
             }

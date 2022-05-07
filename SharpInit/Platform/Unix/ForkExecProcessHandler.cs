@@ -354,13 +354,29 @@ namespace SharpInit.Platform.Unix
                 Array.Copy(psi.Arguments, 0, argv, 1, psi.Arguments.Length);
                 argv[0] = psi.Path;
 
-                var envcopy = psi.Environment.ToDictionary(e => e.Key, e => e.Value);
+                var envcopy = new Dictionary<string, string>();
+
+                foreach (var pair in ServiceManager.DefaultActivationEnvironment)
+                {
+                    envcopy[pair.Key] = pair.Value;
+                }
+
+                foreach (var pair in psi.Environment)
+                {
+                    envcopy[pair.Key] = pair.Value;
+                }
+
+                foreach (var key in psi.UnsetEnvironment)
+                {
+                    envcopy.Remove(key);
+                }
+                
+                //var envcopy = psi.Environment.ToDictionary(e => e.Key, e => e.Value);
 
                 if (envcopy.ContainsKey("LISTEN_PID") && envcopy["LISTEN_PID"] == "fill")
                 {
                     helper.env_pid_fill = "LISTEN_PID";
                 }
-
 
                 var envp = envcopy.Select(p => $"{p.Key}={p.Value}").ToArray();
 
@@ -410,9 +426,50 @@ namespace SharpInit.Platform.Unix
                         {
                             throw new Exception($"Failed to join pid {fork_ret} to cgroup {psi.CGroup}");
                         }
-                        
+
                         if (psi.DelegateCGroupAfterLaunch)
+                        {
                             psi.CGroup.MarkDelegated();
+
+                            void SetOwnerRecursive(string path, uint uid, uint gid)
+                            {
+                                if (Directory.Exists(path))
+                                {
+                                    var di = new UnixDirectoryInfo(path);
+                                    di.SetOwner(uid, gid);
+
+                                    var children = di.GetFileSystemEntries();
+                                    var childrenToSetOwner = new List<string>();
+
+                                    foreach (var child in children)
+                                    {
+                                        if (child.Name == "." || child.Name == "..")
+                                            continue;
+                                        
+                                        if (child.OwnerUserId != uid || child.OwnerGroupId != gid)
+                                            childrenToSetOwner.Add(child.FullName);
+                                    }
+                                    
+                                    foreach (var child in childrenToSetOwner)
+                                        SetOwnerRecursive(child, uid, gid);
+                                }
+                                else if (File.Exists(path))
+                                {
+                                    var fi = new UnixFileInfo(path);
+                                    fi.SetOwner(uid, gid);
+                                }
+                                else
+                                {
+                                    Log.Warn($"How did we get to {path}?");
+                                }
+                            }
+                            
+                            SetOwnerRecursive(psi.CGroup.FileSystemPath, user_identifier.UserId, user_identifier.GroupId);
+                            //new UnixDirectoryInfo(psi.CGroup.FileSystemPath).SetOwner(user_identifier.UserId, user_identifier.GroupId);
+                            
+                            Log.Info(
+                                $"Handed ownership of {psi.CGroup.FileSystemPath} to uid/gid {user_identifier.UserId}/{user_identifier.GroupId}");
+                        }
                     }
                 }
 

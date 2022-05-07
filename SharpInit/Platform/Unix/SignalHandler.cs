@@ -20,7 +20,10 @@ namespace SharpInit.Platform.Unix
     {
         static Logger Log = LogManager.GetCurrentClassLogger();
         public static event OnUnixProcessExit ProcessExit; 
-        static Dictionary<UnixSignal, List<Action>> SignalHandlers = new Dictionary<UnixSignal, List<Action>>();
+        static Dictionary<Signum, List<Action>> SignalHandlers = new Dictionary<Signum, List<Action>>();
+        private static Dictionary<Signum, UnixSignal> SignalObjects = new();
+
+        public static Dictionary<Signum, int> Triggered = new();
 
         /// <summary>
         /// Adds signal handlers, starts the main handling loop.
@@ -29,16 +32,50 @@ namespace SharpInit.Platform.Unix
         {
             // SIGUSR2 is used to make the .WaitAny call return early when SignalHandlers has been changed
             AddSignalHandler(new UnixSignal(Signum.SIGUSR2), delegate { });
-            AddSignalHandler(new UnixSignal(Signum.SIGCHLD), ReapChildren);
+            // hack
+            AddSignalHandler(new UnixSignal(Signum.SIGUSR1),
+                VtReleaseHandler);
+            AddSignalHandler(new UnixSignal(Signum.SIGCLD), ReapChildren);
             AddSignalHandler(new UnixSignal(Signum.SIGALRM), ReapChildren);
             AddSignalHandler(new UnixSignal(Signum.SIGTERM), Program.Shutdown);
             AddSignalHandler(new UnixSignal(Signum.SIGINT), Program.Shutdown);
             AddSignalHandler(new UnixSignal(Signum.SIGHUP), Program.Shutdown);
-            // hack
-            AddSignalHandler(new UnixSignal(Signum.SIGUSR1),
-                delegate { TtyUtilities.Ioctl(Program.LoginManager.Sessions["0"].VTFd, TtyUtilities.VT_RELDISP, 1); });
             new Thread((ThreadStart)HandlerLoop).Start();
         }
+        static void VtReleaseHandler()
+        {
+            Log.Info("reldisp request");
+            int r = 0;
+            using (var tty = TtyUtilities.OpenTty("/dev/tty0"))
+            {
+                try
+                {
+                    r = TtyUtilities.Ioctl(tty.FileDescriptor.Number, TtyUtilities.VT_RELDISP, 1);
+                    Console.WriteLine($"reldisp r = {r}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            }
+
+            foreach (var sess in Program.LoginManager.Sessions)
+            {
+                if ((sess.Value?.VTFd ?? -1) > 0)
+                {
+                    try
+                    {
+                        r = TtyUtilities.Ioctl(sess.Value.VTFd, TtyUtilities.VT_RELDISP, 1);
+                        Console.WriteLine($"reldisp({sess.Value.VTFd}) r = {r}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                    }
+                }
+            }
+        }
+
 
         static void ReapChildren()
         {
@@ -77,21 +114,25 @@ namespace SharpInit.Platform.Unix
 
         public static void HandleSignals()
         {
-            var copy_of_signals = SignalHandlers.Keys.ToArray();
-
+            var copy_of_signals = SignalHandlers.Keys.Select(k => SignalObjects[k]).ToArray();
+            
             int index = UnixSignal.WaitAny(copy_of_signals);
 
             if (index >= 0 && index < copy_of_signals.Length)
             {
                 var signal = copy_of_signals[index];
 
-                if (!SignalHandlers.ContainsKey(signal))
+                if (!SignalHandlers.ContainsKey(signal.Signum))
                 {
                     Log.Warn($"Ignoring signal without handler {signal.Signum}");
                     return;
                 }
 
-                var handlers = SignalHandlers[signal];
+                if (!Triggered.ContainsKey(signal.Signum))
+                    Triggered[signal.Signum] = 0;
+                Triggered[signal.Signum]++;
+
+                var handlers = SignalHandlers[signal.Signum];
 
                 foreach (var handler in handlers)
                 {
@@ -117,10 +158,13 @@ namespace SharpInit.Platform.Unix
         /// <param name="handler">The handler to be called whenever we receive the signal.</param>
         public static void AddSignalHandler(UnixSignal signal, Action handler)
         {
-            if (!SignalHandlers.ContainsKey(signal))
-                SignalHandlers[signal] = new List<Action>();
+            if (!SignalHandlers.ContainsKey(signal.Signum))
+            {
+                SignalHandlers[signal.Signum] = new List<Action>();
+                SignalObjects[signal.Signum] = signal;
+            }
 
-            SignalHandlers[signal].Add(handler);
+            SignalHandlers[signal.Signum].Add(handler);
             Stdlib.raise(Signum.SIGUSR2);
         }
 
@@ -132,24 +176,24 @@ namespace SharpInit.Platform.Unix
         /// <returns>true if successful.</returns>
         public static bool RemoveSignalHandler(UnixSignal signal, Action handler)
         {
-            if (!SignalHandlers.ContainsKey(signal))
+            if (!SignalHandlers.ContainsKey(signal.Signum))
                 return false;
 
-            if (!SignalHandlers[signal].Contains(handler))
+            if (!SignalHandlers[signal.Signum].Contains(handler))
                 return false;
 
-            SignalHandlers[signal].Remove(handler);
+            SignalHandlers[signal.Signum].Remove(handler);
             return true;
         }
 
-        /// <summary>
-        /// Clears all signal handlers for a particular signal.
-        /// </summary>
-        /// <param name="signal">The Unix signal to clear the handlers of.</param>
-        public static void ClearSignalHandlers(UnixSignal signal)
-        {
-            if (SignalHandlers.ContainsKey(signal))
-                SignalHandlers.Remove(signal);
-        }
+        // /// <summary>
+        // /// Clears all signal handlers for a particular signal.
+        // /// </summary>
+        // /// <param name="signal">The Unix signal to clear the handlers of.</param>
+        // public static void ClearSignalHandlers(UnixSignal signal)
+        // {
+        //     if (SignalHandlers.ContainsKey(signal))
+        //         SignalHandlers.Remove(signal);
+        // }
     }
 }

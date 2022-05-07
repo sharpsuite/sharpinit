@@ -76,7 +76,7 @@ namespace SharpInit.Platform.Unix
 
             if (!Program.IsUserManager)
             {
-                Program.LoginManager = new LoginManagement.LoginManager();
+                Program.LoginManager = new LoginManagement.LoginManager(Program.ServiceManager);
                 Program.LoginManager.ProcessDeviceTree();
             }
         }

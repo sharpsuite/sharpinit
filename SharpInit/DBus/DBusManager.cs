@@ -7,6 +7,7 @@ using NLog;
 using DBus.DBus;
 using System;
 using System.IO;
+using SharpInit.DBus;
 using SharpInit.Units;
 
 namespace SharpInit
@@ -15,9 +16,11 @@ namespace SharpInit
     {
         Logger Log = LogManager.GetCurrentClassLogger();
 
+        public DBusServiceManager DBusServiceManager { get; set; }
         public ServiceManager ServiceManager { get; set; }
         public Connection Connection { get; set; }
         public Connection LoginManagerConnection { get; set; }
+        public Connection ServiceManagerConnection { get; set; }
 
         public List<string> AcquiredNames { get; set; } = new();
 
@@ -30,6 +33,7 @@ namespace SharpInit
         public DBusManager(ServiceManager manager)
         {
             ServiceManager = manager;
+            DBusServiceManager = new DBusServiceManager(manager);
             NameAcquiredCts = new CancellationTokenSource();
         }
 
@@ -66,7 +70,7 @@ namespace SharpInit
                     options: ServiceRegistrationOptions.AllowReplacement | ServiceRegistrationOptions.ReplaceExisting |
                              ServiceRegistrationOptions.Default);
 
-                DBusProxy = Connection.CreateProxy<DBus.DBus.IDBus>("org.freedesktop.DBus", "/org/freedesktop/DBus");
+                DBusProxy = Connection.CreateProxy<IDBus>("org.freedesktop.DBus", "/org/freedesktop/DBus");
                 var rule = new Tmds.DBus.SignalMatchRule()
                 {
                     Path = "/org/freedesktop/DBus",
@@ -77,6 +81,11 @@ namespace SharpInit
                 if (Program.LoginManager != null)
                 {
                     await SetupLoginService();
+                }
+
+                if (DBusServiceManager != null)
+                {
+                    await SetupServiceManager();
                 }
 
                 NameWatcher =
@@ -127,12 +136,36 @@ namespace SharpInit
                 await LoginManagerConnection.RegisterServiceAsync("org.freedesktop.login1",
                     ServiceRegistrationOptions.ReplaceExisting);
                 await LoginManagerConnection.RegisterObjectAsync(Program.LoginManager);
+                await Program.LoginManager.RegisterSelfUser();
 
                 Log.Debug($"Registered logind on DBus");
             }
             catch (Exception ex)
             {
-                Log.Error($"Exception thrown while registering login daemon on D-Bus", ex);
+                Log.Error($"Exception thrown while registering login daemon on D-Bus");
+                Log.Error(ex);
+            }
+        }
+        
+        public async Task SetupServiceManager()
+        {
+            if (ServiceManagerConnection != null)
+                return;
+
+            try
+            {
+                ServiceManagerConnection = new Connection(ConnectionAddress);
+                await ServiceManagerConnection.ConnectAsync();
+                await ServiceManagerConnection.RegisterServiceAsync("org.freedesktop.systemd1",
+                    ServiceRegistrationOptions.ReplaceExisting);
+                await ServiceManagerConnection.RegisterObjectAsync(DBusServiceManager);
+
+                Log.Debug($"Registered service manager on DBus");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Exception thrown while registering service manager on D-Bus");
+                Log.Error(ex);
             }
         }
 
