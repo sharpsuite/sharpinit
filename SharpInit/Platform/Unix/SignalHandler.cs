@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 using Mono.Unix;
@@ -31,16 +32,24 @@ namespace SharpInit.Platform.Unix
         public static void Initialize()
         {
             // SIGUSR2 is used to make the .WaitAny call return early when SignalHandlers has been changed
-            AddSignalHandler(new UnixSignal(Signum.SIGUSR2), delegate { });
-            // hack
-            AddSignalHandler(new UnixSignal(Signum.SIGUSR1),
-                VtReleaseHandler);
-            AddSignalHandler(new UnixSignal(Signum.SIGCLD), ReapChildren);
-            AddSignalHandler(new UnixSignal(Signum.SIGALRM), ReapChildren);
-            AddSignalHandler(new UnixSignal(Signum.SIGTERM), Program.Shutdown);
-            AddSignalHandler(new UnixSignal(Signum.SIGINT), Program.Shutdown);
-            AddSignalHandler(new UnixSignal(Signum.SIGHUP), Program.Shutdown);
-            new Thread((ThreadStart)HandlerLoop).Start();
+            // AddSignalHandler(new UnixSignal(Signum.SIGUSR2), delegate { });
+            // // hack
+            // AddSignalHandler(new UnixSignal(Signum.SIGUSR1),
+            //     VtReleaseHandler);
+            // AddSignalHandler(new UnixSignal(Signum.SIGCLD), ReapChildren);
+            // AddSignalHandler(new UnixSignal(Signum.SIGALRM), ReapChildren);
+            // AddSignalHandler(new UnixSignal(Signum.SIGTERM), Program.Shutdown);
+            // AddSignalHandler(new UnixSignal(Signum.SIGINT), Program.Shutdown);
+            // AddSignalHandler(new UnixSignal(Signum.SIGHUP), Program.Shutdown);
+            AddSignalHandler(PosixSignal.SIGHUP, (ctx) => { ctx.Cancel = true; Program.Shutdown();
+                ctx.Cancel = true;
+            });
+            AddSignalHandler(PosixSignal.SIGTERM, (ctx) => { ctx.Cancel = true; Program.Shutdown(); });
+            AddSignalHandler(PosixSignal.SIGINT, (ctx) => { ctx.Cancel = true; Program.Shutdown(); ctx.Cancel = true;});
+            AddSignalHandler(PosixSignal.SIGCHLD, (ctx) => {ctx.Cancel = true;  ReapChildren(); ctx.Cancel = true;});
+            AddSignalHandler((PosixSignal)(14), (ctx) => { ctx.Cancel = true; ReapChildren(); ctx.Cancel = true;});
+            AddSignalHandler((PosixSignal)(10), (ctx) => {ctx.Cancel = true; VtReleaseHandler(); ctx.Cancel = true;});
+            //new Thread((ThreadStart)HandlerLoop).Start();
         }
         static void VtReleaseHandler()
         {
@@ -94,7 +103,7 @@ namespace SharpInit.Platform.Unix
                     ProcessExit?.Invoke(pid, exit_code);
             }
 
-            Syscall.alarm(60); // thanks sinit, this is neat
+            //Syscall.alarm(60); // thanks sinit, this is neat
         }
 
         static void HandlerLoop()
@@ -156,17 +165,20 @@ namespace SharpInit.Platform.Unix
         /// </summary>
         /// <param name="signal">The Unix signal to trigger on.</param>
         /// <param name="handler">The handler to be called whenever we receive the signal.</param>
-        public static void AddSignalHandler(UnixSignal signal, Action handler)
+        public static void AddSignalHandler(PosixSignal signal, Action<PosixSignalContext> handler)
         {
-            if (!SignalHandlers.ContainsKey(signal.Signum))
-            {
-                SignalHandlers[signal.Signum] = new List<Action>();
-                SignalObjects[signal.Signum] = signal;
-            }
-
-            SignalHandlers[signal.Signum].Add(handler);
-            Stdlib.raise(Signum.SIGUSR2);
+            // if (!SignalHandlers.ContainsKey(signal.Signum))
+            // {
+            //     SignalHandlers[signal.Signum] = new List<Action>();
+            //     SignalObjects[signal.Signum] = signal;
+            // }
+            //
+            // SignalHandlers[signal.Signum].Add(handler);
+            SignalRegistrations.Add(PosixSignalRegistration.Create(signal, handler));
+            //Stdlib.raise(Signum.SIGUSR2);
         }
+
+        public static List<PosixSignalRegistration> SignalRegistrations = new();
 
         /// <summary>
         /// Removes a Unix signal handler.

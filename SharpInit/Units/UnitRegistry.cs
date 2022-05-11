@@ -495,9 +495,9 @@ namespace SharpInit.Units
             if (unit_name.Contains('@') && !string.IsNullOrWhiteSpace(UnitParser.GetUnitParameter(unit_name)))
             {
                 var parameter = UnitParser.GetUnitParameter(unit_name);
-                drop_in_scopes_to_search.AddRange(
-                    drop_in_scopes_to_search.Select(scope => 
-                        scope.Replace("@", $"@{parameter}")));
+                var to_add = drop_in_scopes_to_search.Select(scope =>
+                    scope.Replace("@", $"@{parameter}")).ToList();
+                drop_in_scopes_to_search.AddRange(to_add);
             }
             
             drop_in_scopes_to_search.Add(extension.Substring(1));

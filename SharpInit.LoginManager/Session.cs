@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Tmds.DBus;
@@ -17,6 +18,8 @@ namespace SharpInit.LoginManager
         public Task ReleaseDeviceAsync(uint major, uint minor);
         public Task SetTypeAsync(string type);
         public Task SetBrightnessAsync(string subsystem, string name, uint brightness);
+        //Task<IDisposable> WatchLockAsync(Action handler);
+        Task<IDisposable> WatchUnlockAsync(Action handler);
     }
 
     public enum SessionClass

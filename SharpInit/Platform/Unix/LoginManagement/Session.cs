@@ -13,11 +13,14 @@ namespace SharpInit.Platform.Unix.LoginManagement
 {
     public class Session : ISession
     {
+        public event Action OnLocked;
+        public event Action OnUnlocked;
         private Logger Log = LogManager.GetCurrentClassLogger();
         
         public LoginManager LoginManager { get; set; }
         
         public ObjectPath ObjectPath { get; internal set; }
+
         public string SessionId { get; set; } = "";
         public int UserId { get; set; }
         public string UserName { get; set; } = "";
@@ -39,6 +42,11 @@ namespace SharpInit.Platform.Unix.LoginManagement
 
         private DateTime _sessionCreated;
 
+        internal Session()
+        {
+            ObjectPath = new ObjectPath("/org/freedesktop/login1/session/invalid");
+        }
+
         public Session(LoginManager manager, string session_id)
         {
             LoginManager = manager;
@@ -47,6 +55,21 @@ namespace SharpInit.Platform.Unix.LoginManagement
             Log.Debug($"Session object path is {ObjectPath}");
             StateFile = $"/run/systemd/sessions/{session_id}";
             _sessionCreated = DateTime.UtcNow;
+        }
+        
+        public Task<IDisposable> WatchLockAsync(Action handler)
+        {
+            return SignalWatcher.AddAsync(this, nameof(OnLocked), handler);
+        }
+
+        public Task<IDisposable> WatchUnlockAsync(Action handler)
+        {
+            return SignalWatcher.AddAsync(this, nameof(OnUnlocked), handler);
+        }
+
+        public async Task UnlockSession()
+        {
+            OnUnlocked?.Invoke();
         }
 
         public async Task<IDictionary<string, object>> GetAllAsync()
@@ -109,8 +132,24 @@ namespace SharpInit.Platform.Unix.LoginManagement
         {
             Log.Debug($"Asked to activate session {SessionId}");
             State = SessionState.Active;
+            
             if (LoginManager.Seats.ContainsKey(ActiveSeat))
+            {
+                var prevActive = LoginManager.Seats[ActiveSeat].ActiveSession;
+
+                if (prevActive != null)
+                {
+                    Log.Info($"Previous active session for seat {ActiveSeat} was {prevActive}");
+                    if (prevActive != SessionId)
+                    {
+                        if (LoginManager.Sessions.ContainsKey(prevActive))
+                            await LoginManager.Sessions[prevActive].ReleaseControlAsync();
+                    }
+                }
+
                 LoginManager.Seats[ActiveSeat].ActiveSession = SessionId;
+            }
+
             Save();
         }
 

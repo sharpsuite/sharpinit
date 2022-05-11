@@ -62,6 +62,8 @@ namespace SharpInit.Platform.Unix.LoginManagement
     {
         Task<IDictionary<string, object>> GetAllAsync();
         Task<object> GetAsync(string key);
+        Task ActivateSessionAsync(string session_id);
+        Task ActivateSessionOnSeatAsync(string session_id, string seat_id);
         Task<ObjectPath> GetSeatAsync(string seat_id);
         Task<ObjectPath> GetSessionAsync(string session_id, Tmds.DBus.Protocol.Message message);
         
@@ -74,6 +76,7 @@ namespace SharpInit.Platform.Unix.LoginManagement
         Task<IEnumerable<(uint, string, ObjectPath)>> ListUsersAsync();
         Task<ObjectPath> GetSessionByPIDAsync(uint pid);
         Task<CloseSafeHandle> InhibitAsync(string what, string who, string why, string mode);
+        Task UnlockSessionAsync(string session);
         
         //CanPowerOff(), CanReboot(), CanHalt(), CanSuspend(), CanHibernate(), CanHybridSleep(),
         //CanSuspendThenHibernate(), CanRebootParameter(), CanRebootToFirmwareSetup(), CanRebootToBootLoaderMenu(),
@@ -174,18 +177,20 @@ namespace SharpInit.Platform.Unix.LoginManagement
         
         public async Task RegisterSelfUser()
         {
+            var defaultSession = new Session();
+            
             await ServiceManager.DBusManager.LoginManagerConnection.RegisterProxiedObjectAsync(
-                new ObjectPath("/org/freedesktop/login1/user/auto"), typeof(User), ResolveUserFromMessage);
+                new ObjectPath("/org/freedesktop/login1/user/auto"), typeof(User), null, ResolveUserFromMessage);
             await ServiceManager.DBusManager.LoginManagerConnection.RegisterProxiedObjectAsync(
-                new ObjectPath("/org/freedesktop/login1/user/self"), typeof(User), ResolveUserFromMessage);
+                new ObjectPath("/org/freedesktop/login1/user/self"), typeof(User), null, ResolveUserFromMessage);
             await ServiceManager.DBusManager.LoginManagerConnection.RegisterProxiedObjectAsync(
-                new ObjectPath("/org/freedesktop/login1/session/auto"), typeof(Session), ResolveSessionFromMessage);
+                new ObjectPath("/org/freedesktop/login1/session/auto"), typeof(Session), defaultSession, ResolveSessionFromMessage);
             await ServiceManager.DBusManager.LoginManagerConnection.RegisterProxiedObjectAsync(
-                new ObjectPath("/org/freedesktop/login1/session/self"), typeof(Session), ResolveSessionFromMessage);
+                new ObjectPath("/org/freedesktop/login1/session/self"), typeof(Session), defaultSession, ResolveSessionFromMessage);
             await ServiceManager.DBusManager.LoginManagerConnection.RegisterProxiedObjectAsync(
-                new ObjectPath("/org/freedesktop/login1/seat/auto"), typeof(Seat), ResolveSeatFromMessage);
+                new ObjectPath("/org/freedesktop/login1/seat/auto"), typeof(Seat), Seats["seat0"], ResolveSeatFromMessage);
             await ServiceManager.DBusManager.LoginManagerConnection.RegisterProxiedObjectAsync(
-                new ObjectPath("/org/freedesktop/login1/seat/self"), typeof(Seat), ResolveSeatFromMessage);
+                new ObjectPath("/org/freedesktop/login1/seat/self"), typeof(Seat), Seats["seat0"], ResolveSeatFromMessage);
             await ServiceManager.DBusManager.LoginManagerConnection.RegisterObjectAsync(Seats["seat0"]);
         }
 
@@ -394,8 +399,11 @@ namespace SharpInit.Platform.Unix.LoginManagement
                 else
                 {
                     session.ActiveSeat = request.seat_id;
+                    
                     var seat = Seats[request.seat_id];
-                    seat.ActiveSession = session.SessionId;
+                    // if (string.IsNullOrWhiteSpace(seat.ActiveSession))
+                    //     seat.ActiveSession = session.SessionId;
+                    
                     seat.Save();
                 }
                 
@@ -464,6 +472,9 @@ namespace SharpInit.Platform.Unix.LoginManagement
                 Program.ServiceManager.CGroupManager.RootCGroup.Update();
                 Log.Debug($"CreateSession response: {JsonConvert.SerializeObject(reply)}");
 
+                if (session.ActiveSeat != null && Seats.ContainsKey(session.ActiveSeat))
+                    await session.ActivateAsync();
+
                 return reply;
             }
             catch (Exception e)
@@ -491,6 +502,33 @@ namespace SharpInit.Platform.Unix.LoginManagement
             if (!dict.ContainsKey(key))
                 return null;
             return dict[key];
+        }
+
+        public async Task ActivateSessionAsync(string session_id)
+        {
+            if (!Sessions.ContainsKey(session_id))
+            {
+                Log.Error($"Asked to activate unrecognized session {session_id}");
+                return;
+            }
+
+            await Sessions[session_id].ActivateAsync();
+        }
+
+        public async Task ActivateSessionOnSeatAsync(string session_id, string seat_id)
+        {
+            if (!Sessions.ContainsKey(session_id))
+            {
+                Log.Error($"Asked to activate unrecognized session {session_id}");
+                return;
+            }
+
+            if (Sessions[session_id].ActiveSeat != seat_id)
+            {
+                Log.Warn($"Asked to activate session {session_id} and seat {seat_id}, but session has active seat {Sessions[session_id].ActiveSeat}.");
+            }
+
+            await Sessions[session_id].ActivateAsync();
         }
 
         public async Task<ObjectPath> GetSeatAsync(string seat_id)
@@ -626,6 +664,17 @@ namespace SharpInit.Platform.Unix.LoginManagement
             
             Log.Warn($"Call to Inhibit with params ({what}, {who}, {why}, {mode}), ignored as inhibit locks are not yet implemented");
             return new CloseSafeHandle(new IntPtr(p_w), false);
+        }
+
+        public async Task UnlockSessionAsync(string session)
+        {
+            if (!Sessions.ContainsKey(session))
+            {
+                Log.Warn($"Asked to unlock unknown session {session}");
+                return;
+            }
+
+            await Sessions[session].UnlockSession();
         }
 
         public async Task<string> CanPowerOffAsync() => "na";

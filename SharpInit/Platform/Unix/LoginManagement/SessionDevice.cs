@@ -79,7 +79,11 @@ namespace SharpInit.Platform.Unix.LoginManagement
         public void FreeDevice()
         {
             if (DeviceFd > 0)
+            {
+                StopDevice();
                 Syscall.close(DeviceFd);
+            }
+
             Active = false;
         }
     }

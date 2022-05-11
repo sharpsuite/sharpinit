@@ -183,9 +183,9 @@ namespace SharpInit
 
         public Dictionary<string, List<string>> ListSeats()
         {
-            foreach (var pair in SignalHandler.Triggered)
+            foreach (var pair in SignalHandler.SignalRegistrations)
             {
-                Log.Info($"{pair.Key}: {pair.Value}");
+                Log.Info($"{pair}");
             }
             
             if (Program.LoginManager == null)
