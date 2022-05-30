@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Mono.Unix.Native;
 using SharpInit.Platform;
 
 namespace SharpInit.Units
@@ -65,7 +66,7 @@ namespace SharpInit.Units
                 condition_name = condition_name.Substring("assert".Length);
 
             if (!ConditionCache.ContainsKey(condition_name))
-                return false;
+                return true;
             
             if (value.StartsWith('|'))
                 value = value.Substring(0);
@@ -109,6 +110,18 @@ namespace SharpInit.Units
                     KernelCommandLine[key] = new List<string>();
                 KernelCommandLine[key].Add(value);
             }
+        }
+
+        [ConditionNegatable]
+        public static bool ConditionUser(string user)
+        {
+            if (uint.TryParse(user, out uint uid))
+                return Syscall.getuid() == uid;
+
+            if (user == "@system")
+                return Syscall.getuid() == 0;
+
+            return Environment.UserName == user;
         }
 
         [ConditionNegatable]

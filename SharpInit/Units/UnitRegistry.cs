@@ -262,7 +262,8 @@ namespace SharpInit.Units
                     }
 
                     // Check if this unit file has already been indexed or not.
-                    if (!UnitFiles.Any(unit_files => unit_files.Value.OfType<OnDiskUnitFile>().Any(unit_file => unit_file.Path == target)))
+                    if (!UnitFiles.Any(unit_files => unit_files.Value.OfType<OnDiskUnitFile>().Any(unit_file => 
+                            SymlinkTools.ResolveSymlink(unit_file.Path) == target)))
                     {
                         // If the file hasn't been indexed yet, do so. This check prevents symlinked files from being parsed more than once.
                         IndexUnitByPath(target);
@@ -560,6 +561,15 @@ namespace SharpInit.Units
             if (PlatformUtilities.CurrentlyOn("unix"))
             {
                 context.Substitutions["U"] = Syscall.getuid().ToString();
+
+                if (Program.IsUserManager)
+                {
+                    context.Substitutions["t"] = $"/run/user/{Syscall.getuid()}";
+                }
+                else
+                {
+                    context.Substitutions["t"] = "/run";
+                }
             }
 
             var unit_parameter = UnitParser.GetUnitParameter(name);

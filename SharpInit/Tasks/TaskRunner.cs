@@ -17,6 +17,7 @@ namespace SharpInit.Tasks
         Enqueued,
         Executing,
         Finished,
+        Cancelled,
         Aborted
     }
 
@@ -182,6 +183,12 @@ namespace SharpInit.Tasks
 
         internal async System.Threading.Tasks.Task<TaskResult> ExecuteAsync(TaskExecution execution)
         {
+            if (execution?.State == TaskExecutionState.Cancelled)
+            {
+                Log.Info($"Task {execution.Task} cancelled");
+                return new TaskResult(execution?.Task, ResultType.StopExecution, "Task cancelled");
+            }
+            
             if (execution == null || execution.Task == null || execution.Runner != this || 
                (execution.State != TaskExecutionState.Enqueued && execution.State != TaskExecutionState.Registered))
             {

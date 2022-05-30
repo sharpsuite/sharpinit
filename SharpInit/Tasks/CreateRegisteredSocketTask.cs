@@ -3,6 +3,7 @@ using SharpInit.Platform.Unix;
 using SharpInit.Units;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Net.Sockets;
@@ -97,7 +98,8 @@ namespace SharpInit.Tasks
                             }
                         }
 
-                        socket.Listen();
+                        if (socket.SocketType == SocketType.Seqpacket || socket.SocketType == SocketType.Stream)
+                            socket.Listen();
                         Unit.SocketManager.AddSocket(new SocketWrapper(socket, Unit));
                     }
                 }
@@ -106,7 +108,7 @@ namespace SharpInit.Tasks
             }
             catch (Exception ex)
             {
-                return new TaskResult(this, ResultType.Failure, ex.Message);
+                return new TaskResult(this, ResultType.Failure, ex);
             }
         }
     }

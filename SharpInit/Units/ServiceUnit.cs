@@ -62,9 +62,14 @@ namespace SharpInit.Units
 
             if (Descriptor.DefaultDependencies) 
             {
-                yield return new RequirementDependency(left: UnitName, right: "sysinit.target", from: UnitName, type: RequirementDependencyType.Requires);
-                yield return new OrderingDependency(left: UnitName, right: "sysinit.target", from: UnitName,
-                    type: OrderingDependencyType.After);
+                if (!Program.IsUserManager)
+                {
+                    yield return new RequirementDependency(left: UnitName, right: "sysinit.target", from: UnitName,
+                        type: RequirementDependencyType.Requires);
+                    yield return new OrderingDependency(left: UnitName, right: "sysinit.target", from: UnitName,
+                        type: OrderingDependencyType.After);
+                }
+
                 yield return new OrderingDependency(left: UnitName, right: "basic.target", from: UnitName,
                     type: OrderingDependencyType.After);
 
@@ -248,12 +253,21 @@ namespace SharpInit.Units
             }
         }
 
+        public class ServiceUnitRestartTransaction : Transaction
+        {
+            public Unit Unit { get; set; }
+            public ServiceUnitRestartTransaction(ServiceUnit unit)
+                : base(new DelayTask(unit.Descriptor.RestartSec),
+                    LateBoundUnitActivationTask.CreateDeactivationTransaction(unit.UnitName, $"{unit.UnitName} is being restarted"),
+                    LateBoundUnitActivationTask.CreateActivationTransaction(unit.UnitName, $"{unit.UnitName} is being restarted"))
+            {
+                Unit = unit;
+            }
+        }
+
         protected Transaction GetRestartTransaction()
         {
-            return new Transaction(
-                new DelayTask(Descriptor.RestartSec),
-                LateBoundUnitActivationTask.CreateDeactivationTransaction(UnitName, $"{UnitName} is being restarted"),
-                LateBoundUnitActivationTask.CreateActivationTransaction(UnitName, $"{UnitName} is being restarted"));
+            return new ServiceUnitRestartTransaction(this);
         }
 
         private void HandleProcessStart(object sender, ServiceProcessStartEventArgs e)
@@ -388,9 +402,9 @@ namespace SharpInit.Units
                     break;
                 case ServiceType.Dbus:
                     var dbus_psi = ProcessStartInfo.FromCommandLine(Descriptor.ExecStart.Single(), this, Descriptor.TimeoutStartSec);
-                    dbus_psi.WaitUntilExec = true;
+                    dbus_psi.WaitUntilExec = false;
 
-                    transaction.Add(new RunRegisteredProcessTask(dbus_psi, this, true, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
+                    transaction.Add(new RunRegisteredProcessTask(dbus_psi, this));
                     transaction.Add(new WaitForDBusName(Descriptor.BusName, (int)Descriptor.TimeoutStartSec.TotalMilliseconds));
                     break;
                 default:
@@ -445,7 +459,7 @@ namespace SharpInit.Units
             }
 
             transaction.Add(exec_stop_post_tx);
-            transaction.Add(new SetUnitStateTask(this, UnitState.Inactive, UnitState.Deactivating));
+            transaction.Add(new SetUnitStateTask(this, UnitState.Inactive));
 
             transaction.OnFailure = new SetUnitStateTask(this, UnitState.Failed);
 

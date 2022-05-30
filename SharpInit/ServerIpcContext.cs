@@ -65,6 +65,28 @@ namespace SharpInit
             if (unit.Descriptor.RefuseManualStop)
                 return false;
 
+            var currentQueue = ServiceManager.Runner.TaskQueue.ToList();
+            foreach (var task in currentQueue)
+            {
+                if (task.Task is ServiceUnit.ServiceUnitRestartTransaction)
+                {
+                    try
+                    {
+                        Log.Info($"Cancelling restart task {task.Task}");
+                        (task.Task as Transaction).Cancelled = true;
+
+                        if (task.Runner.Executions.ContainsKey(task.Task.Identifier))
+                        {
+                            task.Runner.Executions[task.Task.Identifier].State = TaskExecutionState.Cancelled;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e);
+                    }
+                }
+            }
+
             var transaction = LateBoundUnitActivationTask.CreateDeactivationTransaction(name, "Remotely triggered via IPC");
             var exec = ServiceManager.Runner.Register(transaction, TaskContext.With("manual", true)).Enqueue().Wait();
             var result = exec.Result;

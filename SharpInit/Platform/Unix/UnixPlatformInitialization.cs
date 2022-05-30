@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Linq;
-
+using Mono.Unix;
 using SharpInit.Tasks;
 
 using Mono.Unix.Native;
@@ -63,6 +63,18 @@ namespace SharpInit.Platform.Unix
 
                 if (dev_kmsg >= 0)
                     JournalOutputFd = dev_kmsg;
+            }
+
+            if (IsSystemManager)
+            {
+                if (Directory.Exists("/var/run/sharpinit/notify"))
+                {
+                    Directory.Delete("/var/run/sharpinit/notify");
+                }
+
+                Directory.CreateDirectory("/var/run/sharpinit/notify");
+                var di = new UnixDirectoryInfo("/var/run/sharpinit/notify");
+                di.FileAccessPermissions = FileAccessPermissions.AllPermissions;
             }
         }
 

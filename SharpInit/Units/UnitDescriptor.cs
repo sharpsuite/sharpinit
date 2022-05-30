@@ -216,6 +216,21 @@ namespace SharpInit.Units
                         break;
                 }
             }
+
+            var dicts = new[] {Conditions, ListenStatements, Assertions};
+            foreach (var dict in dicts)
+            {
+                foreach (var pair in dict)
+                {
+                    if (pair.Value == null)
+                        continue;
+                    
+                    for (int i = 0; i < pair.Value.Count; i++)
+                    {
+                        pair.Value[i] = ctx.Substitute(pair.Value[i]);
+                    }
+                }
+            }
         }
     }
 

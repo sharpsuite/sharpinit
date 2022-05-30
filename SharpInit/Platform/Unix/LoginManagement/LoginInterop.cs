@@ -83,11 +83,14 @@ namespace SharpInit.Platform.Unix.LoginManagement
 
         internal static bool RestoreVT(Session session)
         {
+            if (session.VTFd <= 0)
+                return false;
+            
             var mode = new vt_mode()
             {
                 mode = VT_AUTO
             };
-            
+
             var r = 0;
             r = TtyUtilities.Ioctl(session.VTFd, KDSETMODE, KD_TEXT);
 

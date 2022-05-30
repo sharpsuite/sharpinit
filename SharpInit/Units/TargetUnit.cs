@@ -32,6 +32,9 @@ namespace SharpInit.Units
 
         public override IEnumerable<Dependency> GetDefaultDependencies()
         {
+            if (!Descriptor.DefaultDependencies)
+                yield break;
+            
             foreach (var base_dep in base.GetDefaultDependencies())
                 yield return base_dep;
 

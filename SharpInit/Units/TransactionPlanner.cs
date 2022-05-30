@@ -217,17 +217,20 @@ namespace SharpInit.Units
             var selected_nodes = new List<List<string>>();
             //{ initial_nodes_filtered
             //  .SelectMany(t => new [] { t.LeftUnit }).Distinct().Where(u => unit_list.Any(u_ => u_.UnitName == u)).ToList() }; // find the "first" nodes
-            foreach (var d in initial_nodes_filtered)
-            {
-                if (units_being_touched.Any(u => u.UnitName == d.LeftUnit))
-                {
-                    selected_nodes.Add(new() { d.LeftUnit });
-                }
-                else if (units_being_touched.Any(u => u.UnitName == d.RightUnit))
-                {
-                    selected_nodes.Add(new() { d.RightUnit });
-                }
-            }
+            // foreach (var d in initial_nodes_filtered)
+            // {
+            //     if (units_being_touched.Any(u => u.UnitName == d.LeftUnit) && !selected_nodes.Any(l => l.Contains(d.LeftUnit)))
+            //     {
+            //         selected_nodes.Add(new() { d.LeftUnit });
+            //     }
+            //     else if (units_being_touched.Any(u => u.UnitName == d.RightUnit) && !selected_nodes.Any(l => l.Contains(d.RightUnit)))
+            //     {
+            //         selected_nodes.Add(new() { d.RightUnit });
+            //     }
+            // }
+
+            selected_nodes = initial_nodes.SelectMany(e => new[] {e.LeftUnit, e.RightUnit}).Distinct()
+                .Select(u => new List<string>() {u}).ToList();
 
             selected_nodes = selected_nodes.Distinct().ToList();
             var selected_nodes_copy = selected_nodes.ToList();

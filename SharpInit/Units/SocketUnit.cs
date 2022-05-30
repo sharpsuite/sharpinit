@@ -77,32 +77,46 @@ namespace SharpInit.Units
                     //Log.Debug($"Returning for already-active socket target \"{target_unit}\"");
                     return;
                 }
+
+                if (target_unit.CurrentSocketActivation != null &&
+                    (target_unit.CurrentSocketActivation.State != TaskExecutionState.Finished &&
+                     target_unit.CurrentSocketActivation.State != TaskExecutionState.Aborted))
+                {
+                    return;
+                }
             }
 
-            var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation, $"Socket activation for {target_unit.UnitName}");
-            transaction.Add(new AlterTransactionContextTask("state_change_reason", $"Socket activation from {UnitName}"));
-
-            var file_descriptors = new List<FileDescriptor>();
-
-            if (!Descriptor.Accept)
+            lock (socket)
             {
-                file_descriptors.AddRange(SocketManager.GetSocketsByUnit(this).Select(wrapper => 
-                    new FileDescriptor(wrapper.Socket.Handle.ToInt32(), Descriptor.FileDescriptorName ?? this.UnitName, -1)));
-            }
-            else
-            {
-                file_descriptors.Add(new FileDescriptor(socket.Handle.ToInt32(), Descriptor.FileDescriptorName ?? this.UnitName, -1));
-            }
+                var transaction = new UnitStateChangeTransaction(this, UnitStateChangeType.Activation,
+                    $"Socket activation for {target_unit.UnitName}");
+                transaction.Add(new AlterTransactionContextTask("state_change_reason",
+                    $"Socket activation from {UnitName}"));
 
-            transaction.Add(new AlterTransactionContextTask("socket.fds", file_descriptors));
-            transaction.Add(target_unit.GetActivationTransaction());
+                var file_descriptors = new List<FileDescriptor>();
 
-            if (!Descriptor.Accept)
-            {
-                transaction.Add(new IgnoreSocketsTask(this, target_unit));
+                if (!Descriptor.Accept)
+                {
+                    file_descriptors.AddRange(SocketManager.GetSocketsByUnit(this).Select(wrapper =>
+                        new FileDescriptor(wrapper.Socket.Handle.ToInt32(),
+                            Descriptor.FileDescriptorName ?? this.UnitName, -1)));
+                }
+                else
+                {
+                    file_descriptors.Add(new FileDescriptor(socket.Handle.ToInt32(),
+                        Descriptor.FileDescriptorName ?? this.UnitName, -1));
+                }
+
+                transaction.Add(new AlterTransactionContextTask("socket.fds", file_descriptors));
+                transaction.Add(target_unit.GetActivationTransaction());
+
+                if (!Descriptor.Accept)
+                {
+                    transaction.Add(new IgnoreSocketsTask(this, target_unit));
+                }
+
+                target_unit.CurrentSocketActivation = ServiceManager.Runner.Register(transaction).Enqueue();
             }
-
-            ServiceManager.Runner.Register(transaction).Enqueue();
         }
 
         public override UnitDescriptor GetUnitDescriptor() => Descriptor;

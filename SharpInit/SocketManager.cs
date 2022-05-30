@@ -98,6 +98,7 @@ namespace SharpInit
                     foreach (var segment in discarded_segments)
                     {
                         var concatted = dir + "/" + segment;
+                        Log.Info($"Creating directory {concatted}");
                         Directory.CreateDirectory(concatted);
                         var di = new UnixDirectoryInfo(concatted);
                         if (unit is SocketUnit socketUnit)
@@ -167,7 +168,7 @@ namespace SharpInit
             } 
             catch (Exception ex)
             {
-                throw new Exception($"Could not bind to socket \"{address}\" of type {property_name}", ex);
+                throw new Exception($"Could not bind to socket \"{address}\"/\"{socket_ep.ToString()}\" of type {property_name}", ex);
             }
 
             return socket;

@@ -30,7 +30,7 @@ namespace SharpInit.Platform.Unix.LoginManagement
         public void Save()
         {
             CanTTY = true;
-            CanGraphical = Devices.Any(d => LoginManager.Devices[d].Tags.Contains("master-of-seat"));
+            CanGraphical = Devices.Any(d => LoginManager.Devices.ContainsKey(d) && LoginManager.Devices[d].Tags.Contains("master-of-seat"));
             
             var seat_file_contents = new StringBuilder();
             seat_file_contents.AppendLine($"IS_SEAT0={(SeatId == "seat0" ? 1 : 0)}");

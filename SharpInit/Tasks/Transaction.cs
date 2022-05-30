@@ -30,6 +30,7 @@ namespace SharpInit.Tasks
         public TransactionErrorHandlingMode ErrorHandlingMode { get; set; }
 
         public TransactionSynchronizationMode TransactionSynchronizationMode { get; set; }
+        public bool Cancelled { get; set; }
 
         public object Lock { get; set; }
 
@@ -127,6 +128,9 @@ namespace SharpInit.Tasks
 
             foreach (var task_group in sub_transactions)
             {
+                if (Cancelled)
+                    break;
+                
                 var executions_list = new List<System.Threading.Tasks.Task<TaskResult>>();
 
                 foreach (var task in task_group)

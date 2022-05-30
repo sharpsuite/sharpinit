@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
+using NLog.Fluent;
 
 namespace SharpInit.Tasks
 {
@@ -36,14 +37,23 @@ namespace SharpInit.Tasks
                     Runner.ServiceManager.NotifySocketManager.RemoveClient(serviceUnit.NotifyClient);
                 }
                 
-                foreach (var socket in sockets) 
+                foreach (var socket in sockets)
                 {
+                    var isUnix = socket.Socket.LocalEndPoint is UnixEndPoint;
                     //socket.Socket.Disconnect(false);
-                    Unit.SocketManager.RemoveSocket(socket);
-                    socket.Socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
-                    socket.Socket.Close();
+                    try
+                    {
+                        Unit.SocketManager.RemoveSocket(socket);
+                        
+                        socket.Socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
+                        socket.Socket.Close();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Warn($"Exception thrown while closing socket for unit {Unit.UnitName}");
+                    }
 
-                    if (socket.Socket.LocalEndPoint is UnixEndPoint && (Unit.Descriptor as SocketUnitDescriptor).RemoveOnExit)
+                    if (isUnix && Unit.Descriptor is SocketUnitDescriptor socketDescriptor && socketDescriptor.RemoveOnExit)
                     {
                         try
                         {
@@ -58,7 +68,7 @@ namespace SharpInit.Tasks
             }
             catch (Exception ex)
             {
-                return new TaskResult(this, ResultType.Failure, ex.Message);
+                return new TaskResult(this, ResultType.Failure, ex);
             }
         }
     }

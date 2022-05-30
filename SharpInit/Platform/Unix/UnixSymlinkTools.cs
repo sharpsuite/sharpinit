@@ -6,6 +6,7 @@ using SharpInit.Units;
 using SharpInit.Tasks;
 
 using Mono.Unix;
+using Mono.Unix.Native;
 
 namespace SharpInit.Platform
 {
@@ -26,8 +27,17 @@ namespace SharpInit.Platform
 
         public bool IsSymlink(string path)
         {
-            if (UnixFileSystemInfo.TryGetFileSystemEntry(path, out UnixFileSystemInfo entry))
-                return entry.Exists && entry.IsSymbolicLink;
+            var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var testPath = "";
+
+            foreach (var part in parts)
+            {
+                testPath += "/" + part;
+                
+                if (UnixFileSystemInfo.TryGetFileSystemEntry(testPath, out UnixFileSystemInfo entry))
+                    if (entry.Exists && entry.IsSymbolicLink)
+                        return true;
+            }
             
             return false;
         }
@@ -37,14 +47,35 @@ namespace SharpInit.Platform
             if (!IsSymlink(path))
                 return path;
             
-            var target = GetTarget(path);
+            var basePath = "";
+            var parts = Path.GetFullPath(path).Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-            if (!target.StartsWith("/"))
+            foreach (var part in parts)
             {
-                target = Path.GetFullPath(target, Path.GetDirectoryName(path));
+                basePath += "/" + part;
+
+                if (UnixFileSystemInfo.TryGetFileSystemEntry(basePath, out UnixFileSystemInfo entry))
+                {
+                    if (entry.Exists && entry.IsSymbolicLink)
+                    {
+                        basePath = Path.GetFullPath(GetTarget(basePath), Path.GetDirectoryName(basePath)); 
+                    }
+                }
             }
-            
-            return ResolveSymlink(target);
+
+            if (path.EndsWith('/'))
+                basePath += '/';
+
+            return basePath;
+            //
+            // var target = GetTarget(path);
+            //
+            // if (!target.StartsWith("/"))
+            // {
+            //     target = Path.GetFullPath(target, Path.GetDirectoryName(path));
+            // }
+            //
+            // return ResolveSymlink(target);
         }
 
         public bool CreateSymlink(string target, string path, bool symbolic)

@@ -54,6 +54,7 @@ namespace SharpInit.Units
 
         public int MainProcessId { get; set; }
         public string Status { get; set; }
+        public TaskExecution CurrentSocketActivation { get; set; }
 
         protected Unit(string name, UnitDescriptor descriptor)
             : this()
